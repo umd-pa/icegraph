@@ -6,24 +6,23 @@ import pandas as pd
 
 from icegraph.console import Console
 from icegraph import config
+from .base import Converter
+
+# for feature extraction implementation
+from icecube import ml_suite
 
 
-class H5ToParquet:
+class H5ToParquet(Converter):
 
-    def __init__(self, path: str, **kwargs) -> None:
-        self.path = path
-        self.outdir = kwargs.get(
-            "outdir",
-            os.path.join(os.path.dirname(self.path), "parquet")
-        )
-
-        os.makedirs(self.outdir, exist_ok=True)
+    @property
+    def to_filetype(self) -> str:
+        return "parquet"
 
     def convert(self) -> None:
         """Convert an HDF5 file to a collection of Parquet files for fast training.
         Returns ``None``.
         """
-        Console.out(f"Converting file to Parquet format")
+        Console.out(f"Converting file to {self.to_filetype} format")
 
         pulse_chunks = []
         truth_chunks = []
@@ -53,6 +52,17 @@ class H5ToParquet:
         # merge chunks to single dataset, save to files
         for chunks, file_name in [(pulse_chunks, "pulse_series"), (truth_chunks, "truth")]:
             data = pd.concat(chunks, ignore_index=True)
-            data.to_parquet(os.path.join(self.outdir, f"{file_name}.parquet"), engine="pyarrow")
+            data.to_parquet(os.path.join(self.outdir, f"{file_name}.{self.to_filetype}"), engine="pyarrow")
 
-        Console.out(f"Parquet files saved to {self.outdir}")
+        Console.out(f"Output files saved to {self.outdir}")
+
+
+class I3ToH5(Converter):
+
+    @property
+    def to_filetype(self):
+        return "hdf5"
+
+    def convert(self):
+        # TODO - implement feature extraction / file-type conversion using icecube.ml_suite
+        pass
