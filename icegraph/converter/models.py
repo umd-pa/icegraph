@@ -3,26 +3,31 @@
 
 import os
 import pandas as pd
+from glob import glob
 
 from icegraph.console import Console
 from icegraph import config
 from .base import Converter
 
 # for feature extraction implementation
-from icecube import ml_suite
+from icecube.icetray import I3Tray
+from icecube import dataclasses, icetray, dataio, hdfwriter
+from icecube import ml_suite, phys_services
+from icecube.sim_services.label_events import (
+    MCLabeler,
+    ClassificationConverter,
+    MuonLabels
+)
 
 
-class H5ToParquet(Converter):
+class HDF5ToParquet(Converter):
 
     @property
-    def to_filetype(self) -> str:
-        return "parquet"
+    def io_extensions(self):
+        return ["hdf5", "parquet"]
 
-    def convert(self) -> None:
-        """Convert an HDF5 file to a collection of Parquet files for fast training.
-        Returns ``None``.
-        """
-        Console.out(f"Converting file to {self.to_filetype} format")
+    def convert(self):
+        Console.out(f"Converting file to {self.io_extensions[1]} format")
 
         pulse_chunks = []
         truth_chunks = []
@@ -52,17 +57,49 @@ class H5ToParquet(Converter):
         # merge chunks to single dataset, save to files
         for chunks, file_name in [(pulse_chunks, "pulse_series"), (truth_chunks, "truth")]:
             data = pd.concat(chunks, ignore_index=True)
-            data.to_parquet(os.path.join(self.outdir, f"{file_name}.{self.to_filetype}"), engine="pyarrow")
+            data.to_parquet(os.path.join(self.outdir, f"{file_name}.{self.io_extensions[1]}"), engine="pyarrow")
 
-        Console.out(f"Output files saved to {self.outdir}")
+        Console.out(f"Output file(s) saved to {self.outdir}")
 
 
-class I3ToH5(Converter):
+class I3ToHDF5(Converter):
+
+    cls_converter = ClassificationConverter()
 
     @property
-    def to_filetype(self):
-        return "hdf5"
+    def io_extensions(self):
+        return ["i3.zst", "hdf5"]
 
     def convert(self):
-        # TODO - implement feature extraction / file-type conversion using icecube.ml_suite
-        pass
+        Console.out(f"Converting file to {self.io_extensions[1]} format")
+
+        tray = I3Tray()
+
+        # Read the i3 files to memory
+        tray.Add('I3Reader', Filenamelist=[
+            config.PASS_2_GCD_PATH,
+            *glob(os.path.join(self.path, f"*.{self.io_extensions[0]}"))
+        ])
+
+        # This module performs the feature calculation
+        tray.Add(
+            ml_suite.EventFeatureExtractorModule,
+            cfg_file=os.path.join(config.CONFIG_DIR, "extraction/feature_extraction.yaml")
+        )
+
+        # Serialize labels and features to hdf
+        tray.AddSegment(
+            hdfwriter.I3HDFWriter,
+            Output=os.path.join(self.outdir, f"data.{self.io_extensions[1]}"),
+            Keys=[
+                "ml_suite_features",
+                ("classification", self.cls_converter),
+                "classification_emuon_entry",
+                "classification_emuon_deposited"
+            ],
+            SubEventStreams=["InIceSplit"]
+        )
+
+        tray.Execute()
+
+        Console.out(f"Output file(s) saved to {self.outdir}")

@@ -8,11 +8,11 @@ warnings.filterwarnings(
 )
 
 
-from icegraph.converter import H5ToParquet
+from icegraph.converter import HDF5ToParquet, I3ToHDF5
 from icegraph import config
 
 import os
 
 
-converter = H5ToParquet(config.TEST_H5_FILE)
+converter = I3ToHDF5(config.TEST_I3_DIR)
 converter.convert()
