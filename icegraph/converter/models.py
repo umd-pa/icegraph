@@ -81,6 +81,24 @@ class I3ToHDF5(Converter):
             *glob(os.path.join(self.path, f"*.{self.io_extensions[0]}"))
         ])
 
+        # This module labels MC events based on their topology
+        tray.Add(
+            MCLabeler,
+            event_properties_name=None,
+            mctree_name=config.WEIGHT_DICT_KEY,
+            weight_dict_name="I3MCWeightDict",
+            bg_mctree_name="BackgroundI3MCTree"
+        )
+
+        # This module adds additional labels for numu events
+        # tray.Add(
+        #     MuonLabels,
+        #     event_properties_name=None,
+        #     mctree_name=config.WEIGHT_DICT_KEY,
+        #     weight_dict_name="I3MCWeightDict",
+        #     bg_mctree_name="BackgroundI3MCTree"
+        # )
+
         # This module performs the feature calculation
         tray.Add(
             ml_suite.EventFeatureExtractorModule,

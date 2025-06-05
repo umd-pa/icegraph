@@ -15,7 +15,7 @@ PASS_2_GCD_PATH = "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorS
 # TEMP PATHS
 
 TEST_I3_DIR = "/data/i3store/users/tstjean/i3_10_test"
-TEST_H5_DIR = "/data/i3store/users/tstjean/hdf5_10_test/"
+TEST_H5_DIR = "/data/i3store/users/tstjean/hdf5_10_test"
 TEST_H5_FILE = "/data/i3store/users/tstjean/data/data.hdf5"
 
 # CONVERTER CONFIG
