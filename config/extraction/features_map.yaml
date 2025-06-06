@@ -1,0 +1,24 @@
+features:
+  TotalCharge:
+    - total_charge
+  ChargeUntilT:
+    - charge_until_t
+  ChargeWeightedMean:
+    - charge_weighted_mean
+  ChargeWeightedStd:
+    - charge_weighted_std
+  ChargeWeightedMeanAndStd:
+    - charge_weighted_mean
+      charge_weighted_std
+  ChargePercentile:
+    - charge_percentile
+  TimeAtChargePercentile:
+    - time_at_charge_percentile
+  TFirstPulse:
+    - t_first_pulse
+  TLastPulse:
+    - t_last_pulse
+  TSpread:
+    - t_spread
+  TStd:
+    - t_std

@@ -2,6 +2,7 @@
 # Developed by Taylor St Jean
 
 import os
+import yaml
 
 
 # CONSTANTS

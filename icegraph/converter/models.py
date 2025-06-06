@@ -7,6 +7,7 @@ import pandas as pd
 from icegraph.console import Console
 from icegraph.console.streams import suppress_stderr
 from icegraph import config
+from .schemas import MLSuiteVectorMapping
 from .base import Converter
 
 
@@ -33,6 +34,13 @@ class HDF5ToParquet(Converter):
         # run reshaping
         features_table = self._reshape_features_table(features_table)
         truth_table = self._reshape_truth_table(truth_table)
+
+        vector_map = MLSuiteVectorMapping(
+            os.path.join(config.CONFIG_DIR, "extraction/feature_extraction.yaml"),
+            os.path.join(config.CONFIG_DIR, "extraction/features_map.yaml")
+        )
+
+        self._apply_column_map(features_table, vector_map.get_mapping())
 
         self._to_parquet(features_table, "features")
         self._to_parquet(truth_table, "truth")
@@ -74,3 +82,8 @@ class HDF5ToParquet(Converter):
 
     def _to_parquet(self, table: pd.DataFrame, name: str) -> None:
         table.to_parquet(os.path.join(self.outdir, f"{name}.{self.io_extensions[1]}"))
+
+    @staticmethod
+    def _apply_column_map(table: pd.DataFrame, mapping: dict) -> None:
+        """Rename columns using a provided dictionary mapping."""
+        table.rename(columns=mapping, inplace=True)
