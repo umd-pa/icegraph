@@ -4,6 +4,10 @@
 import os
 
 
+# CONSTANTS
+
+PROGRAM_NAME = "icegraph"
+
 # PATHS
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -22,8 +26,17 @@ TEST_H5_FILE = "/data/i3store/users/tstjean/data/data.hdf5"
 
 CHUNK_SIZE = 100000
 
+# EXTRACTOR CONFIG
+
+EXTRACTOR_OUTDIR_NAME = "extraction"
+
 # TEMP VALUES TO BE TRANSFERRED TO CONFIG FILE
 
 PULSE_SERIES = "InIceDSTPulses"
-TRUTH_TABLE = "I3MCTree_preMuonProp"
-WEIGHT_DICT_KEY = "I3MCTree_preMuonProp"
+
+FEATURES_TABLE_NAME = "ml_suite_features"
+TRUTH_TABLE_NAME = "classification"
+
+MCTREE_NAME = "I3MCTree_preMuonProp"
+WEIGHT_DICT_NAME = "I3MCWeightDict"
+BG_MCTREE_NAME = "BackgroundI3MCTree"

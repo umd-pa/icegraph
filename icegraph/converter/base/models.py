@@ -10,17 +10,18 @@ class Converter(ABC):
     def __init__(self, path: str, **kwargs) -> None:
         """Base class for file conversion."""
         self.path = path
-        self.dir = self.path if os.path.isdir(self.path) else os.path.dirname(self.path)
+
+        _dir = self.path if os.path.isdir(self.path) else os.path.dirname(self.path)
         self.outdir = kwargs.get(
             "outdir",
-            os.path.join(self.dir, self.io_extensions[1])
+            os.path.join(_dir, self.io_extensions[1])
         )
 
         os.makedirs(self.outdir, exist_ok=True)
 
     @abstractmethod
-    def convert(self) -> None:
-        """Implements the conversion functionality."""
+    def convert(self) -> str:
+        """Implements the conversion functionality. Returns the path to the output file/dir."""
         pass
 
     @property
