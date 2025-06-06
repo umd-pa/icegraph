@@ -9,8 +9,9 @@ from icegraph import config
 
 class Extractor(ABC):
 
-    def __init__(self, path: str, **kwargs) -> None:
+    def __init__(self, path: str, config_path: str, **kwargs) -> None:
         self.path = path
+        self.config_path = config_path
 
         _dir = self.path if os.path.isdir(self.path) else os.path.dirname(self.path)
         self.outdir = kwargs.get(

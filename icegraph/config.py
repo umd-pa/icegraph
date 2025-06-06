@@ -2,18 +2,21 @@
 # Developed by Taylor St Jean
 
 import os
-import yaml
 
 
 # CONSTANTS
 
 PROGRAM_NAME = "icegraph"
+PROGRAM_VERSION = "0.0.0"
 
 # PATHS
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
+CACHE_DIR = os.path.join(BASE_DIR, ".cache")
 
+# make the cache dir if it doesn't exist
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 PASS_2_GCD_PATH = "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
 
@@ -22,10 +25,6 @@ PASS_2_GCD_PATH = "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorS
 TEST_I3_DIR = "/data/i3store/users/tstjean/i3_10_test"
 TEST_H5_DIR = "/data/i3store/users/tstjean/hdf5_10_test"
 TEST_H5_FILE = "/data/i3store/users/tstjean/data/data.hdf5"
-
-# CONVERTER CONFIG
-
-CHUNK_SIZE = 100000
 
 # EXTRACTOR CONFIG
 

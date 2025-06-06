@@ -11,8 +11,6 @@ from .schemas import MLSuiteVectorMapping
 from .base import Converter
 
 
-# TODO id_columns needs to be moved to a config file so they can be modified if ml_suite feature extraction is updated
-
 class HDF5ToParquet(Converter):
     """Takes in one hdf5 file (generated via ml_suite) and converts it to parquet format."""
 
@@ -21,7 +19,7 @@ class HDF5ToParquet(Converter):
         return ["hdf5", "parquet"]
 
     def convert(self):
-        Console.out(f"Converting file to {self.io_extensions[1]} format")
+        Console.out(f"Converting file ({self.path}) to {self.io_extensions[1]}")
         Console.spinner().start()
 
         # load data to dataframes
@@ -46,6 +44,7 @@ class HDF5ToParquet(Converter):
         self._to_parquet(truth_table, "truth")
 
         Console.spinner().stop()
+        Console.out(f"Output files saved to {self.outdir}")
 
         return self.outdir
 

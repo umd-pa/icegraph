@@ -4,10 +4,12 @@
 import os
 from abc import ABC, abstractmethod
 
+from sympy.multipledispatch.dispatcher import source
+
 
 class Converter(ABC):
 
-    def __init__(self, path: str, **kwargs) -> None:
+    def __init__(self, path: str, source_hash: str, **kwargs) -> None:
         """Base class for file conversion."""
         self.path = path
 
@@ -16,6 +18,7 @@ class Converter(ABC):
             "outdir",
             os.path.join(_dir, self.io_extensions[1])
         )
+        self.outdir = os.path.join(self.outdir, source_hash)
 
         os.makedirs(self.outdir, exist_ok=True)
 

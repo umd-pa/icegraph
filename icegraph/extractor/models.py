@@ -26,7 +26,7 @@ class FeatureExtractor(Extractor):
     cls_converter = ClassificationConverter()
 
     def extract(self):
-        Console.out(f"Running feature extraction on file {self.path}")
+        Console.out(f"Running feature extraction on files ({self.path})")
         Console.spinner().start()
 
         tray = I3Tray()
@@ -58,7 +58,7 @@ class FeatureExtractor(Extractor):
         # This module performs the feature calculation
         tray.Add(
             ml_suite.EventFeatureExtractorModule,
-            cfg_file=os.path.join(config.CONFIG_DIR, "extraction/feature_extraction.yaml")
+            cfg_file=self.config_path
         )
 
         # path to output file
@@ -80,6 +80,9 @@ class FeatureExtractor(Extractor):
         tray.Execute()
 
         Console.spinner().stop()
-        Console.out(f"Output hdf5 file saved to {outfile}")
 
         return outfile
+
+
+class TruthExtractor(Extractor):
+    pass

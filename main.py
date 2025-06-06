@@ -1,7 +1,6 @@
 import warnings
 import os
 
-
 warnings.filterwarnings(
     "ignore",
     category=RuntimeWarning,
@@ -9,13 +8,10 @@ warnings.filterwarnings(
 )
 
 
-from icegraph.converter import HDF5ToParquet
-from icegraph.extractor import FeatureExtractor
+from icegraph.data import Data
 from icegraph import config
 
+input_dir = config.TEST_I3_DIR
+config_path = os.path.join(config.CONFIG_DIR, "extraction/feature_extraction.yaml")
 
-extractor = FeatureExtractor(config.TEST_I3_DIR)
-extractor.extract()
-
-converter = HDF5ToParquet(os.path.join(config.TEST_I3_DIR, "extraction/data.hdf5"))
-converter.convert()
+data = Data.from_i3(input_dir, config_path)
