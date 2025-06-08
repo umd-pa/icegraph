@@ -1,5 +1,10 @@
 name: Deploy Sphinx Docs to GitHub Pages
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 on:
   push:
     branches: [main]  # or your default branch
