@@ -2,3 +2,5 @@
 # Developed by Taylor St Jean
 
 from .models import HDF5ToParquet
+
+__all__ = ["HDF5ToParquet"]

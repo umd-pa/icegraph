@@ -6,15 +6,28 @@ from pathlib import Path
 from icegraph.console import Console
 from .base import Extractor
 
-from icecube.icetray import I3Tray
-from icecube import dataclasses, icetray, dataio, hdfwriter
-from icecube import ml_suite
-from icecube.sim_services.label_events import (
-    MCLabeler,
-    ClassificationConverter,
-    MuonLabels
-)
+# have to wrap in try/except block so sphinx can properly generate docs
+try:
+    from icecube.icetray import I3Tray
+    from icecube import dataclasses, icetray, dataio, hdfwriter, ml_suite
+    from icecube.sim_services.label_events import (
+        MCLabeler,
+        ClassificationConverter,
+        MuonLabels
+    )
+except ImportError:
+    I3Tray = None
+    dataclasses = None
+    icetray = None
+    dataio = None
+    hdfwriter = None
+    ml_suite = None
+    MCLabeler = None
+    ClassificationConverter = None
+    MuonLabels = None
 
+
+__all__ = ["FeatureExtractor"]
 
 class FeatureExtractor(Extractor):
     """
@@ -27,7 +40,10 @@ class FeatureExtractor(Extractor):
     - Outputs results to an HDF5 file with relevant classification and extracted data.
     """
 
-    cls_converter = ClassificationConverter()
+    if ClassificationConverter is not None:
+        cls_converter = ClassificationConverter()
+    else:
+        cls_converter = None
 
     def extract(self) -> Path:
         """

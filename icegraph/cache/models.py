@@ -9,6 +9,8 @@ from pathlib import Path
 from icegraph.config import Config
 
 
+__all__ = ["I3ConversionCache"]
+
 class I3ConversionCache:
     def __init__(self, config: Config):
         """

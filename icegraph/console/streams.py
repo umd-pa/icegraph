@@ -4,6 +4,9 @@
 import os
 from contextlib import contextmanager
 
+
+__all__ = ["suppress_stderr"]
+
 @contextmanager
 def suppress_stderr():
     """Context manager to suppress C-level stderr."""

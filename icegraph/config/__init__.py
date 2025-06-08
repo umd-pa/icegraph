@@ -2,3 +2,5 @@
 # Developed by Taylor St Jean
 
 from .models import Config
+
+__all__ = ["Config"]

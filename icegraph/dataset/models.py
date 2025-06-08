@@ -13,6 +13,8 @@ from icegraph.cache import I3ConversionCache
 from icegraph.console import Console
 
 
+__all__ = ["Data"]
+
 class Data(Dataset):
     """
     A dataset class for loading and managing IceCube data.

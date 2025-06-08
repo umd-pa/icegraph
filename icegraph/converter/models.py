@@ -11,6 +11,8 @@ from .schemas import MLSuiteVectorMapping
 from .base import Converter
 
 
+__all__ = ["HDF5ToParquet"]
+
 class HDF5ToParquet(Converter):
     """
     Converts an HDF5 file generated via `ml_suite` into Parquet format.

@@ -8,6 +8,8 @@ from typing import Union, Optional
 from icegraph.config import Config
 
 
+__all__ = ["Converter"]
+
 class Converter(ABC):
     out_extension: str = None
     """File extension or format identifier used by subclasses to define output type (e.g., 'hdf5', 'parquet')."""

@@ -6,6 +6,8 @@ import time
 import atexit
 
 
+__all__ = ["Spinner"]
+
 class Spinner:
     """
     A CLI spinner for displaying ongoing background tasks in the terminal.

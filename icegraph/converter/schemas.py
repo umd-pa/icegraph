@@ -4,6 +4,8 @@
 from icegraph.config import Config
 
 
+__all__ = ["MLSuiteVectorMapping"]
+
 class MLSuiteVectorMapping:
     """
     Generates a mapping from vector indices to feature names for ml_suite feature extraction.

@@ -8,9 +8,11 @@ from typing import Union, Optional
 from icegraph.config import Config
 
 
+__all__ = ["Extractor"]
+
 class Extractor(ABC):
     """
-    Abstract base class for data extraction pipelines..
+    Abstract base class for data extraction pipelines.
     """
 
     def __init__(self, config: Config, input_dir: Optional[Union[str, Path]] = None) -> None:

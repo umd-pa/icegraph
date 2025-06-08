@@ -5,6 +5,8 @@ import xxhash
 from pathlib import Path
 
 
+__all__ = ["hash_directory"]
+
 def hash_directory(input_dir: Path, config_file: Path, input_file_ext: str) -> str:
     """
     Generate a unique hash for a directory of files and a config file.

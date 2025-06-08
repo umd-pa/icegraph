@@ -9,6 +9,8 @@ from .objects import Spinner
 from icegraph.config import Config
 
 
+__all__ = ["Console"]
+
 class Console:
     """
     Class to standardize all console outputs across the application.

@@ -10,6 +10,8 @@ import tempfile
 from .hash_utils import hash_directory
 
 
+__all__ = ["Config"]
+
 class Config:
     """
     Handles configuration loading, caching, and utility paths for the IceGraph pipeline.
@@ -21,7 +23,7 @@ class Config:
 
     # constants
     PROGRAM_NAME = "icegraph"
-    PROGRAM_VERSION = "0.1.0"
+    PROGRAM_VERSION = "0.1.1"
 
     def __init__(self, config_path: Union[str, Path]) -> None:
         """
