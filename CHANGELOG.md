@@ -1,6 +1,9 @@
 # Changelog
 
 ---
+### Version [0.1.1] --- June 8th, 2025
+- Added sphinx automated documentation.
+
 ### Version [0.1.0] --- June 7th, 2025:
 - Full datasets can now be loaded via icegraph.dataset.Data.from_config().
 - Added configuration handling via icegraph.config.Config.
