@@ -2,104 +2,111 @@
 # Developed by Taylor St Jean
 
 import json
-import os
 import time
-from typing import Optional
-import xxhash
+from typing import Optional, Union
+from pathlib import Path
 
-from icegraph import config
+from icegraph.config import Config
 
 
-class I3DirectoryCacheHandler:
-    # cache file should be invalidated on version update to ensure proper function
-    _cache_file = os.path.join(config.CACHE_DIR, f".conversion_cache.{config.PROGRAM_VERSION}.json")
-    _expiration_time = 7 * 24 * 60 * 60  # 7 days
+class I3ConversionCache:
+    def __init__(self, config: Config):
+        """
+        Initialize a cache handler for storing and retrieving I3 dataset conversion outputs.
 
-    @classmethod
-    def _load_cache(cls) -> dict:
-        if not os.path.exists(cls._cache_file):
+        Args:
+            config (Config): A config object providing user paths and constants.
+        """
+        self._config: Config = config
+        self._cache_file = self._config.cache_dir / f".conversion_cache.{self._config.PROGRAM_VERSION}.json"
+        self._expiration_time = 7 * 24 * 60 * 60  # 7 days
+
+    def _load_cache(self) -> dict:
+        """
+        Load the cache from disk. Returns an empty dict if the file doesn't exist or is invalid.
+
+        Returns:
+            dict: Cached hash-to-path mappings.
+        """
+        if not self._cache_file.exists():
             return {}
-        with open(cls._cache_file, "r") as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return {}
+        try:
+            return json.loads(self._cache_file.read_text())
+        except json.JSONDecodeError:
+            return {}
 
-    @classmethod
-    def _save_cache(cls, cache: dict) -> None:
-        with open(cls._cache_file, "w") as f:
-            json.dump(cache, f, indent=2)
+    def _save_cache(self, cache: dict) -> None:
+        """
+        Save the provided cache dictionary to disk as JSON.
 
-    @classmethod
-    def _hash_directory(cls, input_dir: str, config_path: str) -> str:
-        """Generate a hash based on top-level .i3 file names/contents and a config file."""
-        h = xxhash.xxh64()
+        Args:
+            cache (dict): The cache mapping to save.
+        """
+        self._cache_file.write_text(json.dumps(cache, indent=2))
 
-        # Hash all top-level .i3 files in the directory
-        for file in sorted(os.listdir(input_dir)):
-            path = os.path.join(input_dir, file)
-            if os.path.isfile(path) and file.endswith(".i3.zst"):
-                h.update(file.encode())  # include file name
-                with open(path, "rb") as f:
-                    while chunk := f.read(8192):
-                        h.update(chunk)
+    def register(self, output_dir: Union[str, Path]) -> None:
+        """
+        Register a new conversion output in the cache.
 
-        # Hash config file name and content
-        if not os.path.isfile(config_path):
-            raise FileNotFoundError(f"Config file not found: {config_path}")
+        Args:
+            output_dir (Union[str, Path]): Path to the output directory.
+        """
 
-        h.update(os.path.basename(config_path).encode())
-        with open(config_path, "rb") as f:
-            while chunk := f.read(8192):
-                h.update(chunk)
+        # normalize
+        output_dir = Path(output_dir)
 
-        return h.hexdigest()
-
-    @classmethod
-    def register(cls, input_dir: str, output_dir: str, config_path: str) -> None:
-        dir_hash = cls._hash_directory(input_dir, config_path)
-        cache = cls._load_cache()
+        dir_hash = self._config.get_input_state_hash()
+        cache = self._load_cache()
         cache[dir_hash] = {
-            "converted_path": output_dir,
+            "converted_path": str(output_dir),
             "timestamp": time.time()
         }
-        cls._save_cache(cache)
+        self._save_cache(cache)
 
-    @classmethod
-    def query(cls, input_dir: str, config_path: str) -> Optional[str]:
-        dir_hash = cls._hash_directory(input_dir, config_path)
-        cache = cls._load_cache()
+    def query(self) -> Optional[Path]:
+        """
+        Query the cache for a matching converted output.
+
+        Returns:
+            Optional[Path]: Path to converted output, or None if not cached or expired.
+        """
+
+        dir_hash = self._config.get_input_state_hash()
+        cache = self._load_cache()
         entry = cache.get(dir_hash)
 
         if not entry:
             return None
 
-        converted_path = entry["converted_path"]
+        converted_path = Path(entry["converted_path"])
         timestamp = entry["timestamp"]
 
-        if not os.path.exists(converted_path) or (time.time() - timestamp > cls._expiration_time):
+        if (
+                not isinstance(timestamp, (int, float))
+                or not converted_path.exists()
+                or (time.time() - timestamp > self._expiration_time)
+        ):
             del cache[dir_hash]
-            cls._save_cache(cache)
+            self._save_cache(cache)
             return None
 
         return converted_path
 
-    @classmethod
-    def get_hash(cls, input_dir: str, config_path: str) -> str:
-        return cls._hash_directory(input_dir, config_path)
-
-    @classmethod
-    def clear_expired(cls) -> None:
-        cache = cls._load_cache()
+    def clear_expired(self) -> None:
+        """
+        Remove any expired entries from the cache based on file existence and timestamp.
+        """
+        cache = self._load_cache()
         now = time.time()
         new_cache = {
             k: v for k, v in cache.items()
-            if os.path.exists(v["converted_path"]) and (now - v["timestamp"] <= cls._expiration_time)
+            if Path(v["converted_path"]).exists() and (now - v["timestamp"] <= self._expiration_time)
         }
-        cls._save_cache(new_cache)
+        self._save_cache(new_cache)
 
-    @classmethod
-    def clear_all(cls) -> None:
-        if os.path.exists(cls._cache_file):
-            os.remove(cls._cache_file)
-
+    def clear_all(self) -> None:
+        """
+        Delete the entire cache file from disk.
+        """
+        if self._cache_file.exists():
+            self._cache_file.unlink()

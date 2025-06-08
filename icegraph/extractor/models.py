@@ -1,17 +1,14 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-import os
-from glob import glob
+from pathlib import Path
 
 from icegraph.console import Console
-from icegraph import config
 from .base import Extractor
 
-# for feature extraction implementation
 from icecube.icetray import I3Tray
 from icecube import dataclasses, icetray, dataio, hdfwriter
-from icecube import ml_suite, phys_services
+from icecube import ml_suite
 from icecube.sim_services.label_events import (
     MCLabeler,
     ClassificationConverter,
@@ -20,54 +17,67 @@ from icecube.sim_services.label_events import (
 
 
 class FeatureExtractor(Extractor):
+    """
+    Extracts features from .i3.zst files using the IceTray module `ml_suite`.
 
-    """Takes in one or more .i3.zst files and runs feature extraction via the IceTray module ml_suite."""
+    This class sets up an IceTray pipeline that:
+    - Loads input i3 files (including the GCD file),
+    - Labels Monte Carlo events,
+    - Runs the `ml_suite` feature extraction module,
+    - Outputs results to an HDF5 file with relevant classification and extracted data.
+    """
 
     cls_converter = ClassificationConverter()
 
-    def extract(self):
-        Console.out(f"Running feature extraction on files ({self.path})")
+    def extract(self) -> Path:
+        """
+        Executes the IceTray feature extraction pipeline on the input directory.
+
+        Returns:
+            Path: Path to the generated HDF5 output file.
+        """
+        Console.out(f"Running feature extraction: {self.input_dir}")
         Console.spinner().start()
 
         tray = I3Tray()
 
         # Read the i3 files to memory
-        tray.Add('I3Reader', Filenamelist=[
-            config.PASS_2_GCD_PATH,
-            *glob(os.path.join(self.path, f"*.i3.zst"))
-        ])
+        input_files = [str(self._config.pass_2_gcd_path)] + [
+            str(p) for p in sorted(self.input_dir.glob("*.i3.zst"))
+        ]
+        tray.Add('I3Reader', Filenamelist=input_files)
 
         # This module labels MC events based on their topology
         tray.Add(
             MCLabeler,
             event_properties_name=None,
-            mctree_name=config.MCTREE_NAME,
-            weight_dict_name=config.WEIGHT_DICT_NAME,
-            bg_mctree_name=config.BG_MCTREE_NAME
+            mctree_name=self._config.user_config.frame_keys.mctree,
+            weight_dict_name=self._config.user_config.frame_keys.weight_dict,
+            bg_mctree_name=self._config.user_config.frame_keys.bg_mctree
         )
 
-        # TODO debug this, not sure why it isn't working
+        # TODO: Debug this. Not sure why it isn't working
         # This module adds additional labels for numu events
         # tray.Add(
         #     MuonLabels,
         #     event_properties_name=None,
-        #     mctree_name=config.MCTREE_NAME,
-        #     weight_dict_name=config.WEIGHT_DICT_NAME
+        #     mctree_name=self._config.user_config.frame_keys.mctree,
+        #     weight_dict_name=self._config.user_config.frame_keys.weight_dict
         # )
 
         # This module performs the feature calculation
         tray.Add(
             ml_suite.EventFeatureExtractorModule,
-            cfg_file=self.config_path
+            cfg_file=str(self._config.ml_suite_config_file)
         )
 
-        # path to output file
-        outfile = os.path.join(self.outdir, 'data.hdf5')
+        # Path to output file
+        outfile = self.output_dir / 'data.hdf5'
 
-        # Serialize labels and features to hdf
+        # Serialize labels and features to HDF5
         tray.AddSegment(
             hdfwriter.I3HDFWriter,
-            Output=outfile,
+            Output=str(outfile),
             Keys=[
                 "ml_suite_features",
                 ("classification", self.cls_converter),
@@ -78,11 +88,6 @@ class FeatureExtractor(Extractor):
         )
 
         tray.Execute()
-
         Console.spinner().stop()
 
         return outfile
-
-
-class TruthExtractor(Extractor):
-    pass

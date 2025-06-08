@@ -1,45 +1,58 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-import os
 import pandas as pd
+from typing import cast
+from pathlib import Path
 
 from icegraph.console import Console
 from icegraph.console.streams import suppress_stderr
-from icegraph import config
 from .schemas import MLSuiteVectorMapping
 from .base import Converter
 
 
 class HDF5ToParquet(Converter):
-    """Takes in one hdf5 file (generated via ml_suite) and converts it to parquet format."""
+    """
+    Converts an HDF5 file generated via `ml_suite` into Parquet format.
 
-    @property
-    def io_extensions(self):
-        return ["hdf5", "parquet"]
+    The input file is assumed to contain 'features' and 'truth' tables, which are
+    saved as separate Parquet files in the output directory.
+    """
 
-    def convert(self):
-        Console.out(f"Converting file ({self.path}) to {self.io_extensions[1]}")
+    out_extension = "parquet"
+
+    def convert(self) -> Path:
+        """
+        Converts an HDF5 input file to Parquet format.
+
+        Returns:
+            Path: Path to the output directory containing converted Parquet files.
+        """
+        Console.out(f"Converting to {self.out_extension}: {self.input_file}")
         Console.spinner().start()
 
-        # load data to dataframes
-        # IDE might complain these aren't dataframes; they are
-        # suppressing very loud HDF5 mismatched header warning
+        # Load data to DataFrames
+        # IDE might complain these aren't DataFrames; they are.
+        # Suppressing very loud HDF5 mismatched header warning
         with suppress_stderr():
-            features_table: pd.DataFrame = pd.read_hdf(self.path, key=config.FEATURES_TABLE_NAME)
-            truth_table: pd.DataFrame = pd.read_hdf(self.path, key=config.TRUTH_TABLE_NAME)
+            features_table = cast(pd.DataFrame, pd.read_hdf(
+                self.input_file,
+                key=self._config.user_config.table_names.features
+            ))
+            truth_table = cast(pd.DataFrame, pd.read_hdf(
+                self.input_file,
+                key=self._config.user_config.table_names.truth
+            ))
 
-        # run reshaping
+        # Run reshaping
         features_table = self._reshape_features_table(features_table)
         truth_table = self._reshape_truth_table(truth_table)
 
-        vector_map = MLSuiteVectorMapping(
-            os.path.join(config.CONFIG_DIR, "extraction/feature_extraction.yaml"),
-            os.path.join(config.CONFIG_DIR, "extraction/features_map.yaml")
-        )
-
+        # Apply feature vector mapping
+        vector_map = MLSuiteVectorMapping(self._config)
         self._apply_column_map(features_table, vector_map.get_mapping())
 
+        # Export to Parquet
         self._to_parquet(features_table, "features")
         self._to_parquet(truth_table, "truth")
 
@@ -49,40 +62,79 @@ class HDF5ToParquet(Converter):
         return self.outdir
 
     def _reshape_features_table(self, table: pd.DataFrame) -> pd.DataFrame:
-        # generate composite keys
+        """
+        Reshapes the features table by generating composite keys and pivoting
+        ml_suite generated vector data.
+
+        Args:
+            table (pd.DataFrame): Input features table.
+
+        Returns:
+            pd.DataFrame: Reshaped features table.
+        """
         id_columns = ['Run', 'Event', 'SubEvent', 'SubEventStream', 'exists', 'string', 'om']
         table = self._replace_with_composite_keys(table, id_columns, "id")
-        table.drop(columns=["pmt"])
+        table.drop(columns=["pmt"], inplace=True)
 
-        # move id to first column for readability
+        # Move id to first column for readability
         table.insert(0, 'id', table.pop('id'))
 
-        # pivot the table
+        # Pivot the table
         table = table.pivot_table(index='id', columns='vector_index', values='item', aggfunc="first")
         return table
 
     def _reshape_truth_table(self, table: pd.DataFrame) -> pd.DataFrame:
-        # generate composite keys
+        """
+        Reshapes the truth table by generating composite keys.
+
+        Args:
+            table (pd.DataFrame): Input truth table.
+
+        Returns:
+            pd.DataFrame: Reshaped truth table.
+        """
         id_columns = ['Run', 'Event', 'SubEvent', 'SubEventStream', 'exists']
         table = self._replace_with_composite_keys(table, id_columns, "id")
-
-        # move id to first column for readability
         table.insert(0, 'id', table.pop('id'))
         return table
 
     @staticmethod
     def _replace_with_composite_keys(table: pd.DataFrame, id_columns: list[str], new_column_name: str) -> pd.DataFrame:
-        """Generates a composite key for each row."""
+        """
+        Replaces multiple identifier columns with a single composite key.
+
+        Args:
+            table (pd.DataFrame): Input table with identifier columns.
+            id_columns (list[str]): List of columns to combine.
+            new_column_name (str): Name for the new composite column.
+
+        Returns:
+            pd.DataFrame: Modified table with composite key.
+        """
         table[new_column_name] = table[id_columns].astype(str).agg(
             lambda row: '|'.join(f'{col}={val}' for col, val in zip(id_columns, row)), axis=1
         )
-        table = table.drop(columns=id_columns)
+        table.drop(columns=id_columns, inplace=True)
         return table
 
     def _to_parquet(self, table: pd.DataFrame, name: str) -> None:
-        table.to_parquet(os.path.join(self.outdir, f"{name}.{self.io_extensions[1]}"))
+        """
+        Writes the given DataFrame to a Parquet file in the output directory.
+
+        Args:
+            table (pd.DataFrame): Data to write.
+            name (str): Output file name (e.g., 'features', 'truth').
+        """
+        output_path = self.outdir / f"{name}.{self.out_extension}"
+        table.to_parquet(output_path)
 
     @staticmethod
     def _apply_column_map(table: pd.DataFrame, mapping: dict) -> None:
-        """Rename columns using a provided dictionary mapping."""
+        """
+        Renames the columns of a DataFrame using the provided mapping.
+
+        Args:
+            table (pd.DataFrame): DataFrame to modify.
+            mapping (dict): Mapping from original column names to new names.
+        """
         table.rename(columns=mapping, inplace=True)

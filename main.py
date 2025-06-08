@@ -1,5 +1,4 @@
 import warnings
-import os
 
 warnings.filterwarnings(
     "ignore",
@@ -8,10 +7,10 @@ warnings.filterwarnings(
 )
 
 
-from icegraph.data import Data
-from icegraph import config
+from icegraph.dataset import Data
+from icegraph.config import Config
 
-input_dir = config.TEST_I3_DIR
-config_path = os.path.join(config.CONFIG_DIR, "extraction/feature_extraction.yaml")
+config_path = "./config/config.yaml"
+config = Config(config_path)
 
-data = Data.from_i3(input_dir, config_path)
+data = Data.from_config(config)

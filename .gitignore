@@ -44,6 +44,7 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+test.py
 
 # Pytest
 .pytest_cache/

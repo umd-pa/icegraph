@@ -1,30 +1,38 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-import yaml
+from icegraph.config import Config
 
 
 class MLSuiteVectorMapping:
+    """
+    Generates a mapping from vector indices to feature names for ml_suite feature extraction.
 
-    def __init__(self, extraction_config_path: str, features_map_config_path: str) -> None:
-        self.extraction_config_path = extraction_config_path
-        self.features_map_config_path = features_map_config_path
+    Uses the user's feature extraction configuration and the internal feature map to construct
+    a flat index-to-name mapping.
+    """
 
-        self.config = {}
-        self._load_configs()
+    def __init__(self, config: Config) -> None:
+        """
+        Initialize the mapping generator with configuration data.
 
-    def _load_configs(self) -> None:
-        # load the ml_suite feature extraction configuration file
-        with open(self.extraction_config_path, "r") as file:
-            self.config["extraction"] = yaml.safe_load(file)
-
-        # load the ml_suite features map
-        with open(self.features_map_config_path) as file:
-            self.config["features_map"] = yaml.safe_load(file)
+        Args:
+            config (Config): IceGraph configuration object containing user settings.
+        """
+        self._config: Config = config
 
     def get_mapping(self) -> dict[int, str]:
-        requested_features = self.config["extraction"]["feature_config"]["features"]
-        feature_defs = self.config["features_map"]["features"]
+        """
+        Generate a mapping from feature vector indices to human-readable feature names.
+
+        The returned dictionary maps each index (as used in the vectorized feature table)
+        to its corresponding feature name, including item suffixes when needed.
+
+        Returns:
+            dict[int, str]: A mapping from vector indices to column names.
+        """
+        requested_features: list = self._config.user_config.feature_extraction.feature_config.features
+        feature_defs: dict = self._config.feature_map_config.features.toDict()
 
         mapping: dict[int, str] = {}
         idx = 0
@@ -46,3 +54,4 @@ class MLSuiteVectorMapping:
                         idx += 1
 
         return mapping
+
