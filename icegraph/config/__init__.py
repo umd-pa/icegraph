@@ -1,6 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import Config
+from .models import IGConfig
 
-__all__ = ["Config"]
+__all__ = ["IGConfig"]

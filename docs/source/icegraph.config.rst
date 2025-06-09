@@ -1,4 +1,4 @@
-icegraph.config package
+icegraph.config
 =======================
 
 Submodules

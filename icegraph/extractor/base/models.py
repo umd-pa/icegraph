@@ -5,25 +5,25 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union, Optional
 
-from icegraph.config import Config
+from icegraph.config import IGConfig
 
 
-__all__ = ["Extractor"]
+__all__ = ["IGExtractor"]
 
-class Extractor(ABC):
+class IGExtractor(ABC):
     """
     Abstract base class for data extraction pipelines.
     """
 
-    def __init__(self, config: Config, input_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, config: IGConfig, input_dir: Optional[Union[str, Path]] = None) -> None:
         """
         Initialize the base extractor.
 
         Args:
-            config (Config): IceGraph configuration object containing user settings.
+            config (IGConfig): IceGraph configuration object containing user settings.
             input_dir (Optional[Union[str, Path]]): Optional path to override the default input directory.
         """
-        self._config: Config = config
+        self._config: IGConfig = config
 
         # Use provided input_dir, or fall back to the one in user config
         self.input_dir = Path(input_dir or self._config.user_config.input_dir)

@@ -1,4 +1,4 @@
-icegraph.extractor package
+icegraph.extractor
 ==========================
 
 Subpackages

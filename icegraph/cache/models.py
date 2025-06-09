@@ -6,20 +6,20 @@ import time
 from typing import Optional, Union
 from pathlib import Path
 
-from icegraph.config import Config
+from icegraph.config import IGConfig
 
 
-__all__ = ["I3ConversionCache"]
+__all__ = ["IGConversionCache"]
 
-class I3ConversionCache:
-    def __init__(self, config: Config):
+class IGConversionCache:
+    def __init__(self, config: IGConfig):
         """
         Initialize a cache handler for storing and retrieving I3 dataset conversion outputs.
 
         Args:
-            config (Config): A config object providing user paths and constants.
+            config (IGConfig): A config object providing user paths and constants.
         """
-        self._config: Config = config
+        self._config: IGConfig = config
         self._cache_file = self._config.cache_dir / f".conversion_cache.{self._config.PROGRAM_VERSION}.json"
         self._expiration_time = 7 * 24 * 60 * 60  # 7 days
 

@@ -1,4 +1,4 @@
-icegraph.converter.base package
+icegraph.converter.base
 ===============================
 
 Submodules

@@ -1,4 +1,4 @@
-icegraph.extractor.base package
+icegraph.extractor.base
 ===============================
 
 Submodules

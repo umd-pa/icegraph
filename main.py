@@ -7,10 +7,10 @@ warnings.filterwarnings(
 )
 
 
-from icegraph.dataset import Data
-from icegraph.config import Config
+from icegraph.dataset import IGData
+from icegraph.config import IGConfig
 
 config_path = "./config/config.yaml"
-config = Config(config_path)
+config = IGConfig(config_path)
 
-data = Data.from_config(config)
+data = IGData.from_config(config)

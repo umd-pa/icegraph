@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from icegraph.config import Config
+from icegraph.config import IGConfig
 
 
 __all__ = ["MLSuiteVectorMapping"]
@@ -14,14 +14,14 @@ class MLSuiteVectorMapping:
     a flat index-to-name mapping.
     """
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: IGConfig) -> None:
         """
         Initialize the mapping generator with configuration data.
 
         Args:
-            config (Config): IceGraph configuration object containing user settings.
+            config (IGConfig): IceGraph configuration object containing user settings.
         """
-        self._config: Config = config
+        self._config: IGConfig = config
 
     def get_mapping(self) -> dict[int, str]:
         """

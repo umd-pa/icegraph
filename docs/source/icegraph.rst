@@ -1,4 +1,4 @@
-icegraph package
+icegraph
 ================
 
 Subpackages

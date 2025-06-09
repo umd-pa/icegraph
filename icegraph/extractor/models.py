@@ -4,7 +4,7 @@
 from pathlib import Path
 
 from icegraph.console import Console
-from .base import Extractor
+from .base import IGExtractor
 
 # have to wrap in try/except block so sphinx can properly generate docs
 try:
@@ -29,7 +29,7 @@ except ImportError:
 
 __all__ = ["FeatureExtractor"]
 
-class FeatureExtractor(Extractor):
+class FeatureExtractor(IGExtractor):
     """
     Extracts features from .i3.zst files using the IceTray module `ml_suite`.
 

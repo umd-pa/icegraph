@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r docs/requirements.txt
-          pip install sphinx furo sphinx-autodoc-typehints
+          pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
 
       - name: Build documentation
         run: make -C docs html

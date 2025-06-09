@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .models import HDF5ToParquet
+from.schemas import MLSuiteVectorMapping
 
-__all__ = ["HDF5ToParquet"]
+__all__ = ["HDF5ToParquet", "MLSuiteVectorMapping"]

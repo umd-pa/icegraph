@@ -5,28 +5,28 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union, Optional
 
-from icegraph.config import Config
+from icegraph.config import IGConfig
 
 
-__all__ = ["Converter"]
+__all__ = ["IGConverter"]
 
-class Converter(ABC):
+class IGConverter(ABC):
     out_extension: str = None
     """File extension or format identifier used by subclasses to define output type (e.g., 'hdf5', 'parquet')."""
 
-    def __init__(self, config: Config, input_file: Union[str, Path], output_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, config: IGConfig, input_file: Union[str, Path], output_dir: Optional[Union[str, Path]] = None) -> None:
         """
         Initialize the base converter for file transformation tasks.
 
         Args:
-            config (Config): IceGraph configuration object containing user settings.
+            config (IGConfig): IceGraph configuration object containing user settings.
             input_file (Union[str, Path]): Path to the input file or directory.
             output_dir (Optional[Union[str, Path]]): Optional custom root directory for output files.
 
         Raises:
             NotImplementedError: If the subclass has not defined `out_extension`.
         """
-        self._config: Config = config
+        self._config: IGConfig = config
         self.input_file = Path(input_file)
 
         # Determine base directory from input path

@@ -1,4 +1,4 @@
-icegraph.console package
+icegraph.console
 ========================
 
 Submodules

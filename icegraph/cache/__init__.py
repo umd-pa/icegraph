@@ -1,6 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import I3ConversionCache
+from .models import IGConversionCache
 
-__all__ = ["I3ConversionCache"]
+__all__ = ["IGConversionCache"]

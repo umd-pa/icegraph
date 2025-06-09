@@ -6,7 +6,7 @@ from tqdm import tqdm
 import sys
 
 from .objects import Spinner
-from icegraph.config import Config
+from icegraph.config import IGConfig
 
 
 __all__ = ["Console"]
@@ -59,7 +59,7 @@ class Console:
             newline (bool): Whether to append a newline character.
             include_time (bool): Whether to include a timestamp in the output.
         """
-        program_tag = f"[{cls.color(Config.PROGRAM_NAME, 'cyan')}]"
+        program_tag = f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}]"
         program_time = datetime.now().strftime('%X')
         delimiter = ": "
 
@@ -88,7 +88,7 @@ class Console:
         """
         return tqdm(
             _iter,
-            desc=f"[{cls.color(Config.PROGRAM_NAME, 'cyan')}] - {datetime.now().strftime('%X')}: ",
+            desc=f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}] - {datetime.now().strftime('%X')}: ",
             file=sys.stdout
         )
 

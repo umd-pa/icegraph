@@ -8,12 +8,12 @@ from pathlib import Path
 from icegraph.console import Console
 from icegraph.console.streams import suppress_stderr
 from .schemas import MLSuiteVectorMapping
-from .base import Converter
+from .base import IGConverter
 
 
 __all__ = ["HDF5ToParquet"]
 
-class HDF5ToParquet(Converter):
+class HDF5ToParquet(IGConverter):
     """
     Converts an HDF5 file generated via `ml_suite` into Parquet format.
 
@@ -54,9 +54,12 @@ class HDF5ToParquet(Converter):
         vector_map = MLSuiteVectorMapping(self._config)
         self._apply_column_map(features_table, vector_map.get_mapping())
 
+        features_table.sort_values("id")
+        truth_table.sort_values("id")
+
         # Export to Parquet
-        self._to_parquet(features_table, "features")
-        self._to_parquet(truth_table, "truth")
+        self._to_parquet(features_table.reset_index(), "features")
+        self._to_parquet(truth_table.reset_index(), "truth")
 
         Console.spinner().stop()
         Console.out(f"Output files saved to {self.outdir}")

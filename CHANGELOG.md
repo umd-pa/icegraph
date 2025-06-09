@@ -1,7 +1,11 @@
 # Changelog
 
 ---
-### Version [0.1.1] --- June 8th, 2025
+#### Version [0.1.2] --- June 9th, 2025:
+- Changed some class names to improve clarity.
+- Other minor fixes to docs.
+
+#### Version [0.1.1] --- June 8th, 2025:
 - Added sphinx automated documentation.
 
 ### Version [0.1.0] --- June 7th, 2025:
