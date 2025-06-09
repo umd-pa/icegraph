@@ -1,4 +1,4 @@
-icegraph.render package
+icegraph.render
 =======================
 
 Submodules

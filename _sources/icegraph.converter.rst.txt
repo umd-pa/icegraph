@@ -1,4 +1,4 @@
-icegraph.converter package
+icegraph.converter
 ==========================
 
 Subpackages

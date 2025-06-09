@@ -1,4 +1,4 @@
-icegraph.dataset package
+icegraph.dataset
 ========================
 
 Submodules

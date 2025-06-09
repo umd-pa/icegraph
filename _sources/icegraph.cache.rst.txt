@@ -1,4 +1,4 @@
-icegraph.cache package
+icegraph.cache
 ======================
 
 Submodules
