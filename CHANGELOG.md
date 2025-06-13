@@ -1,7 +1,7 @@
 # Changelog
 
 ---
-#### Version [0.2.0] --- June 12th, 2025:
+### Version [0.2.0] --- June 12th, 2025:
 - Restructured the project: moved icegraph submodules converter, extractor and cache to icegraph.data.
 - Added some plotting functionality, can generate very basic feature plots using the icegraph.render.FeaturePlot class.
 - Added icegraph.geometry submodule, added Detector class to geometry submodule to handle tasks related to the physical detector.
