@@ -23,7 +23,7 @@ class IGConfig:
 
     # constants
     PROGRAM_NAME = "icegraph"
-    PROGRAM_VERSION = "0.1.2"
+    PROGRAM_VERSION = "0.2.0"
 
     def __init__(self, config_path: Union[str, Path]) -> None:
         """
@@ -44,20 +44,23 @@ class IGConfig:
 
         # internal config file paths
         self.feature_map_config_path = self.internal_config_dir / "features_map.yaml"
+        self.standard_id_col_config_path = self.internal_config_dir / "standard_id_cols.yaml"
 
         # cache directory
         self.cache_dir = self.base_dir / ".cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # reference GCD files
-        self.pass_2_gcd_path = Path(
-            "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
-        )
-
         # cache attributes
         self._user_config_cache: DotMap | None = None
         self._feature_map_config_cache: dict | None = None
+        self._standard_id_col_config_cache: dict | None = None
         self._input_hash_cache: str | None = None
+
+        # fallback GCD file
+        self.gcd_path = Path(
+            self.user_config.gcd_path or
+            "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
+        )
 
     @property
     def user_config(self) -> DotMap:
@@ -86,6 +89,19 @@ class IGConfig:
         return self._feature_map_config_cache
 
     @property
+    def standard_id_col_config(self) -> DotMap:
+        """
+        Loads and returns the internal standard ID column configuration as a DotMap.
+
+        Returns:
+            DotMap: Parsed standard ID column configuration.
+        """
+        if self._standard_id_col_config_cache is None:
+            raw = self._load_file(self.standard_id_col_config_path)
+            self._standard_id_col_config_cache = DotMap(raw)
+        return self._standard_id_col_config_cache
+
+    @property
     def ml_suite_config_file(self) -> Path:
         """
         Writes a temporary YAML file containing ml_suite-compatible configuration
@@ -96,13 +112,14 @@ class IGConfig:
         """
         feature_extraction_config: dict = self.user_config.feature_extraction.toDict()
 
+        # ml_suite wants a config file, so we have to save a temp file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tmp_file:
             yaml.safe_dump(feature_extraction_config, tmp_file)
             return Path(tmp_file.name)
 
     def validate(self) -> bool:
         """
-        Placeholder for configuration validation logic.
+        Placeholder for input configuration validation logic.
 
         Returns:
             bool: Whether the user configuration is valid.
@@ -124,15 +141,15 @@ class IGConfig:
             return yaml.safe_load(file)
 
     def get_input_state_hash(self) -> str:
-            """
-            Compute a consistent content-based hash of the input directory and configuration file.
+        """
+        Compute a consistent content-based hash of the input directory and configuration file.
 
-            Returns:
-                str: A hash representing the input state.
-            """
-            if self._input_hash_cache is None:
-                input_dir = Path(self.user_config.input_dir)
-                config_file = Path(self.user_config_path)
-                self._input_hash_cache = hash_directory(input_dir, config_file, ".i3.zst")
+        Returns:
+            str: A hash representing the input state.
+        """
+        if self._input_hash_cache is None:
+            input_dir = Path(self.user_config.input_dir)
+            config_file = Path(self.user_config_path)
+            self._input_hash_cache = hash_directory(input_dir, config_file, ".i3.zst")
 
-            return self._input_hash_cache
+        return self._input_hash_cache

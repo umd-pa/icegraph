@@ -1,16 +1,29 @@
-# input i3 file directory
+# file and dir paths
 input_dir: /data/i3store/users/tstjean/i3_10_test
+gcd_path: ""
+output_dir: /data/i3store/users/tstjean/plots
 
 # frame keys (for feature extraction)
 frame_keys:
   mctree: I3MCTree_preMuonProp
   bg_mctree: BackgroundI3MCTree
   weight_dict: I3MCWeightDict
+  truth_dict: I3MCWeightDict
 
 # table names in the intermediate hdf5 file
 table_names:
   features: ml_suite_features
-  truth: classification
+  truth: I3MCWeightDict
+
+# truth labels to use for training
+target_labels:
+  - PrimaryNeutrinoEnergy
+
+
+selection:
+  train: "Event % 5 > 1"
+  validation: "Event % 5 == 0"
+  test: "Event % 5 == 1"
 
 feature_extraction:
   # Define name of pulse series from which to extract features
@@ -45,4 +58,4 @@ feature_extraction:
       - class: TSpread
       - class: TimeAtChargePercentile
         kwargs:
-          percentiles: [0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.8]
+          percentiles: [0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8]

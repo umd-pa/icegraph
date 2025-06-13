@@ -7,7 +7,7 @@ from pathlib import Path
 
 from icegraph.console import Console
 from icegraph.console.streams import suppress_stderr
-from .schemas import MLSuiteVectorMapping
+from .schemas import generate_vector_mapping
 from .base import IGConverter
 
 
@@ -51,11 +51,11 @@ class HDF5ToParquet(IGConverter):
         truth_table = self._reshape_truth_table(truth_table)
 
         # Apply feature vector mapping
-        vector_map = MLSuiteVectorMapping(self._config)
-        self._apply_column_map(features_table, vector_map.get_mapping())
+        vector_map = generate_vector_mapping(self._config)
+        self._apply_column_map(features_table, vector_map)
 
-        features_table.sort_values("id")
-        truth_table.sort_values("id")
+        features_table.sort_values("event_id")
+        truth_table.sort_values("event_id")
 
         # Export to Parquet
         self._to_parquet(features_table.reset_index(), "features")
@@ -77,15 +77,18 @@ class HDF5ToParquet(IGConverter):
         Returns:
             pd.DataFrame: Reshaped features table.
         """
-        id_columns = ['Run', 'Event', 'SubEvent', 'SubEventStream', 'exists', 'string', 'om']
-        table = self._replace_with_composite_keys(table, id_columns, "id")
-        table.drop(columns=["pmt"], inplace=True)
+        event_id_columns = self._config.standard_id_col_config.event_id_columns
+        dom_id_columns = self._config.standard_id_col_config.dom_id_columns
 
-        # Move id to first column for readability
-        table.insert(0, 'id', table.pop('id'))
+        table = self._replace_with_composite_keys(table, event_id_columns, "event_id")
+        table = self._replace_with_composite_keys(table, dom_id_columns, "dom_id")
+
+        # Move ids to first columns for readability
+        table.insert(0, 'event_id', table.pop('event_id'))
+        table.insert(0, 'dom_id', table.pop('dom_id'))
 
         # Pivot the table
-        table = table.pivot_table(index='id', columns='vector_index', values='item', aggfunc="first")
+        table = table.pivot_table(index=['event_id', "dom_id"], columns='vector_index', values='item', aggfunc="first")
         return table
 
     def _reshape_truth_table(self, table: pd.DataFrame) -> pd.DataFrame:
@@ -98,9 +101,12 @@ class HDF5ToParquet(IGConverter):
         Returns:
             pd.DataFrame: Reshaped truth table.
         """
-        id_columns = ['Run', 'Event', 'SubEvent', 'SubEventStream', 'exists']
-        table = self._replace_with_composite_keys(table, id_columns, "id")
-        table.insert(0, 'id', table.pop('id'))
+        event_id_columns = self._config.standard_id_col_config.event_id_columns
+        table = self._replace_with_composite_keys(table, event_id_columns, "event_id")
+
+        # Move ids to first columns for readability
+        table.insert(0, 'event_id', table.pop('event_id'))
+
         return table
 
     @staticmethod

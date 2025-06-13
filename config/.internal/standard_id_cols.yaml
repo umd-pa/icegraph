@@ -1,0 +1,10 @@
+event_id_columns:
+  - Run
+  - Event
+  - SubEvent
+  - SubEventStream
+  - exists
+dom_id_columns:
+  - string
+  - om
+  - pmt

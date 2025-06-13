@@ -2,5 +2,3 @@
 # Developed by Taylor St Jean
 
 from .models import IGData
-
-__all__ = ["IGData"]

@@ -58,7 +58,7 @@ class FeatureExtractor(IGExtractor):
         tray = I3Tray()
 
         # Read the i3 files to memory
-        input_files = [str(self._config.pass_2_gcd_path)] + [
+        input_files = [str(self._config.gcd_path)] + [
             str(p) for p in sorted(self.input_dir.glob("*.i3.zst"))
         ]
         tray.Add('I3Reader', Filenamelist=input_files)
@@ -71,15 +71,6 @@ class FeatureExtractor(IGExtractor):
             weight_dict_name=self._config.user_config.frame_keys.weight_dict,
             bg_mctree_name=self._config.user_config.frame_keys.bg_mctree
         )
-
-        # TODO: Debug this. Not sure why it isn't working
-        # This module adds additional labels for numu events
-        # tray.Add(
-        #     MuonLabels,
-        #     event_properties_name=None,
-        #     mctree_name=self._config.user_config.frame_keys.mctree,
-        #     weight_dict_name=self._config.user_config.frame_keys.weight_dict
-        # )
 
         # This module performs the feature calculation
         tray.Add(
@@ -98,7 +89,8 @@ class FeatureExtractor(IGExtractor):
                 "ml_suite_features",
                 ("classification", self.cls_converter),
                 "classification_emuon_entry",
-                "classification_emuon_deposited"
+                "classification_emuon_deposited",
+                self._config.user_config.frame_keys.truth_dict
             ],
             SubEventStreams=["InIceSplit"]
         )
