@@ -25,5 +25,5 @@
 - Slightly optimized caching for faster repeated conversions via icegraph.cache.I3ConversionCache.
 - Other minor changes.
 
-### Version [0.0.0] --- June 6th, 2025:
+## Version [0.0.0] --- June 6th, 2025:
 - Implementation of semantic versioning. See https://semver.org/.
