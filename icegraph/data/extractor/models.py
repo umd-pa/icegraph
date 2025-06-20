@@ -3,9 +3,6 @@
 
 from pathlib import Path
 
-from icegraph.console import Console
-from .base import IGExtractor
-
 # have to wrap in try/except block so sphinx can properly generate docs
 try:
     from icecube.icetray import I3Tray
@@ -26,8 +23,11 @@ except ImportError:
     ClassificationConverter = None
     MuonLabels = None
 
+from icegraph.console import Console
+from .base import IGExtractor
 
 __all__ = ["FeatureExtractor"]
+
 
 class FeatureExtractor(IGExtractor):
     """

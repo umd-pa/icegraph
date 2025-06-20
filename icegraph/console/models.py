@@ -114,7 +114,7 @@ class Console:
         """
         return tqdm(
             _iter,
-            desc=f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}] - {datetime.now().strftime('%X')}: ",
+            desc=f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}] {datetime.now().strftime('%X')}",
             file=sys.stdout
         )
 

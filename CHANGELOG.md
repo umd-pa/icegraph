@@ -1,6 +1,10 @@
 # Changelog
 
----
+#### Version [0.2.1] --- June 20th, 2025:
+- Added more error handling.
+- Added data caching for fast training, need to parallelize the cache builder.
+- Other changes.
+
 ### Version [0.2.0] --- June 12th, 2025:
 - Restructured the project: moved icegraph submodules converter, extractor and cache to icegraph.data.
 - Added some plotting functionality, can generate very basic feature plots using the icegraph.render.FeaturePlot class.

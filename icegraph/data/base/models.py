@@ -1,15 +1,18 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union
+from typing import Union, List
 from pathlib import Path
+from abc import ABC
+import functools
+
 import pyarrow.parquet as pq
 import pyarrow as pa
-from torch.utils.data import Dataset, DataLoader
+from icegraph.data.cache import IGDataCache
+from torch.utils.data import Dataset, DataLoader, get_worker_info
 import torch
 import pandas as pd
 import numpy as np
-from abc import ABC
 
 from icegraph.data.converter import generate_vector_mapping, HDF5ToParquet
 from icegraph.config import IGConfig
@@ -41,50 +44,75 @@ class IGData(Dataset, ABC):
 
     subset: str | None = None
 
-    def __init__(self, data_dir: Union[str, Path], config: IGConfig) -> None:
+    dataloader = property(
+        lambda self: functools.partial(DataLoader, self),
+        doc="A convenience property that returns a partially-applied torch DataLoader constructor for this dataset."
+    )
+
+    def __init__(
+        self,
+        data_dir: Union[str, Path],
+        config: IGConfig,
+        data_cache: IGDataCache,
+        *,
+        use_cache=True
+    ) -> None:
         """
         Initialize an IGData object from a directory containing Parquet files.
 
         Args:
             data_dir (Union[str, Path]): Path to the directory containing 'truth.parquet' and 'features.parquet'.
             config (IGConfig): IceGraph configuration object containing user settings.
-
-        Raises:
-            NotImplementedError: If the `subset` class attribute is not defined in a subclass.
+            data_cache (IGDataCache): Cache handler for on-disk feature caching.
         """
-        super(IGData, self).__init__()
+        super().__init__()
         self.data_dir = Path(data_dir)
         self._config: IGConfig = config
 
+        # Determine which features to load
         self.features_columns = list(generate_vector_mapping(config).values())
 
+        # Load truth labels and parquet handle
         self.truth_df: pd.DataFrame = pd.read_parquet(self.data_dir / "truth.parquet")
         self.features_file: pq.ParquetFile = pq.ParquetFile(self.data_dir / "features.parquet")
 
-        # initialize cache attributes
+        # Flags and cache
         self._truth_filtered: bool = False
+        self._use_cache: bool = use_cache
+        self._data_cache: IGDataCache = data_cache
 
-        # prepare truth table and mappings
-        self.drop_subset_indices()
-
+        # Apply subset filtering and index labels
+        self._drop_subset_indices()
         self.truth_df.set_index('event_id', inplace=True)
         self.event_ids = list(self.truth_df.index)
 
         self.target_labels = self._config.user_config.target_labels
         self.label_map = self.truth_df[self.target_labels].to_dict()
 
-        # preload metadata to speed things up later
+        # Preload metadata for faster access
         self.metadata = self.features_file.metadata
 
-        # verify self.subset has been specified
-        if not self.subset:
-            raise NotImplementedError(
-                f"Subclasses of IGData must define the class attribute IGData.subset as one of ['train', 'validation', 'test']."
-            )
+    def __init_subclass__(cls, **kwargs) -> None:
+        """
+        Validate that subclasses of IGData define a proper `subset` attribute.
+
+        Ensures that any subclass sets the class-level `subset` to one of
+        the allowed split names ("train", "validation", or "test"), and that
+        it consists only of alphabetic characters.
+
+        Raises:
+            TypeError: If `subset` is not defined on the subclass.
+            ValueError: If `subset` is not an alphabetic string.
+        """
+        super().__init_subclass__(**kwargs)
+        if cls.subset is None:
+            raise TypeError(f"{cls.__name__}.subset must be set to 'train'|'validation'|'test'")
+        if not isinstance(cls.subset, str) or not cls.subset.isalpha():
+            raise ValueError(f"`subset` on {cls.__name__!r} must be alpha string, got {cls.subset!r}")
 
     def __len__(self) -> int:
         """
-        Return the number of events in the dataset.
+        Return the number of events in the subset.
 
         Returns:
             int: Number of events.
@@ -101,30 +129,35 @@ class IGData(Dataset, ABC):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Tuple of (features, labels) for the selected event.
         """
-        event_id = self.event_ids[idx]
+        if self._use_cache and self._data_cache is not None:
+            features, labels = self._data_cache.query(self, idx)
+        else:
+            event_id = self.event_ids[idx]
+            labels = np.array([self.label_map[label][event_id] for label in self.target_labels])
+            features = self._get_features_for_event(event_id)
+        return torch.tensor(features), torch.tensor(labels)
 
-        labels = []
-        for label in self.label_map:
-            labels.append(self.label_map[label][event_id])
-
-        feature_array = self._get_features_for_event(event_id)
-
-        return torch.tensor(feature_array), torch.tensor(labels)
-
-    @property
-    def dataloader(self, **kwargs) -> DataLoader:
+    def setup_cache(self) -> None:
         """
-        Returns a PyTorch DataLoader for this dataset instance.
-
-        Args:
-            **kwargs: Arguments to pass to torch.utils.data.DataLoader.
-
-        Returns:
-            DataLoader: PyTorch DataLoader instance.
+        Warm per-event cache on the main process if required.
         """
-        return DataLoader(self, **kwargs)
+        if self._use_cache:
+            worker_info = get_worker_info()
+            if worker_info is None and self._data_cache.build_required:
+                # main process: build the cache once
+                self._populate_cache()
 
-    def drop_subset_indices(self) -> None:
+    def _populate_cache(self) -> None:
+        # TODO: THIS DESPERATELY NEEDS MULTIPROCESSING
+        """
+        Populate the on-disk cache by iterating over all events.
+        """
+        for idx, event_id in Console.progress_bar(enumerate(self.event_ids)):
+            labels = np.array([self.label_map[label][event_id] for label in self.target_labels])
+            features = self._get_features_for_event(event_id)
+            self._data_cache.register(self, idx, features, labels)
+
+    def _drop_subset_indices(self) -> None:
         """
         Applies a selection filter to keep only the subset of truth_df that matches the config-defined criteria.
 
@@ -132,27 +165,37 @@ class IGData(Dataset, ABC):
         from the 'event_id' field and applying a selection string defined in the config.
         """
         if self._truth_filtered:
-            return  # Already applied
+            return
 
         selection_str = getattr(self._config.user_config.selection, self.subset)
-        Console.out(f"Using selection string for {self.subset=}: {selection_str}", severity=1)
+        Console.out(f"Applying selection string for {self.subset=}: {selection_str}", severity=1)
 
-        # Extract 'Event' safely from 'event_id'
-        selected_events = self.truth_df["event_id"].str.extract(r"Event=(\d+)")[0]
-        selected_events = selected_events.dropna().astype(int)
-
-        valid_indices = selected_events.index
-
-        selected_indices = (
-            self.truth_df
-            .loc[valid_indices]
-            .assign(Event=selected_events)
-            .query(selection_str)
-            .index
-        )
-
-        self.truth_df = self.truth_df.loc[selected_indices]
+        events = self.truth_df["event_id"].str.extract(r"Event=(\d+)")[0].astype(int)
+        selected = self.truth_df.assign(Event=events).query(selection_str).index
+        self.truth_df = self.truth_df.loc[selected]
         self._truth_filtered = True
+
+    def _read_event_batches(self, event_id: str) -> List[pa.Table]:
+        """
+        Read all row-groups matching a given event_id and return them as Arrow Tables.
+
+        Args:
+            event_id (str): The event identifier to filter.
+
+        Returns:
+            List[pa.Table]: Arrow Tables containing rows for the event.
+        """
+        batches: List[pa.Table] = []
+        for rg in range(self.features_file.num_row_groups):
+            table = self.features_file.read_row_group(
+                rg, columns=["event_id", "dom_id"] + self.features_columns
+            )
+            ids = table.column("event_id").to_pylist()
+            mask = [i == event_id for i in ids]
+            if not any(mask):
+                continue
+            batches.append(table.filter(pa.array(mask)))
+        return batches
 
     def _get_features_for_event(self, event_id: str) -> np.ndarray:
         """
@@ -168,30 +211,13 @@ class IGData(Dataset, ABC):
             ValueError: If no features were found for the given event ID.
         """
         # Scan row groups for matching base_id
-        matching_batches = []
-
-        for rg in range(self.features_file.num_row_groups):
-            row_group_table = self.features_file.read_row_group(
-                rg, columns=["event_id", "dom_id"] + self.features_columns
-            )
-            ids = row_group_table.column("event_id").to_pylist()
-            mask = [i == event_id for i in ids]
-
-            # continue loop if none on this iteration
-            if not any(mask):
-                continue
-
-            # Filter relevant rows
-            mask_array = pa.array(mask)
-            batch = row_group_table.filter(mask_array)
-            matching_batches.append(batch)
-
-        if not matching_batches:
+        batches = self._read_event_batches(event_id)
+        if not batches:
             raise ValueError(f"No features found for event {event_id}")
 
-        # Concatenate all matching batches
-        all_rows = pa.concat_tables(matching_batches)
-        df = all_rows.to_pandas().drop(columns=['event_id', "dom_id"])  # Drop ID, keep only features
+        # Concatenate all matching batches and drop ID columns
+        all_rows = pa.concat_tables(batches)
+        df = all_rows.to_pandas().drop(columns=['event_id', 'dom_id'])
         return df.to_numpy(dtype='float32')
 
     def get_with_dom_id(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -211,18 +237,23 @@ class IGData(Dataset, ABC):
         """
         event_id = self.event_ids[idx]
 
-        labels = []
-        for label in self.label_map:
-            labels.append(self.label_map[label][event_id])
+        # --- features & labels (use cache if available) ---
+        if self._use_cache and self._data_cache is not None:
+            features, labels = self._data_cache.query(self, idx)
+        else:
+            labels = np.array([self.label_map[label][event_id] for label in self.target_labels])
+            features = self._get_features_for_event(event_id)
 
-        feature_array = self._get_features_for_event(event_id)
+        # --- dom_id extraction ---
+        batches = self._read_event_batches(event_id)
+        if not batches:
+            raise ValueError(f"No DOMs found for event {event_id}")
 
-        dom_ids = np.array(self.features_file.read(columns=["dom_id"]).to_pandas())
-        unpacked_dom_ids = []
-        for _id in dom_ids:
-            unpacked_dom_ids.append(self._unpack_id(_id[0]))
+        all_rows = pa.concat_tables(batches)
+        df_ids = all_rows.column("dom_id").to_pandas()
+        dom_ids = np.stack(df_ids.apply(self._unpack_id).to_list(), axis=0)
 
-        return np.array(feature_array), np.array(labels), np.array(unpacked_dom_ids)
+        return features, labels, dom_ids
 
     @staticmethod
     def _unpack_id(_id: str) -> list[int]:
@@ -235,10 +266,4 @@ class IGData(Dataset, ABC):
         Returns:
             list[int]: List of extracted integer values from the ID string.
         """
-        # split the id
-        split_id = _id.split("|")
-
-        # parse and generate a list
-        unpacked_id = [int(entry.split("=")[1]) for entry in split_id]
-
-        return unpacked_id
+        return [int(x.split("=")[1]) for x in _id.split("|")]

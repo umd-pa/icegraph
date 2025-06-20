@@ -19,7 +19,6 @@ table_names:
 target_labels:
   - PrimaryNeutrinoEnergy
 
-
 selection:
   train: "Event % 5 > 1"
   validation: "Event % 5 == 0"

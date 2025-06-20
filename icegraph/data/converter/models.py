@@ -54,8 +54,8 @@ class HDF5ToParquet(IGConverter):
         vector_map = generate_vector_mapping(self._config)
         self._apply_column_map(features_table, vector_map)
 
-        features_table.sort_values("event_id")
-        truth_table.sort_values("event_id")
+        features_table.sort_values("event_id", inplace=True, kind="mergesort")
+        truth_table.sort_values("event_id", inplace=True, kind="mergesort")
 
         # Export to Parquet
         self._to_parquet(features_table.reset_index(), "features")

@@ -44,7 +44,7 @@ class Spinner:
                 control_prefix="\r",
                 flush=True,
                 newline=False,
-                include_time=False
+                include_info=False
             )
             time.sleep(self.delay)
             idx += 1
