@@ -32,7 +32,7 @@ class Console:
 
         Args:
             text (str): The text to color.
-            color (str): Color name ('cyan', 'white', 'reset', or 'default').
+            color (str): Color name.
 
         Returns:
             str: The colored text.
@@ -51,6 +51,19 @@ class Console:
 
     @classmethod
     def _severity_tag(cls, severity: int) -> str:
+        """
+        Map a numeric severity level to its corresponding tag string.
+
+        Args:
+            severity (int): Numeric severity level
+                - 0: INFO
+                - 1: IMPT
+                - 2: WARN
+                - 3: CRIT
+
+        Returns:
+            str: The severity tag, with appropriate ANSI coloring for IMPT/WARN/CRIT.
+        """
         mapping = {
             0: "INFO",
             1: cls.color("IMPT", "green"),
@@ -58,6 +71,30 @@ class Console:
             3: cls.color("CRIT", "red")
         }
         return mapping[severity]
+
+    @classmethod
+    def _apply_severity(cls, text: str, severity: int) -> str:
+        """
+        Colorize a text string based on its severity level.
+
+        Args:
+            text (str): The input text to color.
+            severity (int): Numeric severity level
+                - 0: default (no color change)
+                - 1: green
+                - 2: orange
+                - 3: red
+
+        Returns:
+            str: The input text wrapped in the ANSI codes for the given severity.
+        """
+        mapping = {
+            0: "default",
+            1: "green",
+            2: "orange",
+            3: "red"
+        }
+        return cls.color(text, color=mapping[severity])
 
     @classmethod
     def out(
@@ -86,6 +123,7 @@ class Console:
             program_time = datetime.now().strftime('%X')
             severity_tag = cls._severity_tag(severity)
             delimiter = ": "
+            text = cls._apply_severity(text, severity)
 
             parts = [program_tag]
             if include_info:

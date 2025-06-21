@@ -118,6 +118,12 @@ class DatasetRegistry:
         data_cache = IGDataCache(config)
 
         Console.out(f"Constructing dataset registry...")
+
+        if not use_cache:
+            Console.out(
+                "Pre-training caching has been disabled (use_cache=False), this may result in very slow sample reads.", severity=3
+            )
+
         registry = cls(
             TrainingDataset(data, config, data_cache, use_cache=use_cache),
             ValidationDataset(data, config, data_cache, use_cache=use_cache),

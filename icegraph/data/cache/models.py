@@ -172,7 +172,6 @@ class IGDataCache:
         self.lock: BaseFileLock = FileLock(str(self.cache_dir / f"{input_state_hash}.lock"), timeout=10)
 
         # Ensure on-disk structure and metadata
-        self._setup_cache()
         self.build_required: bool = True
 
         # Helper to form target file paths
@@ -182,6 +181,8 @@ class IGDataCache:
         """
         Create cache directory and write metadata atomically.
         """
+        if self.metadata_file.exists():
+            return
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             metadata = {"version": self._config.PROGRAM_VERSION}
@@ -223,7 +224,6 @@ class IGDataCache:
         # Metadata existence
         try:
             stat = self.metadata_file.stat()
-
         except FileNotFoundError:
             return False
 
@@ -244,6 +244,7 @@ class IGDataCache:
         if not self._validate(expected_size):
             return False
 
+        Console.out(f"{Console.color('Cache OK', 'green')}.")
         self.build_required = False
         return True
 

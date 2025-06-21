@@ -1,5 +1,13 @@
 # Changelog
 
+### Version [0.3.0] --- June 21st, 2025:
+- HDF5ToParquet converter module no longer combines ID's into composite keys, leaving them as separate columns. This massively improves program speed as packing and unpacking ID's added significant overhead. This also allows for dataset splitting selection strings to target any existing column in the truth table.
+- Moved project version to a config file, project name is still an IGConfig class attribute as it is not expected to change.
+- DOM (x, y, z) positions are now included as parameters for training.
+- Added more error handling, e.g. selection strings are now pre-verified before querying data.
+- Added an option to specify the number of workers when multiprocessing under the global config file. The program will never try to start more workers than there are CPUs available.
+- Some code cleanup.
+
 #### Version [0.2.2] --- June 20th, 2025:
 - Parallelized the cache builder, runs much faster now.
 - Added icegraph.data.base.workers for defining/handling multiprocessing workers.
@@ -31,7 +39,7 @@
 - Added configuration handling via icegraph.config.Config.
 - Significantly improved internal documentation.
 - Condensed user configs to one file for usability, internal configs are separate.
-- Slightly optimized caching for faster repeated conversions via icegraph.cache.I3ConversionCache.
+- Slightly optimized caching for faster repeated conversions via icegraph.cache.I3ConversionCache _(since been renamed to IGConverterCache)_.
 - Other minor changes.
 
 ## Version [0.0.0] --- June 6th, 2025:

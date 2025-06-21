@@ -6,11 +6,10 @@ from pathlib import Path
 from abc import ABC
 import functools
 import os
+import re
 from multiprocessing import get_context
 
 import pyarrow.parquet as pq
-import pyarrow as pa
-from icegraph.data.cache import IGDataCache
 from torch.utils.data import Dataset, DataLoader, get_worker_info
 import torch
 import pandas as pd
@@ -20,6 +19,8 @@ from icegraph.data.converter import generate_vector_mapping, HDF5ToParquet
 from icegraph.config import IGConfig
 from icegraph.console import Console
 from icegraph.data.base.workers import set_cache_inst, cache_event_worker
+from icegraph.data.cache import IGDataCache
+from icegraph.geometry import Detector
 
 __all__ = ["IGData"]
 
@@ -38,9 +39,7 @@ class IGData(Dataset, ABC):
         features_columns (list[str]): List of feature column names to extract.
         truth_df (pd.DataFrame): DataFrame storing the truth labels indexed by event_id.
         features_file (pq.ParquetFile): Parquet file storing DOM-level features.
-        event_ids (list[str]): List of selected event IDs after applying filtering.
         target_labels (list[str]): List of target label keys to extract per event.
-        label_map (dict): Mapping from event_id to target labels.
         metadata (pa.Metadata): Cached metadata from the feature file.
         _truth_filtered (bool): Flag to ensure subset filtering is applied only once.
     """
@@ -74,6 +73,9 @@ class IGData(Dataset, ABC):
 
         # Determine which features to load
         self.features_columns = list(generate_vector_mapping(config).values())
+        self.event_id_columns = config.standard_id_col_config.event_id_columns
+        self.dom_id_columns = config.standard_id_col_config.dom_id_columns
+        self.dom_position_columns = config.standard_id_col_config.dom_position_columns
 
         # Load truth labels and parquet handle
         self.truth_df: pd.DataFrame = pd.read_parquet(self.data_dir / "truth.parquet")
@@ -86,11 +88,9 @@ class IGData(Dataset, ABC):
 
         # Apply subset filtering and index labels
         self._drop_subset_indices()
-        self.truth_df.set_index('event_id', inplace=True)
-        self.event_ids = list(self.truth_df.index)
+        self.truth_df.reset_index(drop=True)
 
         self.target_labels = self._config.user_config.target_labels
-        self.label_map = self.truth_df[self.target_labels].to_dict()
 
         # Preload metadata for faster access
         self.metadata = self.features_file.metadata
@@ -120,7 +120,7 @@ class IGData(Dataset, ABC):
         Returns:
             int: Number of events.
         """
-        return len(self.event_ids)
+        return len(self.truth_df)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -135,10 +135,15 @@ class IGData(Dataset, ABC):
         if self._use_cache and self._data_cache is not None:
             features, labels = self._data_cache.query(self, idx)
         else:
-            event_id = self.event_ids[idx]
-            labels = np.array([self.label_map[label][event_id] for label in self.target_labels])
-            features = self._get_features_for_event(event_id)
-        return torch.tensor(features), torch.tensor(labels)
+            row = self.truth_df.iloc[idx]
+            keys: dict[str, int] = {
+                col: int(row[col]) for col in self.event_id_columns
+            }
+            labels = row[self.target_labels].to_numpy(dtype=np.float32)
+            features = self._get_features_for_event(keys)
+
+        # convert to tensors
+        return torch.from_numpy(features), torch.from_numpy(labels)
 
     def setup_cache(self) -> None:
         """
@@ -160,13 +165,13 @@ class IGData(Dataset, ABC):
         # Register this instance for worker access
         set_cache_inst(self)
 
-        items = list(enumerate(self.event_ids))
-        total = len(items)
+        total = len(self)
+        items = list(range(total))
 
         # Use fork context to inherit module globals on Unix
         ctx = get_context('fork')
-        workers = min(self._config.user_config.multiprocessing.workers, os.cpu_count())
-        Console.out(f"Starting multiprocessing pool with {workers} workers.")
+        workers = min(self._config.user_config.multiprocessing.workers, os.cpu_count() or 1)
+        Console.out(f"Starting multiprocessing cache fill for subset='{self.subset}' with {workers} workers.")
         with ctx.Pool(processes=workers) as pool:
             for _ in Console.progress_bar(
                 pool.imap_unordered(cache_event_worker, items),
@@ -185,102 +190,89 @@ class IGData(Dataset, ABC):
             return
 
         selection_str = getattr(self._config.user_config.selection, self.subset)
-        Console.out(f"Applying selection string for {self.subset=}: {selection_str}", severity=1)
+        Console.out(f"Applying selection string for {self.subset=}: {selection_str}")
 
-        events = self.truth_df["event_id"].str.extract(r"Event=(\d+)")[0].astype(int)
-        selected = self.truth_df.assign(Event=events).query(selection_str).index
-        self.truth_df = self.truth_df.loc[selected]
+        def safe_query(df, expr):
+            # find all words in the expression
+            names = set(re.findall(r"[A-Za-z_]\w*", expr))
+            missing = names - set(df.columns) - set(dir(__builtins__))
+            if missing:
+                raise KeyError(f"Unknown column(s) in query: {missing}")
+            return df.query(expr)
+
+        selected_idx = safe_query(self.truth_df, selection_str).index
+        self.truth_df = self.truth_df.loc[selected_idx]
         self._truth_filtered = True
 
-    def _read_event_batches(self, event_id: str) -> List[pa.Table]:
+    def _read_event_batches(self, keys: dict[str, int]) -> List[pd.DataFrame]:
         """
-        Read all row-groups matching a given event_id and return them as Arrow Tables.
+        Read all row-groups matching a given set of keys and return them as pandas dataframes.
 
         Args:
-            event_id (str): The event identifier to filter.
+            keys (str): The event identifiers to filter.
 
         Returns:
-            List[pa.Table]: Arrow Tables containing rows for the event.
+            List[pd.DataFrame]: Dataframes containing rows for the event.
         """
-        batches: List[pa.Table] = []
-        for rg in range(self.features_file.num_row_groups):
+        dataframes: List[pd.DataFrame] = []
+        for row_group in range(self.features_file.num_row_groups):
             table = self.features_file.read_row_group(
-                rg, columns=["event_id", "dom_id"] + self.features_columns
+                row_group,
+                columns=self.event_id_columns
+                        + self.dom_id_columns
+                        + self.features_columns
             )
-            ids = table.column("event_id").to_pylist()
-            mask = [i == event_id for i in ids]
-            if not any(mask):
-                continue
-            batches.append(table.filter(pa.array(mask)))
-        return batches
+            df = table.to_pandas()
 
-    def _get_features_for_event(self, event_id: str) -> np.ndarray:
+            # build mask in pandas
+            mask = pd.Series(True, index=df.index)
+            for col, val in keys.items():
+                mask &= (df[col] == val)
+
+            sub = df.loc[mask]
+            if not sub.empty:
+                dataframes.append(sub)
+
+        return dataframes
+
+    def _get_features_for_event(self, keys: dict[str,int]) -> np.ndarray:
         """
         Retrieve DOM-level feature vectors for a given event.
 
         Args:
-            event_id (str): Event identifier string.
+            keys (str): Event identifier string.
 
         Returns:
-            np.ndarray: 2D array of shape (num_DOMs, num_features) for the event.
+            np.ndarray: 2D array of shape (num_DOMs, num_features + 3) for the event.
 
         Raises:
             ValueError: If no features were found for the given event ID.
         """
         # Scan row groups for matching base_id
-        batches = self._read_event_batches(event_id)
+        batches = self._read_event_batches(keys)
         if not batches:
-            raise ValueError(f"No features found for event {event_id}")
+            raise ValueError(f"No features found for event keys {keys}")
 
-        # Concatenate all matching batches and drop ID columns
-        all_rows = pa.concat_tables(batches)
-        df = all_rows.to_pandas().drop(columns=['event_id', 'dom_id'])
-        return df.to_numpy(dtype='float32')
+        # concatenate all matching pieces
+        full_df = pd.concat(batches, ignore_index=True)
+        feat_df = full_df[self.features_columns].copy()
 
-    def get_with_dom_id(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Retrieve a sample by index, along with DOM IDs.
+        detector = Detector(self._config)
 
-        This is useful for visualization or analysis that requires spatial DOM context.
+        # map dom ids to dom positions
+        pos_series = full_df.apply(
+            lambda row: detector.get_dom_coords(
+                row[self.dom_id_columns[0]], row[self.dom_id_columns[1]], row[self.dom_id_columns[2]]
+            ),
+            axis=1
+        )
+        pos_df = pd.DataFrame(
+            pos_series.tolist(),
+            index=full_df.index,
+            columns=self.dom_position_columns
+        )
 
-        Args:
-            idx (int): Index of the sample.
+        # add it to the features dataframe
+        feat_df = pd.concat([feat_df, pos_df], axis=1)
 
-        Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray]:
-                - Feature array (num_DOMs, num_features)
-                - Labels array (num_labels,)
-                - DOM ID array (num_DOMs, 2) with [string, om]
-        """
-        event_id = self.event_ids[idx]
-
-        # --- features & labels (use cache if available) ---
-        if self._use_cache and self._data_cache is not None:
-            features, labels = self._data_cache.query(self, idx)
-        else:
-            labels = np.array([self.label_map[label][event_id] for label in self.target_labels])
-            features = self._get_features_for_event(event_id)
-
-        # --- dom_id extraction ---
-        batches = self._read_event_batches(event_id)
-        if not batches:
-            raise ValueError(f"No DOMs found for event {event_id}")
-
-        all_rows = pa.concat_tables(batches)
-        df_ids = all_rows.column("dom_id").to_pandas()
-        dom_ids = np.stack(df_ids.apply(self._unpack_id).to_list(), axis=0)
-
-        return features, labels, dom_ids
-
-    @staticmethod
-    def _unpack_id(_id: str) -> list[int]:
-        """
-        Unpacks a DOM ID string (formatted as 'key=val|key=val|...') into a list of integers.
-
-        Args:
-            _id (str): Packed DOM ID string.
-
-        Returns:
-            list[int]: List of extracted integer values from the ID string.
-        """
-        return [int(x.split("=")[1]) for x in _id.split("|")]
+        return feat_df.to_numpy(dtype="float32")

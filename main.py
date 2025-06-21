@@ -11,6 +11,8 @@ from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 from icegraph.render import FeaturePlot
 
+import time
+
 
 def main():
 
@@ -19,8 +21,10 @@ def main():
 
     dataset_registry = DatasetRegistry.from_config(config)
 
+    data = {}
     for i in range(100):
-        print(dataset_registry.training_dataset[i])
+        data[i] = dataset_registry.training_dataset[i]
+        print(data[i])
 
     #plot = FeaturePlot(dataset_registry.validation_dataset, config)
     #plot.plot_feature("total_charge", 1)

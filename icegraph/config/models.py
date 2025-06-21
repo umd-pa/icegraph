@@ -22,9 +22,7 @@ class IGConfig:
     config files for external tools (e.g., `ml_suite`).
     """
 
-    # constants
     PROGRAM_NAME = "icegraph"
-    PROGRAM_VERSION = "0.2.0"
 
     def __init__(self, config_path: Union[str, Path]) -> None:
         """
@@ -44,8 +42,15 @@ class IGConfig:
         self.user_config_dir = self.config_dir / "user"
 
         # internal config file paths
-        self.feature_map_config_path = self.internal_config_dir / "features_map.yaml"
-        self.standard_id_col_config_path = self.internal_config_dir / "standard_id_cols.yaml"
+        self.feature_map_config_file = self.internal_config_dir / "features_map.yaml"
+        self.standard_id_col_config_file = self.internal_config_dir / "standard_id_cols.yaml"
+        self.program_metadata_file = self.internal_config_dir / "program_metadata.yaml"
+
+        # load program metadata
+        with self.program_metadata_file.open("r", encoding="utf-8") as metadata:
+            program_metadata = DotMap(yaml.safe_load(metadata))
+
+        self.PROGRAM_VERSION = program_metadata.program_version
 
         # cache directory
         self.cache_dir = self.base_dir / ".cache"
@@ -85,7 +90,7 @@ class IGConfig:
             DotMap: Parsed feature mapping configuration.
         """
         if self._feature_map_config_cache is None:
-            raw = self._load_file(self.feature_map_config_path)
+            raw = self._load_file(self.feature_map_config_file)
             self._feature_map_config_cache = DotMap(raw)
         return self._feature_map_config_cache
 
@@ -98,7 +103,7 @@ class IGConfig:
             DotMap: Parsed standard ID column configuration.
         """
         if self._standard_id_col_config_cache is None:
-            raw = self._load_file(self.standard_id_col_config_path)
+            raw = self._load_file(self.standard_id_col_config_file)
             self._standard_id_col_config_cache = DotMap(raw)
         return self._standard_id_col_config_cache
 

@@ -49,14 +49,15 @@ class HDF5ToParquet(IGConverter):
 
         # Run reshaping
         features_table = self._reshape_features_table(features_table)
-        truth_table = self._reshape_truth_table(truth_table)
 
         # Apply feature vector mapping
         vector_map = generate_vector_mapping(self._config)
         self._apply_column_map(features_table, vector_map)
 
-        features_table.sort_values("event_id", inplace=True, kind="mergesort")
-        truth_table.sort_values("event_id", inplace=True, kind="mergesort")
+        event_id_cols = self._config.standard_id_col_config.event_id_columns
+
+        features_table.sort_values(event_id_cols, inplace=True, kind="mergesort")
+        truth_table.sort_values(event_id_cols, inplace=True, kind="mergesort")
 
         # Export to Parquet
         self._to_parquet(features_table.reset_index(), "features")
@@ -67,10 +68,10 @@ class HDF5ToParquet(IGConverter):
 
         return self.outdir
 
-    def _reshape_features_table(self, table: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _reshape_features_table(table: pd.DataFrame) -> pd.DataFrame:
         """
-        Reshapes the features table by generating composite keys and pivoting
-        ml_suite generated vector data.
+        Reshapes the features table by pivoting ml_suite generated vector data.
 
         Args:
             table (pd.DataFrame): Input features table.
@@ -78,55 +79,13 @@ class HDF5ToParquet(IGConverter):
         Returns:
             pd.DataFrame: Reshaped features table.
         """
-        event_id_columns = self._config.standard_id_col_config.event_id_columns
-        dom_id_columns = self._config.standard_id_col_config.dom_id_columns
-
-        table = self._replace_with_composite_keys(table, event_id_columns, "event_id")
-        table = self._replace_with_composite_keys(table, dom_id_columns, "dom_id")
-
-        # Move ids to first columns for readability
-        table.insert(0, 'event_id', table.pop('event_id'))
-        table.insert(0, 'dom_id', table.pop('dom_id'))
-
         # Pivot the table
-        table = table.pivot_table(index=['event_id', "dom_id"], columns='vector_index', values='item', aggfunc="first")
-        return table
+        pivot_col = "vector_index"
+        value_col = "item"
+        index_cols = [c for c in table.columns if c not in {pivot_col, value_col}]
 
-    def _reshape_truth_table(self, table: pd.DataFrame) -> pd.DataFrame:
-        """
-        Reshapes the truth table by generating composite keys.
+        table = table.pivot_table(index=index_cols, columns=pivot_col, values=value_col, aggfunc="first")
 
-        Args:
-            table (pd.DataFrame): Input truth table.
-
-        Returns:
-            pd.DataFrame: Reshaped truth table.
-        """
-        event_id_columns = self._config.standard_id_col_config.event_id_columns
-        table = self._replace_with_composite_keys(table, event_id_columns, "event_id")
-
-        # Move ids to first columns for readability
-        table.insert(0, 'event_id', table.pop('event_id'))
-
-        return table
-
-    @staticmethod
-    def _replace_with_composite_keys(table: pd.DataFrame, id_columns: list[str], new_column_name: str) -> pd.DataFrame:
-        """
-        Replaces multiple identifier columns with a single composite key.
-
-        Args:
-            table (pd.DataFrame): Input table with identifier columns.
-            id_columns (list[str]): List of columns to combine.
-            new_column_name (str): Name for the new composite column.
-
-        Returns:
-            pd.DataFrame: Modified table with composite key.
-        """
-        table[new_column_name] = table[id_columns].astype(str).agg(
-            lambda row: '|'.join(f'{col}={val}' for col, val in zip(id_columns, row)), axis=1
-        )
-        table.drop(columns=id_columns, inplace=True)
         return table
 
     def _to_parquet(self, table: pd.DataFrame, name: str) -> None:

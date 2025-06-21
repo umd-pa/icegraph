@@ -25,7 +25,7 @@ selection:
   test: "Event % 5 == 0"
 
 multiprocessing:
-  workers: 100
+  workers: 41
 
 feature_extraction:
   # Define name of pulse series from which to extract features

@@ -8,3 +8,7 @@ dom_id_columns:
   - string
   - om
   - pmt
+dom_position_columns:
+  - dom_x
+  - dom_y
+  - dom_z
