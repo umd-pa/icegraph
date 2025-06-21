@@ -1,17 +1,18 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-import pandas as pd
 from typing import cast
 from pathlib import Path
+
+import pandas as pd
 
 from icegraph.console import Console
 from icegraph.console.streams import suppress_stderr
 from .schemas import generate_vector_mapping
 from .base import IGConverter
 
-
 __all__ = ["HDF5ToParquet"]
+
 
 class HDF5ToParquet(IGConverter):
     """

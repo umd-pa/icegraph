@@ -5,8 +5,8 @@ import threading
 import time
 import atexit
 
-
 __all__ = ["Spinner"]
+
 
 class Spinner:
     """

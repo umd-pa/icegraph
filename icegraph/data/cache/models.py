@@ -7,9 +7,10 @@ import json
 import time
 from typing import Optional, Union, Type, TypeVar, Dict, Any, Tuple, TYPE_CHECKING
 from pathlib import Path
-import numpy as np
 import shutil
 from filelock import FileLock, BaseFileLock
+
+import numpy as np
 
 from icegraph.config import IGConfig
 from icegraph.console import Console

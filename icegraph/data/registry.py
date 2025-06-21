@@ -1,6 +1,9 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from pathlib import Path
+from typing import Self, Type, TYPE_CHECKING
+
 from icegraph.console import Console
 from icegraph.data.cache import IGConverterCache, IGDataCache
 from icegraph.data.converter import HDF5ToParquet
@@ -8,8 +11,7 @@ from icegraph.data.extractor import FeatureExtractor
 from icegraph.config import IGConfig
 from icegraph.data import TrainingDataset, ValidationDataset, TestDataset
 
-from pathlib import Path
-from typing import Self, Type, TYPE_CHECKING
+__all__ = ["DatasetRegistry"]
 
 
 class DatasetRegistry:

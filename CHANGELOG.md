@@ -1,5 +1,10 @@
 # Changelog
 
+#### Version [0.2.2] --- June 20th, 2025:
+- Parallelized the cache builder, runs much faster now.
+- Added icegraph.data.base.workers for defining/handling multiprocessing workers.
+- Reordered module imports to match industry standards.
+
 #### Version [0.2.1] --- June 20th, 2025:
 - Added more error handling.
 - Added data caching for fast training, need to parallelize the cache builder.

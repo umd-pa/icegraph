@@ -21,8 +21,11 @@ target_labels:
 
 selection:
   train: "Event % 5 > 1"
-  validation: "Event % 5 == 0"
-  test: "Event % 5 == 1"
+  validation: "Event % 5 == 1"
+  test: "Event % 5 == 0"
+
+multiprocessing:
+  workers: 100
 
 feature_extraction:
   # Define name of pulse series from which to extract features

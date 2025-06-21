@@ -1,16 +1,17 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-import yaml
 from pathlib import Path
 from typing import Union, Any, Optional
-from dotmap import DotMap
 import tempfile
+
+from dotmap import DotMap
+import yaml
 
 from .hash_utils import hash_directory
 
-
 __all__ = ["IGConfig"]
+
 
 class IGConfig:
     """

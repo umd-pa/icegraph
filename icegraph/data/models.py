@@ -3,6 +3,8 @@
 
 from .base import IGData
 
+__all__ = ["TrainingDataset", "ValidationDataset", "TestDataset"]
+
 
 class TrainingDataset(IGData):
     """

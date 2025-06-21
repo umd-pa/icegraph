@@ -3,11 +3,11 @@
 
 from typing import Any
 
-from icegraph.config import IGConfig
-from .exceptions import GeometryFrameNotFound
-
 from icecube.icetray import OMKey
 from icecube import dataio
+
+from icegraph.config import IGConfig
+from .exceptions import GeometryFrameNotFound
 
 
 class Detector:

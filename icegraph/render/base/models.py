@@ -2,13 +2,16 @@
 # Developed by Taylor St Jean
 
 from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 
 from icegraph.data.base import IGData
 from icegraph.config import IGConfig
 from icegraph.console import Console
 from icegraph.geometry import Detector
+
+__all__ = ["IGPlot"]
 
 
 class IGPlot(ABC):

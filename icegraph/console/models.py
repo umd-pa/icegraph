@@ -2,16 +2,17 @@
 # Developed by Taylor St Jean
 
 from datetime import datetime
-from tqdm import tqdm
 import sys
 import threading
 from typing import Optional
 
+from tqdm import tqdm
+
 from .objects import Spinner
 from icegraph.config import IGConfig
 
-
 __all__ = ["Console"]
+
 
 class Console:
     """
@@ -102,7 +103,7 @@ class Console:
             cls._is_internal_write.value = False  # Reset flag
 
     @classmethod
-    def progress_bar(cls, _iter) -> iter:
+    def progress_bar(cls, _iter, **kwargs) -> iter:
         """
         Create a standardized progress bar using `tqdm`.
 
@@ -115,7 +116,8 @@ class Console:
         return tqdm(
             _iter,
             desc=f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}] {datetime.now().strftime('%X')}",
-            file=sys.stdout
+            file=sys.stdout,
+            **kwargs
         )
 
     @classmethod

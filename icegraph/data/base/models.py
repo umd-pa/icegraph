@@ -5,6 +5,8 @@ from typing import Union, List
 from pathlib import Path
 from abc import ABC
 import functools
+import os
+from multiprocessing import get_context
 
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -17,6 +19,7 @@ import numpy as np
 from icegraph.data.converter import generate_vector_mapping, HDF5ToParquet
 from icegraph.config import IGConfig
 from icegraph.console import Console
+from icegraph.data.base.workers import set_cache_inst, cache_event_worker
 
 __all__ = ["IGData"]
 
@@ -148,14 +151,28 @@ class IGData(Dataset, ABC):
                 self._populate_cache()
 
     def _populate_cache(self) -> None:
-        # TODO: THIS DESPERATELY NEEDS MULTIPROCESSING
         """
-        Populate the on-disk cache by iterating over all events.
+        Populate the on-disk cache in parallel using multiprocessing.
+
+        This distributes event-level cache writes across multiple processes.
+        Requires a module-level worker to be picklable.
         """
-        for idx, event_id in Console.progress_bar(enumerate(self.event_ids)):
-            labels = np.array([self.label_map[label][event_id] for label in self.target_labels])
-            features = self._get_features_for_event(event_id)
-            self._data_cache.register(self, idx, features, labels)
+        # Register this instance for worker access
+        set_cache_inst(self)
+
+        items = list(enumerate(self.event_ids))
+        total = len(items)
+
+        # Use fork context to inherit module globals on Unix
+        ctx = get_context('fork')
+        workers = min(self._config.user_config.multiprocessing.workers, os.cpu_count())
+        Console.out(f"Starting multiprocessing pool with {workers} workers.")
+        with ctx.Pool(processes=workers) as pool:
+            for _ in Console.progress_bar(
+                pool.imap_unordered(cache_event_worker, items),
+                total=total
+            ):
+                pass
 
     def _drop_subset_indices(self) -> None:
         """

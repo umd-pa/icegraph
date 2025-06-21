@@ -3,8 +3,8 @@
 
 from icegraph.config import IGConfig
 
-
 __all__ = ["generate_vector_mapping"]
+
 
 def generate_vector_mapping(config: IGConfig, invert: bool=False) -> dict[int, str] | dict[str, int]:
     requested_features = config.user_config.feature_extraction.feature_config.features

@@ -1,11 +1,12 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-import xxhash
 from pathlib import Path
 
+import xxhash
 
 __all__ = ["hash_directory"]
+
 
 def hash_directory(input_dir: Path, config_file: Path, input_file_ext: str) -> str:
     """

@@ -1,12 +1,15 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from pathlib import Path
+
+import numpy as np
+
 from .base import IGPlot
 from icegraph.geometry import Detector
 from icegraph.data.converter import generate_vector_mapping
 
-import numpy as np
-from pathlib import Path
+__all__ = ["FeaturePlot"]
 
 
 class FeaturePlot(IGPlot):

@@ -7,8 +7,8 @@ from typing import Union, Optional
 
 from icegraph.config import IGConfig
 
-
 __all__ = ["IGExtractor"]
+
 
 class IGExtractor(ABC):
     """
