@@ -6,7 +6,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from icegraph.data.base import IGData
+from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 from icegraph.console import Console
 from icegraph.geometry import Detector
@@ -16,8 +16,8 @@ __all__ = ["IGPlot"]
 
 class IGPlot(ABC):
 
-    def __init__(self, data: IGData, config: IGConfig) -> None:
-        self._data: IGData = data
+    def __init__(self, registry: DatasetRegistry, config: IGConfig) -> None:
+        self._registry: DatasetRegistry = registry
         self._config: IGConfig = config
 
         # init detector object to convert om keys to coords
@@ -27,6 +27,9 @@ class IGPlot(ABC):
         self._ax: plt.Axes
         self._fig: plt.Figure
         self._fig, self._ax = plt.subplots(1, 1)
+
+        self._cmap = "cool"
+        self._ax.set_facecolor('#eeeeee')
 
     def save(self, path: Path):
         Console.out(f"Saving feature plot: {path}")

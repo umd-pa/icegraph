@@ -1,5 +1,8 @@
 # Changelog
 
+#### Version [0.3.1] --- June 21st, 2025:
+- Added rudimentary feature plotting. Simply run ``plot = FeaturePlot(dataset_registry, config)``, then call ``plot.plot_feature("<feature_name>", save_path="<save_path>")``.
+
 ### Version [0.3.0] --- June 21st, 2025:
 - HDF5ToParquet converter module no longer combines ID's into composite keys, leaving them as separate columns. This massively improves program speed as packing and unpacking ID's added significant overhead. This also allows for dataset splitting selection strings to target any existing column in the truth table.
 - Moved project version to a config file, project name is still an IGConfig class attribute as it is not expected to change.
