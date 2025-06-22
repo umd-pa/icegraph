@@ -26,7 +26,7 @@ class IGExtractor(ABC):
         self._config: IGConfig = config
 
         # Use provided input_dir, or fall back to the one in user config
-        self.input_dir = Path(input_dir or self._config.user_config.input_dir)
+        self.input_dir = Path(input_dir or self._config.user_config.io.input_dir)
 
         # Derive output directory next to the input
         base_dir = self.input_dir if self.input_dir.is_dir() else self.input_dir.parent

@@ -17,21 +17,27 @@ class FeaturePlot(IGPlot):
     A plotting utility for visualizing specific DOM-level features.
     """
 
+    subplots = (1, 3)
+
     def plot_feature(self, feature: str, save_path: Path | None=None) -> None:
         """
-        Generate a plot of the specified feature across all DOMs for a single selected event.
+        Generate a plot of the specified feature across all DOMs for all events.
 
         Args:
             feature (str): Name of the DOM-level feature.
             save_path (Path): Path to save the plot. Defaults to output_dir specified in the global config file.
         """
         if not save_path:
-            save_path = Path(self._config.user_config.output_dir) / f"feature_plot_{feature}.png"
+            save_path = Path(self._config.user_config.io.output_dir) / f"feature_plot_{feature}.png"
 
         # label axes
-        self._ax.set_xlabel("dom_x")
-        self._ax.set_ylabel("dom_y")
-        self._ax.set_title(f"Feature {feature} vs DOM XY Position")
+        self._ax[0].set_xlabel("dom_x")
+        self._ax[1].set_xlabel("dom_y")
+        self._ax[2].set_xlabel("dom_z")
+
+        self._ax[0].set_title(f"Feature {feature} vs DOM X Position")
+        self._ax[1].set_title(f"Feature {feature} vs DOM Y Position")
+        self._ax[2].set_title(f"Feature {feature} vs DOM Z Position")
 
         # determine the vector index of the feature to plot
         inverted_vector_map: dict[str, int] = generate_vector_mapping(self._config, invert=True)
@@ -61,10 +67,8 @@ class FeaturePlot(IGPlot):
 
         data = np.vstack(array_stack)
 
-        _, _, _, im = self._ax.hist2d(data[:, 1], data[:, 2], bins=50, weights=data[:, 0], cmap=self._cmap, cmin=1e-8)
-
-        fig = self._ax.get_figure()
-        cbar = fig.colorbar(im, ax=self._ax, orientation='vertical', pad=0.02)
-        cbar.set_label(feature)
+        self._ax[0].hist(data[:, 1], bins=40, weights=data[:, 0])
+        self._ax[1].hist(data[:, 2], bins=40, weights=data[:, 0])
+        self._ax[2].hist(data[:, 3], bins=40, weights=data[:, 0])
 
         self.save(save_path)

@@ -58,13 +58,13 @@ class IGConfig:
 
         # cache attributes
         self._user_config_cache: DotMap | None = None
-        self._feature_map_config_cache: dict | None = None
-        self._standard_id_col_config_cache: dict | None = None
+        self._feature_map_config_cache: DotMap | None = None
+        self._standard_id_col_config_cache: DotMap | None = None
         self._input_hash_cache: str | None = None
 
         # fallback GCD file
         self.gcd_path = Path(
-            self.user_config.gcd_path or
+            self.user_config.io.gcd_path or
             "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
         )
 
@@ -154,7 +154,7 @@ class IGConfig:
             str: A hash representing the input state.
         """
         if self._input_hash_cache is None:
-            input_dir = Path(self.user_config.input_dir)
+            input_dir = Path(self.user_config.io.input_dir)
             config_file = Path(self.user_config_path)
             self._input_hash_cache = hash_directory(input_dir, config_file, ".i3.zst")
 

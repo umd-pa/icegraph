@@ -1,5 +1,9 @@
 # Changelog
 
+#### Version [0.3.2] --- June 22nd, 2025:
+- Reorganized the config file for clarity.
+- Changed the feature plot to generate 3 1D histograms instead of 1 2D histogram.
+
 #### Version [0.3.1] --- June 21st, 2025:
 - Added rudimentary feature plotting. Simply run ``plot = FeaturePlot(dataset_registry, config)``, then call ``plot.plot_feature("<feature_name>", save_path="<save_path>")``.
 

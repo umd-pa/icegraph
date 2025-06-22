@@ -1,7 +1,8 @@
 # file and dir paths
-input_dir: /data/i3store/users/tstjean/i3_10_test
-gcd_path: ""
-output_dir: /data/i3store/users/tstjean/plots
+io:
+  input_dir: /data/i3store/users/tstjean/i3_10_test
+  gcd_path: ""
+  output_dir: /data/i3store/users/tstjean/plots
 
 # frame keys (for feature extraction)
 frame_keys:
@@ -15,17 +16,19 @@ table_names:
   features: ml_suite_features
   truth: I3MCWeightDict
 
-# truth labels to use for training
-target_labels:
-  - PrimaryNeutrinoEnergy
+data:
+  # truth labels to use for training
+  target_labels:
+    - PrimaryNeutrinoEnergy
 
-selection:
-  train: "Event % 5 > 1"
-  validation: "Event % 5 == 1"
-  test: "Event % 5 == 0"
+  splits:
+    train: "Event % 5 > 1"
+    validation: "Event % 5 == 1"
+    test: "Event % 5 == 0"
 
-multiprocessing:
-  workers: 41
+execution:
+  workers: 40
+
 
 feature_extraction:
   # Define name of pulse series from which to extract features

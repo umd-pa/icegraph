@@ -102,7 +102,7 @@ class DatasetRegistry:
             DatasetRegistry: A fully-initialized registry containing training, validation, and test datasets.
         """
         # check the cache for a pre-converted file before running
-        Console.out(f"Looking for cached conversion of: {config.user_config.input_dir}")
+        Console.out(f"Looking for cached conversion of: {config.user_config.io.input_dir}")
 
         # initialize the converter cache handler
         converter_cache = IGConverterCache(config)

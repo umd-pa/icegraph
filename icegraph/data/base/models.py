@@ -90,7 +90,7 @@ class IGData(Dataset, ABC):
         self._drop_subset_indices()
         self.truth_df.reset_index(drop=True)
 
-        self.target_labels = self._config.user_config.target_labels
+        self.target_labels = self._config.user_config.data.target_labels
 
         # Preload metadata for faster access
         self.metadata = self.features_file.metadata
@@ -170,7 +170,7 @@ class IGData(Dataset, ABC):
 
         # Use fork context to inherit module globals on Unix
         ctx = get_context('fork')
-        workers = min(self._config.user_config.multiprocessing.workers, os.cpu_count() or 1)
+        workers = min(self._config.user_config.execution.workers, os.cpu_count() or 1)
         Console.out(f"Starting multiprocessing cache fill for subset='{self.subset}' with {workers} workers.")
         with ctx.Pool(processes=workers) as pool:
             for _ in Console.progress_bar(
@@ -189,7 +189,7 @@ class IGData(Dataset, ABC):
         if self._truth_filtered:
             return
 
-        selection_str = getattr(self._config.user_config.selection, self.subset)
+        selection_str = getattr(self._config.user_config.data.splits, self.subset)
         Console.out(f"Applying selection string for {self.subset=}: {selection_str}")
 
         def safe_query(df, expr):
