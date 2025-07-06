@@ -9,12 +9,12 @@ import lmdb
 import struct
 import msgpack
 
-from torch_geometric.data import Dataset, DataLoader
+from torch_geometric.data import Dataset
 import torch_geometric as pyg
 import torch
 import numpy as np
 
-from icegraph.data.preprocess import generate_vector_mapping
+from icegraph.data.transform import generate_vector_mapping
 from icegraph.config import IGConfig
 
 __all__ = ["IGData"]
@@ -32,7 +32,7 @@ class IGData(Dataset, ABC):
     subset: Optional[str] = None
 
     dataloader = property(
-        lambda self: functools.partial(DataLoader, self),
+        lambda self: functools.partial(pyg.loader.DataLoader, self),
         doc="A convenience property that returns a partially-applied torch geometric DataLoader constructor for this dataset."
     )
 

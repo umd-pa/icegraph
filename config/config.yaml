@@ -20,9 +20,9 @@ data:
     - PrimaryNeutrinoEnergy
 
   splits:
-    train: "Event % 5 > 1"
-    validation: "Event % 5 == 1"
-    test: "Event % 5 == 0"
+    # !!! only stratify for classification tasks
+    stratify: false
+    seed: 36
 
 training:
   model: MLP

@@ -13,6 +13,7 @@ from .hash_utils import hash_directory
 __all__ = ["IGConfig"]
 
 
+# TODO: convert IGConfig to a pydantic model for config validation
 class IGConfig:
     """
     Handles configuration loading, caching, and utility paths for the IceGraph pipeline.

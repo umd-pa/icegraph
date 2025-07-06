@@ -22,12 +22,9 @@ class IGMerger(ABC):
                 f"{self.__class__.__name__} must define the 'file_ext' class attribute."
             )
 
-        self.output_file = self.input_dir / f"merged.{self.file_ext}"
-        self.files = self.input_dir.glob(f"*.{self.file_ext}")
-
-        # verify output directory exists
-        self.output_file.mkdir(parents=True, exist_ok=True)
+        self.outfile = self.input_dir / f"merged.{self.file_ext}"
+        self.files = list(self.input_dir.glob(f"*.{self.file_ext}"))
 
     @abstractmethod
-    def merge(self) -> Path:
+    def merge(self, outfile: Optional[Union[str, Path]] = None) -> Path:
         ...

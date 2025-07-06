@@ -28,6 +28,23 @@ class LMDBWriter(IGWriter):
         table (pd.DataFrame): The data table to be serialized and stored.
     """
 
+    @staticmethod
+    def _safe_put(txn, key, value, env) -> lmdb.Transaction:
+        """
+        Attempt to put the key-value pair, expanding map size if needed.
+        Returns an active txn.
+        """
+        while True:
+            try:
+                txn.put(key, value)
+                return txn
+            except lmdb.MapFullError:
+                txn.abort()
+                new_size = env.info()["map_size"] * 2
+                Console.out(f"LMDB map full, expanding map to {new_size} bytes.", severity=2)
+                env.set_mapsize(new_size)
+                txn = env.begin(write=True)
+
     def write(self, outfile: Union[str, Path], include_cols: Optional[list] = None) -> None:
         """
         Write the DataFrame to an LMDB file.
@@ -41,6 +58,7 @@ class LMDBWriter(IGWriter):
             Any exceptions from LMDB or msgpack during I/O are propagated.
         """
         outfile = Path(outfile)
+        outfile.parent.mkdir(parents=True, exist_ok=True)
 
         # use all columns if none are specified
         include_cols = include_cols or self.table.columns.tolist()
@@ -59,13 +77,50 @@ class LMDBWriter(IGWriter):
         )
 
         with env.begin(write=True) as txn:
-            for idx, row in enumerate(Console.progress_bar(self.table.itertuples(index=False))):
+            for idx, row in enumerate(Console.progress_bar(self.table.itertuples(index=False), total=self.table.shape[0])):
                 # use 8 byte big-endian integer as the LMDB key for numeric ordering
                 key = struct.pack('>Q', idx)
                 feats = {col: getattr(row, col) for col in include_cols}
 
                 # serialize
                 value = msgpack.packb(feats, use_bin_type=True)
-                txn.put(key, value)
+                txn = self._safe_put(txn, key, value, env)
+
+        Console.out(f"LMDB written to {outfile}")
 
         env.close()
+
+    def append(self, outfile: Union[str, Path], start_idx: int, include_cols: Optional[list] = None) -> int:
+        """
+        Append the DataFrame to an existing LMDB file, starting keys from `start_idx`.
+
+        Args:
+            outfile (Union[str, Path]): Path to the LMDB file to append to.
+            start_idx (int): The starting index for new entries.
+            include_cols (Optional[list]): Columns to include. If None, use all.
+
+        Returns:
+            int: Number of entries written.
+        """
+        outfile = Path(outfile)
+        outfile.parent.mkdir(parents=True, exist_ok=True)
+
+        include_cols = include_cols or self.table.columns.tolist()
+
+        env = lmdb.open(
+            str(outfile),
+            map_size=10 * 1024 ** 3,
+            subdir=False,
+            lock=True,
+            readahead=False
+        )
+
+        with env.begin(write=True) as txn:
+            for i, row in enumerate(self.table.itertuples(index=False)):
+                key = struct.pack('>Q', start_idx + i)
+                feats = {col: getattr(row, col) for col in include_cols}
+                value = msgpack.packb(feats, use_bin_type=True)
+                txn = self._safe_put(txn, key, value, env)
+
+        env.close()
+        return len(self.table)

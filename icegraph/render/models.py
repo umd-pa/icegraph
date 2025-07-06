@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .base import IGPlot
-from icegraph.data.preprocess import generate_vector_mapping
+from icegraph.data.transform import generate_vector_mapping
 
 __all__ = ["FeaturePlot"]
 

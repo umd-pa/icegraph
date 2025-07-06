@@ -14,12 +14,20 @@ from .schemas import generate_vector_mapping
 from icegraph.geometry import Detector
 from icegraph.data.writers import LMDBWriter
 
-__all__ = ["GraphSamplePreprocessor"]
+__all__ = ["TransformToDataset"]
 
 
-class GraphSamplePreprocessor:
+class TransformToDataset:
     """
-    Processes an HDF5 file generated via `ml_suite`, saves graph samples to a Lightning Memory-Mapped Database (LMDB) file.
+    Transforms an HDF5 file of DOM-level event data into a Lightning Memory-Mapped Database (LMDB)
+    of compressed graph samples, with edge indices and features for GNN processing.
+
+    This includes:
+    - Reshaping DOM-level features
+    - Mapping feature vectors
+    - Grouping by event
+    - Computing graph edge structures
+    - Writing to LMDB for training/evaluation
     """
 
     def __init__(self, input_file: Union[str, Path]) -> None:
@@ -49,10 +57,12 @@ class GraphSamplePreprocessor:
         Returns:
             Path: Path to the output LMDB file.
         """
+        Console.banner("Graph Sample Preprocessor")
         Console.out(f"Building graph samples from raw data: {self.input_file}")
         Console.spinner().start()
 
         outfile = Path(outfile or self.input_file.parent / "graphs.lmdb")
+        outfile.parent.mkdir(parents=True, exist_ok=True)
 
         # Load data to DataFrames
         # IDE might complain these aren't DataFrames; they are.
@@ -86,7 +96,6 @@ class GraphSamplePreprocessor:
 
         # export to lmdb
         self._to_lmdb(table, outfile)
-        Console.out(f"Output file saved to {outfile}")
 
         return outfile
 
@@ -274,3 +283,8 @@ class GraphSamplePreprocessor:
             mapping (dict): Mapping from original column names to new names.
         """
         table.rename(columns=mapping, inplace=True)
+
+
+class Normalize:
+
+    pass

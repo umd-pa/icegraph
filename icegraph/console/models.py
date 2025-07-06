@@ -169,3 +169,18 @@ class Console:
         if Console._spinner is None:
             Console._spinner = Spinner(cls)
         return cls._spinner
+
+    @classmethod
+    def newline(cls) -> None:
+        """
+        Prints an empty line.
+        """
+        print("")
+
+    @classmethod
+    def banner(cls, stage: str) -> None:
+        """
+        Prints a banner for the current processing stage.
+        """
+        cls.newline()
+        print("=" * 15 + " " + "ICEGRAPH --- " + stage + " " + "=" * 15)

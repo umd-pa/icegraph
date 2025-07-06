@@ -15,24 +15,21 @@ class IGExtractor(ABC):
     Abstract base class for data extraction pipelines.
     """
 
-    def __init__(self, input_dir: Union[str, Path]) -> None:
+    def __init__(self, resource: Union[str, Path]) -> None:
         """
         Initialize the base extractor.
 
         Args:
-            input_dir (Union[str, Path]): Path to the input directory.
+            resource (Union[str, Path]): Path to the input directory or file.
         """
         self._config: IGConfig = IGConfig.get()
 
-        # Use provided input_dir
-        self.input_dir = Path(input_dir)
+        # Use provided resource
+        self.resource = Path(resource)
 
         # Derive output directory next to the input
-        base_dir = self.input_dir if self.input_dir.is_dir() else self.input_dir.parent
+        base_dir = self.resource if self.resource.is_dir() else self.resource.parent
         self.output_dir = base_dir / "extraction"
-
-        # Ensure output directory exists
-        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def __call__(self):
         return self.extract()

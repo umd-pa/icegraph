@@ -1,5 +1,15 @@
 # Changelog
 
+### Version [0.4.0] --- July 6th, 2025:
+- Restructured the API, reduced the black-boxiness of the program.
+- Added file merging utilities for LMDB and HDF5.
+- Aggressively refactored some portions of code, especially in icegraph.data module.
+- Added GravNet model for training, along with a rudimentary Trainer class.
+- Removed old trainer models and modules.
+- Config is now globally accessible via IGConfig.register(), no longer need to pass downstream.
+- icegraph.data.convert is now a placeholder submodule.
+- Many other minor changes.
+
 #### Version [0.3.2] --- June 22nd, 2025:
 - Reorganized the config file for clarity.
 - Changed the feature plot to generate 3 1D histograms instead of 1 2D histogram.

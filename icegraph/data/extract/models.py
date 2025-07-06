@@ -56,16 +56,24 @@ class FeatureExtractor(IGExtractor):
         """
         # Path to output file
         outfile = Path(outfile or self.output_dir / 'data.hdf5')
+        outfile.parent.mkdir(parents=True, exist_ok=True)
 
-        Console.out(f"Running feature extraction: {self.input_dir}")
+        Console.banner("Feature Extractor")
+        Console.out(f"Running feature extraction: {self.resource}")
         Console.spinner().start()
 
         tray = I3Tray()
 
-        # Read the i3 files to memory
-        input_files = [str(self._config.gcd_path)] + [
-            str(p) for p in sorted(self.input_dir.glob("*.i3.zst"))
-        ]
+        # Read the i3 file(s) to memory
+        if self.resource.is_dir():
+            input_files = [str(self._config.gcd_path)] + [
+                str(p) for p in sorted(self.resource.glob("*.i3.zst"))
+            ]
+        else:
+            input_files = [str(self._config.gcd_path)] + [
+                str(self.resource)
+            ]
+
         tray.Add('I3Reader', Filenamelist=input_files)
 
         # This module labels MC events based on their topology

@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from . import console
-from .data import extract, convert, merge, preprocess
+from .data import extract, convert, merge, transform
 from . import data
 from . import config
 from . import render

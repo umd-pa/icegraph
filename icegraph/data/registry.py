@@ -4,6 +4,9 @@
 from typing import Self, Type, TYPE_CHECKING, Union
 from pathlib import Path
 
+import torch_geometric as pyg
+
+from icegraph.config import IGConfig
 from icegraph.data import TrainingDataset, ValidationDataset, TestDataset
 
 __all__ = ["DatasetRegistry"]
@@ -49,6 +52,12 @@ class DatasetRegistry:
 
         self._datasets = [self._train_dataset, self._validation_dataset, self._test_dataset]
 
+        # get training params from config
+        self._config = IGConfig.get()
+
+        self.batch_size = self._config.user_config.training.batch_size
+        self.num_workers = self._config.user_config.training.num_workers
+
         # verify the datasets were passed in the correct order
         if self._train_dataset.subset != "train":
             raise ValueError("Expected train_dataset.subset == 'train'")
@@ -76,6 +85,39 @@ class DatasetRegistry:
 
         @property
         def test_dataset(self) -> TestDataset: ...
+
+    @property
+    def train_dataloader(self) -> pyg.loader.DataLoader:
+        """
+        Returns a Torch Geometric dataloader for the training split.
+        """
+        return self.train_dataset.dataloader(
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers
+        )
+
+    @property
+    def val_dataloader(self) -> pyg.loader.DataLoader:
+        """
+        Returns a Torch Geometric dataloader for the validation split.
+        """
+        return self.val_dataset.dataloader(
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers
+        )
+
+    @property
+    def test_dataloader(self) -> pyg.loader.DataLoader:
+        """
+        Returns a Torch Geometric dataloader for the test split.
+        """
+        return self.test_dataset.dataloader(
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers
+        )
 
     @classmethod
     def load_from_lmdb(cls, train_lmdb: Union[str, Path], val_lmdb: Union[str, Path], test_lmdb: Union[str, Path]) -> Self:
