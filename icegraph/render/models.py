@@ -7,10 +7,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .base import IGPlot
-from icegraph.data.converter import generate_vector_mapping
+from icegraph.data.preprocess import generate_vector_mapping
 
 __all__ = ["FeaturePlot"]
 
+
+class CDFPlot(IGPlot):
+
+    subplots = (1, 1)
+
+    def plot(self, feature: str, save_path: Path | None=None) -> None:
+        pass
 
 class FeaturePlot(IGPlot):
     """
@@ -19,7 +26,7 @@ class FeaturePlot(IGPlot):
 
     subplots = (1, 3)
 
-    def plot_feature(self, feature: str, save_path: Path | None=None) -> None:
+    def plot(self, feature: str, save_path: Path | None=None) -> None:
         """
         Generate a plot of the specified feature across all DOMs for all events.
 
@@ -49,16 +56,16 @@ class FeaturePlot(IGPlot):
 
         # collect all datasets to pull features from
         datasets = [
-            self._registry.training_dataset,
+            self._registry.train_dataset,
             self._registry.test_dataset,
-            self._registry.validation_dataset
+            self._registry.val_dataset
         ]
 
         # pull features from data
         array_stack = []
         for dataset in datasets:
             for idx in range(len(dataset)):
-                features, labels = dataset[idx]
+                features, labels, _, _ = dataset.get(idx)
 
                 feature_data = features[:, feature_idx:feature_idx + 1]
                 dom_coords = features[:, len(inverted_vector_map):len(inverted_vector_map) + 3]

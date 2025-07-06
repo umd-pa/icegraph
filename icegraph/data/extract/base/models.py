@@ -15,18 +15,17 @@ class IGExtractor(ABC):
     Abstract base class for data extraction pipelines.
     """
 
-    def __init__(self, config: IGConfig, input_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, input_dir: Union[str, Path]) -> None:
         """
         Initialize the base extractor.
 
         Args:
-            config (IGConfig): IceGraph configuration object containing user settings.
-            input_dir (Optional[Union[str, Path]]): Optional path to override the default input directory.
+            input_dir (Union[str, Path]): Path to the input directory.
         """
-        self._config: IGConfig = config
+        self._config: IGConfig = IGConfig.get()
 
-        # Use provided input_dir, or fall back to the one in user config
-        self.input_dir = Path(input_dir or self._config.user_config.io.input_dir)
+        # Use provided input_dir
+        self.input_dir = Path(input_dir)
 
         # Derive output directory next to the input
         base_dir = self.input_dir if self.input_dir.is_dir() else self.input_dir.parent
@@ -35,8 +34,11 @@ class IGExtractor(ABC):
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    def __call__(self):
+        return self.extract()
+
     @abstractmethod
-    def extract(self) -> Path:
+    def extract(self, outfile: Optional[Union[str, Path]] = None) -> Path:
         """
         Run the extraction process and return the output path.
 
@@ -46,4 +48,4 @@ class IGExtractor(ABC):
         Raises:
             NotImplementedError: Must be implemented by any subclass of Extractor.
         """
-        pass
+        ...

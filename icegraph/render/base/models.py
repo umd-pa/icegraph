@@ -19,12 +19,12 @@ class IGPlot(ABC):
 
     subplots: tuple[int, int] = (1, 1)
 
-    def __init__(self, registry: DatasetRegistry, config: IGConfig) -> None:
+    def __init__(self, registry: DatasetRegistry) -> None:
         self._registry: DatasetRegistry = registry
-        self._config: IGConfig = config
+        self._config: IGConfig = IGConfig.get()
 
         # init detector object to convert om keys to coords
-        self._detector = Detector(self._config)
+        self._detector = Detector()
 
         # initialize figure
         self._fig, self._ax = plt.subplots(
@@ -41,6 +41,10 @@ class IGPlot(ABC):
 
         for ax in self._ax:
             ax.set_facecolor('#eeeeee')
+
+    @abstractmethod
+    def plot(self, feature: str, save_path: Path | None=None) -> None:
+        ...
 
     def save(self, path: Path):
         Console.out(f"Saving feature plot: {path}")

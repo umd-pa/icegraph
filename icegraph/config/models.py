@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
-from typing import Union, Any, Optional
+from typing import Union, Any, Optional, Self
 import tempfile
 
 from dotmap import DotMap
@@ -21,6 +21,8 @@ class IGConfig:
     to relevant settings, computes input hashes for caching, and generates
     config files for external tools (e.g., `ml_suite`).
     """
+
+    _instance: Optional[Self] = None
 
     PROGRAM_NAME = "icegraph"
 
@@ -146,16 +148,14 @@ class IGConfig:
         with path.open("r") as file:
             return yaml.safe_load(file)
 
-    def get_input_state_hash(self) -> str:
-        """
-        Compute a consistent content-based hash of the input directory and configuration file.
+    @classmethod
+    def register(cls, instance: Self) -> None:
+        """Register the config instance for global access."""
+        cls._instance = instance
 
-        Returns:
-            str: A hash representing the input state.
-        """
-        if self._input_hash_cache is None:
-            input_dir = Path(self.user_config.io.input_dir)
-            config_file = Path(self.user_config_path)
-            self._input_hash_cache = hash_directory(input_dir, config_file, ".i3.zst")
-
-        return self._input_hash_cache
+    @classmethod
+    def get(cls) -> Self:
+        """Get the globally accessible config instance."""
+        if cls._instance is None:
+            raise RuntimeError("Config not registered")
+        return cls._instance

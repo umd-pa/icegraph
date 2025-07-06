@@ -2,17 +2,21 @@
 # Developed by Taylor St Jean
 
 from . import console
-from .data import extractor, cache, converter
+from .data import extract, convert, merge, preprocess
 from . import data
 from . import config
 from . import render
+from . import train
+from .train import module
 
 __all__ = [
-    "cache",
     "console",
     "extractor",
     "converter",
     "data",
     "config",
     "render",
+    "train",
+    "merger",
+    "processing"
 ]

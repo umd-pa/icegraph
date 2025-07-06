@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Any
+from typing import Any, Optional
 
 from icecube.icetray import OMKey
 from icecube import dataio
@@ -19,18 +19,18 @@ class Detector:
     utility methods for retrieving DOM positions using string/OM/PMT info.
     """
 
-    def __init__(self, config: IGConfig) -> None:
+    def __init__(self) -> None:
         """
         Initialize the Detector object with IceGraph configuration.
-
-        Args:
-            config (IGConfig): IceGraph configuration object containing user settings.
         """
-        self._config: IGConfig = config
+        self._config: IGConfig = IGConfig.get()
 
         # initialize gcd geometry frame cache and load to memory
         self._gcd_geometry: Any | None = None
         self._load_gcd()
+
+        # initialize dom_id cache
+        self._dom_ids: Optional[list[tuple[int, int, int]]] = None
 
     def _load_gcd(self) -> None:
         """
@@ -69,3 +69,16 @@ class Detector:
         omkey = OMKey(int(string), int(om), int(pmt))
         position = self._gcd_geometry[omkey].position
         return position.x, position.y, position.z
+
+    def get_all_dom_ids(self) -> list[tuple[int, int, int]]:
+        """
+        Returns a list of all DOM identifiers present in the geometry.
+
+        Each DOM ID is a tuple: (string, om, pmt)
+
+        Returns:
+            list[tuple[int, int, int]]: List of all DOM identifiers.
+        """
+        if self._dom_ids is None:
+            self._dom_ids = [(omkey.string, omkey.om, omkey.pmt) for omkey in self._gcd_geometry.keys()]
+        return self._dom_ids

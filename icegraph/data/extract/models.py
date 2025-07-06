@@ -2,6 +2,7 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
+from typing import Optional, Union
 
 # have to wrap in try/except block so sphinx can properly generate docs
 try:
@@ -25,6 +26,7 @@ except ImportError:
 
 from icegraph.console import Console
 from .base import IGExtractor
+from .base.modules import UniqueID
 
 __all__ = ["FeatureExtractor"]
 
@@ -45,13 +47,16 @@ class FeatureExtractor(IGExtractor):
     else:
         cls_converter = None
 
-    def extract(self) -> Path:
+    def extract(self, outfile: Optional[Union[str, Path]] = None) -> Path:
         """
         Executes the IceTray feature extraction pipeline on the input directory.
 
         Returns:
             Path: Path to the generated HDF5 output file.
         """
+        # Path to output file
+        outfile = Path(outfile or self.output_dir / 'data.hdf5')
+
         Console.out(f"Running feature extraction: {self.input_dir}")
         Console.spinner().start()
 
@@ -78,8 +83,7 @@ class FeatureExtractor(IGExtractor):
             cfg_file=str(self._config.ml_suite_config_file)
         )
 
-        # Path to output file
-        outfile = self.output_dir / 'data.hdf5'
+        tray.Add(UniqueID)
 
         # Serialize labels and features to HDF5
         tray.AddSegment(
@@ -96,6 +100,8 @@ class FeatureExtractor(IGExtractor):
         )
 
         tray.Execute()
+
         Console.spinner().stop()
+        Console.out(f"Output files saved to {outfile}")
 
         return outfile

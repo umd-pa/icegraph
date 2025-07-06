@@ -1,8 +1,6 @@
 # file and dir paths
 io:
-  input_dir: /data/i3store/users/tstjean/i3_10_test
   gcd_path: ""
-  output_dir: /data/i3store/users/tstjean/plots
 
 # frame keys (for feature extraction)
 frame_keys:
@@ -26,9 +24,14 @@ data:
     validation: "Event % 5 == 1"
     test: "Event % 5 == 0"
 
-execution:
-  workers: 40
+training:
+  model: MLP
+  seed: 23
+  batch_size: 1
+  num_workers: 1
 
+  trainer_params:
+    max_epochs: 200
 
 feature_extraction:
   # Define name of pulse series from which to extract features
