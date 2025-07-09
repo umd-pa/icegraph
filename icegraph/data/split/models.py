@@ -30,14 +30,14 @@ class DatasetSplitter:
     separate LMDB files for training, validation, and testing.
     """
 
-    def __init__(self, input_file: Union[str, Path]):
+    def __init__(self, infile: Union[str, Path]):
         """
         Initialize the split processor.
 
         Args:
-            input_file (Union[str, Path]): Path to the input LMDB file containing all samples.
+            infile (Union[str, Path]): Path to the input LMDB file containing all samples.
         """
-        self.input_file = Path(input_file)
+        self.infile = Path(infile)
         self._config: IGConfig = IGConfig.get()
         self.target_labels = self._config.user_config.data.target_labels
         self._table: Optional[pd.DataFrame] = None
@@ -63,7 +63,7 @@ class DatasetSplitter:
             pd.DataFrame: The deserialized table of all samples.
         """
         env = lmdb.open(
-            str(self.input_file),
+            str(self.infile),
             subdir=False,
             readonly=True,
             lock=False,
@@ -77,59 +77,6 @@ class DatasetSplitter:
                 rows.append(msgpack.unpackb(value, raw=False))
         env.close()
         return pd.DataFrame.from_records(rows)
-
-    @property
-    def table(self) -> pd.DataFrame:
-        """
-        Lazily load the LMDB data into a table on first access.
-
-        Returns:
-            pd.DataFrame: Sample table loaded from LMDB.
-        """
-        if self._table is None:
-            self._table = self._read_lmdb()
-        return self._table
-
-    def generate_splits(self, outdir: Optional[Union[str, Path]] = None) -> tuple[Path, Path, Path]:
-        """
-        Generate stratified train/validation/test splits and save them as LMDBs.
-
-        Args:
-            outdir (Optional[Union[str, Path]]): Where to save the split LMDB files.
-                Defaults to a `splits/` subdirectory of the input file location.
-
-        Returns:
-            tuple[Path, Path, Path]: Paths to train, validation, and test LMDBs.
-        """
-        Console.banner("SplitToSampleDatabases")
-        Console.out(f"Generating train/val/test splits from source database: {self.input_file}")
-
-        outdir = Path(outdir or self.input_file.parent / "splits")
-        outdir.mkdir(parents=True, exist_ok=True)
-
-        multilabel = len(self.target_labels) > 1
-
-        if self._config.user_config.data.splits.stratify:
-            Console.out(
-                "Running multi-label stratification..." if multilabel else "Running single-label stratification...")
-            Console.spinner().start()
-            if multilabel:
-                df_train, df_val, df_test = self._multi_label_stratification()
-            else:
-                df_train, df_val, df_test = self._single_label_stratification()
-        else:
-            Console.out("Running standard train/test/val split...")
-            Console.spinner().start()
-            df_train, df_val, df_test = self._standard_split()
-
-        Console.spinner().stop()
-        Console.out("Split generation complete. Saving to LMDB...")
-
-        self._to_lmdb(df_train, outdir / "train.graphs.lmdb")
-        self._to_lmdb(df_val, outdir / "val.graphs.lmdb")
-        self._to_lmdb(df_test, outdir / "test.graphs.lmdb")
-
-        return outdir / "train.graphs.lmdb", outdir / "val.graphs.lmdb", outdir / "test.graphs.lmdb"
 
     def _standard_split(self, seed: Optional[int] = None):
         """
@@ -217,4 +164,55 @@ class DatasetSplitter:
         writer = LMDBWriter(table)
         writer.write(outfile, include_cols)
 
+    def generate_splits(self, outdir: Optional[Union[str, Path]] = None) -> tuple[Path, Path, Path]:
+        """
+        Generate stratified train/validation/test splits and save them as LMDBs.
 
+        Args:
+            outdir (Optional[Union[str, Path]]): Where to save the split LMDB files.
+                Defaults to a `splits/` subdirectory of the input file location.
+
+        Returns:
+            tuple[Path, Path, Path]: Paths to train, validation, and test LMDBs.
+        """
+        Console.banner("SplitToSampleDatabases")
+        Console.out(f"Generating train/val/test splits from source database: {self.infile}")
+
+        outdir = Path(outdir or self.infile.parent / "splits")
+        outdir.mkdir(parents=True, exist_ok=True)
+
+        multilabel = len(self.target_labels) > 1
+
+        if self._config.user_config.data.splits.stratify:
+            Console.out(
+                "Running multi-label stratification..." if multilabel else "Running single-label stratification...")
+            Console.spinner().start()
+            if multilabel:
+                df_train, df_val, df_test = self._multi_label_stratification()
+            else:
+                df_train, df_val, df_test = self._single_label_stratification()
+        else:
+            Console.out("Running standard train/test/val split...")
+            Console.spinner().start()
+            df_train, df_val, df_test = self._standard_split()
+
+        Console.spinner().stop()
+        Console.out("Split generation complete. Saving to LMDB...")
+
+        self._to_lmdb(df_train, outdir / "train.graphs.lmdb")
+        self._to_lmdb(df_val, outdir / "val.graphs.lmdb")
+        self._to_lmdb(df_test, outdir / "test.graphs.lmdb")
+
+        return outdir / "train.graphs.lmdb", outdir / "val.graphs.lmdb", outdir / "test.graphs.lmdb"
+
+    @property
+    def table(self) -> pd.DataFrame:
+        """
+        Lazily load the LMDB data into a table on first access.
+
+        Returns:
+            pd.DataFrame: Sample table loaded from LMDB.
+        """
+        if self._table is None:
+            self._table = self._read_lmdb()
+        return self._table

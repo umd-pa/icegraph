@@ -114,6 +114,20 @@ class IGData(Dataset, ABC):
             stat = txn.stat()
             return stat['entries']
 
+    @property
+    def num_output_features(self) -> int:
+        """
+        Returns the dimensionality of the target (label) for each graph sample.
+
+        Returns:
+            int: The number of output features (e.g., 1 for scalar regression,
+                 or the number of classes/targets for vector labels).
+        """
+        y = self[0].y
+        if y.ndim == 0:
+            return 1
+        return y.shape[-1]
+
     def get(self, idx: int) -> tuple[torch.Tensor, ...]:
         """
         Read and decode a single event from the LMDB dataset.

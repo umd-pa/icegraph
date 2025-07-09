@@ -3,9 +3,14 @@
 
 from typing import cast, Optional, Union
 from pathlib import Path
+import json
 
 import pandas as pd
+import numpy as np
+import torch
+from torch_cluster import knn_graph
 from scipy.spatial.ckdtree import cKDTree
+from sklearn.preprocessing import StandardScaler
 
 from icegraph.console import Console
 from icegraph.config import IGConfig
@@ -30,16 +35,27 @@ class TransformToDataset:
     - Writing to LMDB for training/evaluation
     """
 
-    def __init__(self, input_file: Union[str, Path]) -> None:
+    def __init__(self, infile: Union[str, Path]) -> None:
         """
         Initialize the data processor with an input file.
 
         Args:
-            input_file (Union[str, Path]): Path to the input file or directory.
+            infile (Union[str, Path]): Path to the input file or directory.
 
         """
-        self.input_file = Path(input_file)
+        self.infile = Path(infile)
         self._config: IGConfig = IGConfig.get()
+
+        # get relevant columns from config
+        self.dom_id_cols = self._config.standard_id_col_config.dom_id_columns
+        self.event_id_cols = self._config.standard_id_col_config.event_id_columns
+        self.dom_pos_cols = self._config.standard_id_col_config.dom_position_columns
+
+        # define a simple getter to extract data columns in a table and ignore IDs
+        self.data_cols = lambda table: [c for c in table.columns if c not in self.dom_id_cols + self.event_id_cols]
+
+        # get columns we should be applying a log scale to (i.e. energy)
+        self.apply_log_scaling = self._config.user_config.data.normalization.apply_log_scaling
 
     def __call__(self) -> Path:
         """
@@ -57,11 +73,11 @@ class TransformToDataset:
         Returns:
             Path: Path to the output LMDB file.
         """
-        Console.banner("Graph Sample Preprocessor")
-        Console.out(f"Building graph samples from raw data: {self.input_file}")
+        Console.banner("Data Transformer")
+        Console.out(f"Building graph samples from raw data: {self.infile}")
         Console.spinner().start()
 
-        outfile = Path(outfile or self.input_file.parent / "graphs.lmdb")
+        outfile = Path(outfile or self.infile.parent / "graphs.lmdb")
         outfile.parent.mkdir(parents=True, exist_ok=True)
 
         # Load data to DataFrames
@@ -69,11 +85,11 @@ class TransformToDataset:
         # Suppressing very loud HDF5 mismatched header warning
         with suppress_stderr():
             features_table = cast(pd.DataFrame, pd.read_hdf(
-                self.input_file,
+                self.infile,
                 key=self._config.user_config.table_names.features
             ))
             truth_table = cast(pd.DataFrame, pd.read_hdf(
-                self.input_file,
+                self.infile,
                 key=self._config.user_config.table_names.truth
             ))
 
@@ -84,6 +100,25 @@ class TransformToDataset:
         vector_map = generate_vector_mapping()
         self._apply_column_map(features_table, vector_map)
 
+        # normalize the data, and save the norms for inversion later
+        scaler_params_outfile = outfile.parent / "scaler-params-features.json"
+        features_table = self._normalize(features_table, scaler_params_outfile)
+
+        Console.out(
+            f"Scaler parameters saved to {scaler_params_outfile}. "
+            f"Use this to normalize/denormalize features in production.",
+            control_prefix="\r"
+        )
+
+        scaler_params_outfile = outfile.parent / "scaler-params-labels.json"
+        truth_table = self._normalize(truth_table, scaler_params_outfile)
+
+        Console.out(
+            f"Scaler parameters saved to {scaler_params_outfile}. "
+            f"Use this to normalize/denormalize labels in production.",
+            control_prefix="\r"
+        )
+
         # compress features by event
         features_table = self._compress(features_table)
 
@@ -92,7 +127,7 @@ class TransformToDataset:
         table = self._append_edge_index(table)
 
         Console.spinner().stop()
-        Console.out(f"Build complete, saving to LMDB...")
+        Console.out("Build complete, writing to LMDB...")
 
         # export to lmdb
         self._to_lmdb(table, outfile)
@@ -101,10 +136,11 @@ class TransformToDataset:
 
     def _append_edge_index(self, table: pd.DataFrame) -> pd.DataFrame:
         """
-        Compute k-nearest neighbor graph edges and distances for each event's DOM features.
+        Compute k-nearest neighbor graph edges and distances for each event's DOM features
+        using PyTorch's `knn_graph`.
 
         For each row (i.e., event) in the table, this method constructs an edge index and
-        corresponding edge weights using k-nearest neighbor (k=10) on DOM spatial coordinates.
+        corresponding edge weights using k-nearest neighbors (k=10) on DOM spatial coordinates.
         The resulting graph structure is appended as two new columns: 'edge_index' and 'edge_weight'.
 
         Args:
@@ -116,44 +152,30 @@ class TransformToDataset:
                           - 'edge_index': List of [2, num_edges] indices.
                           - 'edge_weight': List of distances between connected DOMs.
         """
-        # Precompute key order from the first row
-        sample_dict = table.iloc[0]['features']
-        key_order = list(sample_dict[0].keys())
-
-        dom_pos_cols = self._config.standard_id_col_config.dom_position_columns
 
         def compute_edges(row: pd.Series) -> pd.Series:
             features_dict = row["features"]
 
-            # extract dom positions
-            dom_positions = [[f[c] for c in dom_pos_cols] for f in features_dict]
+            # Extract DOM positions as tensor [num_nodes, num_coords]
+            dom_positions = torch.tensor(
+                [[f[c] for c in self.dom_pos_cols] for f in features_dict],
+                dtype=torch.float
+            )
 
-            # define the kdtree
-            tree = cKDTree(dom_positions)
+            # Compute kNN graph (k=10 neighbors)
+            edge_index = knn_graph(dom_positions, k=10, loop=False)  # shape: [2, num_edges]
 
-            # KNN (k+1 to skip self)
-            _, neighbors = tree.query(dom_positions, k=11)
-
-            # Build edge list and weights
-            edge_index = []
-            edge_weight = []
-
-            for i, nbrs in enumerate(neighbors):
-                for j in nbrs[1:]:  # skip self (first neighbor)
-                    edge_index.append([i, j])
-                    dist = sum((a - b) ** 2 for a, b in zip(dom_positions[i], dom_positions[j])) ** 0.5
-                    edge_weight.append(dist)
-
-            # Transpose edge_index to [2, num_edges] format as list-of-lists
-            edge_index = list(map(list, zip(*edge_index)))
+            # Compute edge weights (Euclidean distance)
+            src, dst = edge_index
+            distances = torch.norm(dom_positions[src] - dom_positions[dst], dim=1)  # [num_edges]
 
             return pd.Series({
-                "edge_index": edge_index,
-                "edge_weight": edge_weight
+                "edge_index": edge_index.tolist(),
+                "edge_weight": distances.tolist()
             })
 
         # Apply to all rows
-        table[['edge_index', 'edge_weight']] = table.apply(compute_edges, axis=1)
+        table[["edge_index", "edge_weight"]] = table.apply(compute_edges, axis=1)
         return table
 
     def _merge_tables(self, features: pd.DataFrame, truth: pd.DataFrame) -> pd.DataFrame:
@@ -179,7 +201,7 @@ class TransformToDataset:
         table = pd.merge(
             features,
             truth,
-            on=self._config.standard_id_col_config.event_id_columns,
+            on=self.event_id_cols,
             how='left'
         )
 
@@ -203,27 +225,23 @@ class TransformToDataset:
         table = table.pivot_table(index=index_cols, columns=pivot_col, values=value_col, aggfunc="first")
         table = table.reset_index()
 
-        # Create graphs
-        dom_id_cols = self._config.standard_id_col_config.dom_id_columns
-        dom_pos_cols = self._config.standard_id_col_config.dom_position_columns
-
         detector = Detector()
 
         # apply & expand into separate columns
         coords_df = table.apply(
             lambda row: pd.Series(
                 detector.get_dom_coords(
-                    row[dom_id_cols[0]],
-                    row[dom_id_cols[1]],
-                    row[dom_id_cols[2]]
+                    row[self.dom_id_cols[0]],
+                    row[self.dom_id_cols[1]],
+                    row[self.dom_id_cols[2]]
                 ),
-                index=dom_pos_cols
+                index=self.dom_pos_cols
             ),
             axis=1
         )
 
         table = pd.concat([table, coords_df], axis=1, ignore_index=False)
-        table.drop(columns=dom_id_cols, inplace=True)
+        table.drop(columns=self.dom_id_cols, inplace=True)
 
         return table
 
@@ -240,17 +258,11 @@ class TransformToDataset:
         Returns:
             pd.DataFrame: The event-level feature table with one list of features per event.
         """
-        dom_id_cols = self._config.standard_id_col_config.dom_id_columns
-        event_id_cols = self._config.standard_id_col_config.event_id_columns
-        dom_pos_cols = self._config.standard_id_col_config.dom_position_columns
-
-        feature_cols = [c for c in table.columns if c not in dom_id_cols + event_id_cols]
-
-        table['features'] = table[feature_cols + dom_pos_cols].to_dict(orient='records')
+        table['features'] = table[self.data_cols(table)].to_dict(orient='records')
 
         table = (
             table
-            .groupby(event_id_cols, as_index=False)
+            .groupby(self.event_id_cols, as_index=False)
             .agg(features=('features', list))
         )
 
@@ -264,14 +276,8 @@ class TransformToDataset:
             table (pd.DataFrame): Data to write.
             outfile (str): Output file path. Defaults to "graphs.lmdb" in the source dir.
         """
-        dom_id_cols = self._config.standard_id_col_config.dom_id_columns
-        event_id_cols = self._config.standard_id_col_config.event_id_columns
-
-        include_cols = [c for c in table.columns if c not in dom_id_cols + event_id_cols]
-
-        # write to lmdb
         writer = LMDBWriter(table)
-        writer.write(outfile, include_cols)
+        writer.write(outfile, self.data_cols(table))
 
     @staticmethod
     def _apply_column_map(table: pd.DataFrame, mapping: dict) -> None:
@@ -284,7 +290,137 @@ class TransformToDataset:
         """
         table.rename(columns=mapping, inplace=True)
 
+    def _normalize(self, table: pd.DataFrame, outfile: Union[str, Path]) -> pd.DataFrame:
+        """
+        Normalize the feature columns of a DataFrame and persist the scaling parameters.
+
+        Args:
+            table (pd.DataFrame):
+                Input DataFrame containing raw feature columns.
+            outfile (Union[str, Path]):
+                File path where the JSON of fitted scaler parameters will be saved.
+
+        Returns:
+            pd.DataFrame:
+                A copy of `table` with the specified feature columns normalized.
+        """
+        apply_log = [col for col in self.apply_log_scaling if col in table.columns]
+
+        normalizer = Normalize(table)
+        table = normalizer.transform(outfile, self.data_cols(table), apply_log)
+
+        return table
+
 
 class Normalize:
+    """
+    Utility class for normalizing and un-normalizing DataFrame columns using sklearn scalers.
+    """
+    def __init__(self, table: pd.DataFrame) -> None:
+        self.table = table
+        self._config = IGConfig.get()
 
-    pass
+    def transform(self, outfile: Union[str, Path], cols: list, log_cols: list) -> pd.DataFrame:
+        """
+        Normalize specified columns with z-score scaling and save parameters to JSON.
+
+        Args:
+            outfile: Path to write the scaler parameters JSON.
+            cols: List of column names to normalize.
+            log_cols: Columns to apply log10(x + 1) to.
+
+        Returns:
+            DataFrame with normalized columns.
+        """
+        outfile = Path(outfile)
+
+        # apply log to specified columns
+        self.table[log_cols] = np.log1p(self.table[log_cols])
+
+        scaler = StandardScaler()
+        table_scaled = self.table.copy()
+        table_scaled[cols] = scaler.fit_transform(self.table[cols])
+
+        log_mask = [col in log_cols for col in cols]
+
+        params = {
+            "columns": cols,
+            "mean": scaler.mean_.tolist(),
+            "scale": scaler.scale_.tolist(),
+            "log": log_mask
+        }
+
+        with outfile.open("w") as file:
+            json.dump(params, file, indent=2)
+
+        return table_scaled
+
+    def transform_from_saved_model(self, infile: Union[str, Path]) -> pd.DataFrame:
+        """
+        Normalize DataFrame columns using previously saved scaler parameters.
+
+        Args:
+            infile: Path to JSON file with scaler parameters.
+
+        Returns:
+            DataFrame with normalized columns.
+        """
+        infile = Path(infile)
+        with infile.open("r") as file:
+            params = json.load(file)
+
+        table_norm = self.table.copy()
+        for col, mu, sigma, log in zip(params["columns"], params["mean"], params["scale"], params["log"]):
+            if log:
+                table_norm[col] = np.log1p(table_norm[col])
+            table_norm[col] = (self.table[col] - mu) / sigma
+
+        return table_norm
+
+    def inverse_transform(self, infile: Union[str, Path]) -> pd.DataFrame:
+        """
+        Revert normalized columns back to their original scale using saved parameters.
+
+        Args:
+            infile: Path to JSON file with scaler parameters.
+
+        Returns:
+            DataFrame with columns in original scale.
+        """
+        infile = Path(infile)
+        with infile.open("r") as file:
+            params = json.load(file)
+
+        # only keep entries for columns that exist in self.table
+        filtered_params = [
+            (col, mu, sigma, log)
+            for col, mu, sigma, log in zip(
+                params["columns"],
+                params["mean"],
+                params["scale"],
+                params["log"]
+            )
+            if col in self.table.columns
+        ]
+
+        if filtered_params:
+            cols, means, scales, logs = zip(*filtered_params)
+            params["columns"] = list(cols)
+            params["mean"] = list(means)
+            params["scale"] = list(scales)
+            params["log"] = list(logs)
+        else:
+            # no matching columns → clear everything
+            params["columns"] = []
+            params["mean"] = []
+            params["scale"] = []
+            params["log"] = []
+
+        table_denorm = self.table.copy()
+        for col, mu, sigma, log in zip(params["columns"], params["mean"], params["scale"], params["log"]):
+            table_denorm[col] = self.table[col] * sigma + mu
+            if log:
+                table_denorm[col] = np.expm1(table_denorm[col])
+
+        return table_denorm
+

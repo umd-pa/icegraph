@@ -1,6 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import GravNetModel
+from .models import GravNet
 
-__all__ = ["GravNetModel"]
+__all__ = ["GravNet"]
