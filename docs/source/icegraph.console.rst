@@ -1,29 +1,29 @@
-icegraph.console
+icegraph.console package
 ========================
 
 Submodules
 ----------
 
-icegraph.console.models
-------------------------------
-
-.. automodule:: icegraph.console.models
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-icegraph.console.objects
+icegraph.console.objects module
 -------------------------------
 
 .. automodule:: icegraph.console.objects
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
-icegraph.console.streams
+icegraph.console.streams module
 -------------------------------
 
 .. automodule:: icegraph.console.streams
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: icegraph.console
+   :members:
+   :undoc-members:
+   :show-inheritance:

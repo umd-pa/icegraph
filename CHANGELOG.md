@@ -1,5 +1,8 @@
 # Changelog
 
+### Version [0.5.2] --- July 11th, 2025:
+- (Hopefully) fixed auto documentation.
+
 ### Version [0.5.1] --- July 11th, 2025:
 - Added a minimal usage guide for non-parallelized workflows.
 

@@ -3,4 +3,6 @@
 
 from .models import IGExtractor
 
+IGExtractor.__module__ = __name__
+
 __all__ = ["IGExtractor"]

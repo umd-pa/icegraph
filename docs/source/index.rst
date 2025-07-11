@@ -1,14 +1,12 @@
-Welcome to IceGraph's Documentation!
+Welcome to IceGraph’s documentation!
 ====================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Modules
+   :caption: API Reference:
 
-   modules
-
-Indices and tables
-==================
+   icegraph
 
 * :ref:`genindex`
 * :ref:`modindex`
+* :ref:`search`

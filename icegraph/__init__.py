@@ -2,21 +2,26 @@
 # Developed by Taylor St Jean
 
 from . import console
-from .data import extract, convert, merge, transform
+from .data import extract, convert, merge, transform, split, writers
 from . import data
 from . import config
+from . import geometry
 from . import render
 from . import train
 from .train import module
 
 __all__ = [
     "console",
-    "extractor",
-    "converter",
+    "extract",
+    "convert",
     "data",
     "config",
     "render",
     "train",
-    "merger",
-    "processing"
+    "merge",
+    "transform",
+    "split",
+    "writers",
+    "geometry",
+    "module"
 ]

@@ -2,3 +2,7 @@
 # Developed by Taylor St Jean
 
 from .models import IGPlot
+
+IGPlot.__module__ = __name__
+
+__all__ = ["IGPlot"]

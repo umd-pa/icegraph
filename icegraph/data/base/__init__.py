@@ -3,4 +3,6 @@
 
 from .models import IGData
 
+IGData.__module__ = __name__
+
 __all__ = ["IGData"]

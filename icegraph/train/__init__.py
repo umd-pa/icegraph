@@ -3,4 +3,6 @@
 
 from .models import Trainer
 
+Trainer.__module__ = __name__
+
 __all__ = ["Trainer"]

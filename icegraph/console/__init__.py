@@ -3,4 +3,6 @@
 
 from .models import Console
 
+Console.__module__ = __name__
+
 __all__ = ["Console"]

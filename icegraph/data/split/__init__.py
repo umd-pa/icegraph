@@ -3,4 +3,6 @@
 
 from .models import DatasetSplitter
 
+DatasetSplitter.__module__ = __name__
+
 __all__ = ["DatasetSplitter"]

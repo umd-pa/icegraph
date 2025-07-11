@@ -3,4 +3,6 @@
 
 from .models import GravNet
 
+GravNet.__module__ = __name__
+
 __all__ = ["GravNet"]

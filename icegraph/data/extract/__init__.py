@@ -3,4 +3,6 @@
 
 from .models import FeatureExtractor
 
+FeatureExtractor.__module__ = __name__
+
 __all__ = ["FeatureExtractor"]

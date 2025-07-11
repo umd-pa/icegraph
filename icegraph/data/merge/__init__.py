@@ -3,4 +3,7 @@
 
 from .models import LMDBMerger, HDF5Merger
 
+LMDBMerger.__module__ = __name__
+HDF5Merger.__module__ = __name__
+
 __all__ = ["LMDBMerger", "HDF5Merger"]

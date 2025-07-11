@@ -2,6 +2,9 @@
 # Developed by Taylor St Jean
 
 from .models import TransformToDataset
-from .schemas import generate_vector_mapping
+from .models import generate_vector_mapping
 
-__all__ = ["TransformToDataset", "generate_vector_mapping"]
+TransformToDataset.__module__ = __name__
+generate_vector_mapping.__module__ = __name__
+
+__all__ = ["TransformToDataset"]
