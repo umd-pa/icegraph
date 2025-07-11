@@ -1,5 +1,12 @@
 # Changelog
 
+### Version [0.5.0] --- July 10th, 2025:
+- Added example scripts under icegraph/examples for data processing and training.
+- Added installation instructions and fixed some issues with installation.
+- Moved internal configuration files to icegraph.icegraph.config.defaults.
+- Replaced setup.py --> MANIFEST.in, setup.cfg, pyproject.toml.
+- Many changes, backend class naming has been overhauled.
+
 ### Version [0.4.0] --- July 6th, 2025:
 - Restructured the API, reduced the black-boxiness of the program.
 - Added file merging utilities for LMDB and HDF5.

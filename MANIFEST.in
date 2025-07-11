@@ -1,0 +1,2 @@
+# MANIFEST.in
+recursive-include icegraph/config/defaults *.yaml *.yml

@@ -28,7 +28,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    config_path = "./config/config.yaml"
+    config_path = "/data/i3home/tstjean/icegraph/config/config.yaml"
     config = IGConfig(config_path)
 
     # register the config instance

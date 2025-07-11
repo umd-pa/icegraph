@@ -38,11 +38,11 @@ class IGConfig:
 
         # paths
         self.base_dir = Path(__file__).resolve().parent.parent.parent
+        self.src_dir = Path(__file__).resolve().parent.parent
 
         # config directories
         self.config_dir = self.base_dir / "config"
-        self.internal_config_dir = self.config_dir / ".internal"  # internal-use configuration files
-        self.user_config_dir = self.config_dir / "user"
+        self.internal_config_dir = self.src_dir / "config" / "defaults"  # internal-use configuration files
 
         # internal config file paths
         self.feature_map_config_file = self.internal_config_dir / "features_map.yaml"
@@ -55,15 +55,10 @@ class IGConfig:
 
         self.PROGRAM_VERSION = program_metadata.program_version
 
-        # cache directory
-        self.cache_dir = self.base_dir / ".cache"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
         # cache attributes
         self._user_config_cache: DotMap | None = None
         self._feature_map_config_cache: DotMap | None = None
         self._standard_id_col_config_cache: DotMap | None = None
-        self._input_hash_cache: str | None = None
 
         # fallback GCD file
         self.gcd_path = Path(
