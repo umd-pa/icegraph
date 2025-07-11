@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.console package &mdash; IceGraph 0.5.1 documentation</title>
+  <title>icegraph.data.writers package &mdash; IceGraph 0.5.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
@@ -19,8 +19,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="icegraph.data package" href="icegraph.data.html" />
-    <link rel="prev" title="icegraph.config.defaults package" href="icegraph.config.defaults.html" /> 
+    <link rel="next" title="icegraph.data.writers.base package" href="icegraph.data.writers.base.html" />
+    <link rel="prev" title="icegraph.data.transform package" href="icegraph.data.transform.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,14 +47,13 @@
 <li class="toctree-l1 current"><a class="reference internal" href="icegraph.html">icegraph package</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="icegraph.html#subpackages">Subpackages</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="icegraph.config.html">icegraph.config package</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.console package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#icegraph-console-objects-module">icegraph.console.objects module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#icegraph-console-streams-module">icegraph.console.streams module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.console.html">icegraph.console package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.render.html">icegraph.render package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.train.html">icegraph.train package</a></li>
@@ -80,9 +79,10 @@
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="icegraph.html">icegraph package</a></li>
-      <li class="breadcrumb-item active">icegraph.console package</li>
+          <li class="breadcrumb-item"><a href="icegraph.data.html">icegraph.data package</a></li>
+      <li class="breadcrumb-item active">icegraph.data.writers package</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="_sources/icegraph.console.rst.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/icegraph.data.writers.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -90,16 +90,22 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="icegraph-console-package">
-<h1>icegraph.console package<a class="headerlink" href="#icegraph-console-package" title="Link to this heading"></a></h1>
+  <section id="icegraph-data-writers-package">
+<h1>icegraph.data.writers package<a class="headerlink" href="#icegraph-data-writers-package" title="Link to this heading"></a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.data.writers.base.html">icegraph.data.writers.base package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.base.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.base.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
-</section>
-<section id="icegraph-console-objects-module">
-<h2>icegraph.console.objects module<a class="headerlink" href="#icegraph-console-objects-module" title="Link to this heading"></a></h2>
-</section>
-<section id="icegraph-console-streams-module">
-<h2>icegraph.console.streams module<a class="headerlink" href="#icegraph-console-streams-module" title="Link to this heading"></a></h2>
 </section>
 <section id="module-contents">
 <h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
@@ -110,8 +116,8 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="icegraph.config.defaults.html" class="btn btn-neutral float-left" title="icegraph.config.defaults package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="icegraph.data.html" class="btn btn-neutral float-right" title="icegraph.data package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="icegraph.data.transform.html" class="btn btn-neutral float-left" title="icegraph.data.transform package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="icegraph.data.writers.base.html" class="btn btn-neutral float-right" title="icegraph.data.writers.base package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

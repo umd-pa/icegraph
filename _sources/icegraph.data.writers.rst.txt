@@ -1,5 +1,5 @@
-icegraph.render package
-=======================
+icegraph.data.writers package
+=============================
 
 Subpackages
 -----------
@@ -7,7 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   icegraph.render.base
+   icegraph.data.writers.base
 
 Submodules
 ----------
@@ -15,7 +15,7 @@ Submodules
 Module contents
 ---------------
 
-.. automodule:: icegraph.render
+.. automodule:: icegraph.data.writers
    :members:
    :undoc-members:
    :show-inheritance:

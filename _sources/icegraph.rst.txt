@@ -1,4 +1,4 @@
-icegraph
+icegraph package
 ================
 
 Subpackages
@@ -7,18 +7,17 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   icegraph.cache
    icegraph.config
    icegraph.console
-   icegraph.converter
-   icegraph.dataset
-   icegraph.extractor
+   icegraph.data
+   icegraph.geometry
    icegraph.render
+   icegraph.train
 
 Module contents
 ---------------
 
 .. automodule:: icegraph
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
