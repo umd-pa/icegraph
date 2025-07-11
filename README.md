@@ -63,7 +63,7 @@ from icegraph.train import Trainer
 Define and register project configurations:
 ```
 # define an IGConfig instance from a config.yaml
-config_path = "./config/config.yaml"
+config_path = Path("path/to/config.yaml")
 config = IGConfig(config_path)
 
 # register it for global access
@@ -72,7 +72,7 @@ IGConfig.register(config)
 
 Set the path to your I3 file(s). This can be either a path to one I3 file, or to a directory containing multiple I3 files.
 ```
-resource = Path("path/to/files")
+resource = Path("path/to/i3_file(s)")
 ```
 
 Define the processing chain. Each process in the list is run sequentially from left to right.
@@ -93,7 +93,8 @@ trainer = Trainer(dataset_registry)
 trainer.run()
 
 # save the model 
-trainer.save()
+save_path = Path("path/to/model.pth")
+trainer.save(save_path)
 ```
 
 ### Parallelized (large datasets)
