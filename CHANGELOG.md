@@ -1,5 +1,8 @@
 # Changelog
 
+### Version [0.5.1] --- July 11th, 2025:
+- Added a minimal usage guide for non-parallelized workflows.
+
 ### Version [0.5.0] --- July 10th, 2025:
 - Added example scripts under icegraph/examples for data processing and training.
 - Added installation instructions and fixed some issues with installation.

@@ -20,9 +20,6 @@ from icegraph.train.module import GravNet
 
 
 def main():
-    # show all columns, no matter how many
-
-
     config_path = "./config/config.yaml"
     config = IGConfig(config_path)
 
