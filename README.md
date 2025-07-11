@@ -72,7 +72,7 @@ IGConfig.register(config)
 
 Set the path to your I3 file(s). This can be either a path to one I3 file, or to a directory containing multiple I3 files.
 ```
-resource = Path()
+resource = Path("path/to/files")
 ```
 
 Define the processing chain. Each process in the list is run sequentially from left to right.
