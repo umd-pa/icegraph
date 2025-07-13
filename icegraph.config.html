@@ -49,8 +49,8 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.config package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#icegraph-config-hash-utils-module">icegraph.config.hash_utils module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.config.hash_utils">icegraph.config.hash_utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.config">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.console.html">icegraph.console package</a></li>
@@ -98,7 +98,7 @@
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.config.defaults.html">icegraph.config.defaults package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.config.defaults.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.config.defaults.html#module-icegraph.config.defaults">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -107,11 +107,151 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
 </section>
-<section id="icegraph-config-hash-utils-module">
-<h2>icegraph.config.hash_utils module<a class="headerlink" href="#icegraph-config-hash-utils-module" title="Link to this heading"></a></h2>
+<section id="module-icegraph.config.hash_utils">
+<span id="icegraph-config-hash-utils-module"></span><h2>icegraph.config.hash_utils module<a class="headerlink" href="#module-icegraph.config.hash_utils" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="icegraph.config.hash_utils.hash_directory">
+<span class="sig-prename descclassname"><span class="pre">icegraph.config.hash_utils.</span></span><span class="sig-name descname"><span class="pre">hash_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_file_ext</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.config.hash_utils.hash_directory" title="Link to this definition"></a></dt>
+<dd><p>Generate a unique hash for a directory of files and a config file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_dir</strong> (<em>Path</em>) – Path to directory containing input files.</p></li>
+<li><p><strong>config_file</strong> (<em>Path</em>) – Path to the YAML configuration file.</p></li>
+<li><p><strong>input_file_ext</strong> (<em>str</em>) – File extension of input files.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A consistent xxHash64 hash string.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.config">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.config" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.config.</span></span><span class="sig-name descname"><span class="pre">IGConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.config.IGConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Handles configuration loading, caching, and utility paths for the IceGraph pipeline.</p>
+<p>This class reads user and internal configuration files, provides structured access
+to relevant settings, computes input hashes for caching, and generates
+config files for external tools (e.g., <cite>ml_suite</cite>).</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.PROGRAM_NAME">
+<span class="sig-name descname"><span class="pre">PROGRAM_NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'icegraph'</span></em><a class="headerlink" href="#icegraph.config.IGConfig.PROGRAM_NAME" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.config.IGConfig.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize the Config object and set up necessary directory paths.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config_path</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – Path to the user’s main configuration file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.feature_map_config">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_map_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DotMap</span></em><a class="headerlink" href="#icegraph.config.IGConfig.feature_map_config" title="Link to this definition"></a></dt>
+<dd><p>Loads and returns the internal feature mapping configuration as a DotMap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Parsed feature mapping configuration.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>DotMap</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.get">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.config.IGConfig.get" title="Link to this definition"></a></dt>
+<dd><p>Get the globally accessible config instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Self</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.ml_suite_config_file">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ml_suite_config_file</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#icegraph.config.IGConfig.ml_suite_config_file" title="Link to this definition"></a></dt>
+<dd><p>Writes a temporary YAML file containing ml_suite-compatible configuration
+and returns the path to that file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path to the temporary YAML config file.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.register">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">instance</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.config.IGConfig.register" title="Link to this definition"></a></dt>
+<dd><p>Register the config instance for global access.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.standard_id_col_config">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">standard_id_col_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DotMap</span></em><a class="headerlink" href="#icegraph.config.IGConfig.standard_id_col_config" title="Link to this definition"></a></dt>
+<dd><p>Loads and returns the internal standard ID column configuration as a DotMap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Parsed standard ID column configuration.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>DotMap</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.user_config">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">user_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DotMap</span></em><a class="headerlink" href="#icegraph.config.IGConfig.user_config" title="Link to this definition"></a></dt>
+<dd><p>Loads and returns the user configuration as a DotMap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Parsed user configuration.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>DotMap</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.config.IGConfig.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.config.IGConfig.validate" title="Link to this definition"></a></dt>
+<dd><p>Placeholder for input configuration validation logic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether the user configuration is valid.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 
