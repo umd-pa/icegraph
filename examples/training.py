@@ -8,7 +8,7 @@ warnings.filterwarnings(
 
 import argparse
 
-from icegraph.train import Trainer
+from icegraph.trainer import Trainer
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 
@@ -33,7 +33,6 @@ def main() -> None:
     )
     parser.add_argument(
         "-o", "--output",
-        required=True,
         help="Path to the output file"
     )
 
@@ -49,9 +48,8 @@ def main() -> None:
     dataset_registry = DatasetRegistry.load_from_lmdb(args.train_file, args.val_file, args.test_file)
 
     # use dataset_registry to pass data to training system
-    trainer = Trainer(dataset_registry)
+    trainer = Trainer(dataset_registry, args.output)
     trainer.run()
-    trainer.save(args.output)
 
 if __name__ == "__main__":
     main()

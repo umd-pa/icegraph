@@ -8,7 +8,7 @@ warnings.filterwarnings(
 
 import argparse
 
-from icegraph.data.extract import FeatureExtractor
+from icegraph.data.extractor import FeatureExtractor
 from icegraph.config import IGConfig
 
 
@@ -22,7 +22,6 @@ def main() -> None:
     )
     parser.add_argument(
         "-o", "--output",
-        required=True,
         help="Path to the output file"
     )
 

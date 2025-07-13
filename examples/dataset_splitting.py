@@ -8,7 +8,7 @@ warnings.filterwarnings(
 
 import argparse
 
-from icegraph.data.split import DatasetSplitter
+from icegraph.data.splitter import DatasetSplitter
 from icegraph.config import IGConfig
 
 
@@ -22,8 +22,7 @@ def main() -> None:
     )
     parser.add_argument(
         "-o", "--output",
-        required=True,
-        help="Path to the output file"
+        help="Path to the output directory"
     )
 
     args = parser.parse_args()

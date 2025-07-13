@@ -8,7 +8,7 @@ warnings.filterwarnings(
 
 import argparse
 
-from icegraph.data.merge import LMDBMerger
+from icegraph.data.mergers import LMDBMerger
 from icegraph.config import IGConfig
 
 
@@ -23,7 +23,6 @@ def main() -> None:
     )
     parser.add_argument(
         "-o", "--output",
-        required=True,
         help="Path to the output file"
     )
 

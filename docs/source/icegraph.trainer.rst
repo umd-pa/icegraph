@@ -1,5 +1,5 @@
-icegraph.data.writers package
-=============================
+icegraph.trainer package
+========================
 
 Subpackages
 -----------
@@ -7,12 +7,12 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   icegraph.data.writers.base
+   icegraph.trainer.module
 
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.writers
+.. automodule:: icegraph.trainer
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,5 +1,6 @@
 # file and dir paths
 io:
+  default_dir: "/data/i3store/users/tstjean/test_default_dir"
   gcd_path: ""
 
 # frame keys (for feature extraction)
@@ -30,8 +31,10 @@ data:
       - PrimaryNeutrinoEnergy
 
 training:
-  seed: 23
-  batch_size: 1
+  seed: 27
+  # batch size controls how many samples are loaded into memory at a time in each
+  # training batch (see torch_geometric.loader.DataLoader batch_size argument)
+  batch_size: 64
   num_workers: 1
 
   trainer_params:

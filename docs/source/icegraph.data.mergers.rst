@@ -1,4 +1,4 @@
-icegraph.data.writers package
+icegraph.data.mergers package
 =============================
 
 Subpackages
@@ -7,12 +7,12 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   icegraph.data.writers.base
+   icegraph.data.mergers.base
 
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.writers
+.. automodule:: icegraph.data.mergers
    :members:
    :undoc-members:
    :show-inheritance:

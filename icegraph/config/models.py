@@ -47,13 +47,6 @@ class IGConfig:
         # internal config file paths
         self.feature_map_config_file = self.internal_config_dir / "features_map.yaml"
         self.standard_id_col_config_file = self.internal_config_dir / "standard_id_cols.yaml"
-        self.program_metadata_file = self.internal_config_dir / "program_metadata.yaml"
-
-        # load program metadata
-        with self.program_metadata_file.open("r", encoding="utf-8") as metadata:
-            program_metadata = DotMap(yaml.safe_load(metadata))
-
-        self.PROGRAM_VERSION = program_metadata.program_version
 
         # cache attributes
         self._user_config_cache: DotMap | None = None

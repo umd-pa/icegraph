@@ -8,15 +8,23 @@ Subpackages
    :maxdepth: 4
 
    icegraph.data.base
-   icegraph.data.convert
-   icegraph.data.extract
-   icegraph.data.merge
-   icegraph.data.split
-   icegraph.data.transform
+   icegraph.data.converters
+   icegraph.data.extractor
+   icegraph.data.mergers
+   icegraph.data.processor
+   icegraph.data.splitter
    icegraph.data.writers
 
 Submodules
 ----------
+
+icegraph.data.registry module
+-----------------------------
+
+.. automodule:: icegraph.data.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------

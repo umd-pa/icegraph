@@ -5,3 +5,5 @@ icegraph
    :maxdepth: 4
 
    icegraph
+   main
+   test

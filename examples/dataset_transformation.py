@@ -13,7 +13,7 @@ os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
 import argparse
 
-from icegraph.data.transform import TransformToDataset
+from icegraph.data.processor import FeatureProcessor
 from icegraph.config import IGConfig
 
 
@@ -28,7 +28,6 @@ def main() -> None:
     )
     parser.add_argument(
         "-o", "--output",
-        required=True,
         help="Path to the output file"
     )
 
@@ -41,7 +40,7 @@ def main() -> None:
     IGConfig.register(config)
 
     # run the dataset transformation
-    transformer = TransformToDataset(args.input)
+    transformer = FeatureProcessor(args.input)
     transformer.process(args.output)
 
 

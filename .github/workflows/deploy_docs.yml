@@ -7,7 +7,7 @@ permissions:
 
 on:
   push:
-    branches: [main]  # or your default branch
+    branches: [main]  # adjust if needed
 
 jobs:
   build-and-deploy:
@@ -26,6 +26,9 @@ jobs:
         run: |
           pip install -r docs/requirements.txt
           pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
+
+      - name: Install project in editable mode
+        run: pip install -e .
 
       - name: Build documentation
         run: make -C docs html

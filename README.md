@@ -52,7 +52,7 @@ Required imports:
 ```
 from pathlib import Path
 
-from icegraph.data.transform import TransformToDataset
+from icegraph.data.transform import FeatureProcessor
 from icegraph.data.extract import FeatureExtractor
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
@@ -77,7 +77,7 @@ resource = Path("path/to/i3_file(s)")
 
 Define the processing chain. Each process in the list is run sequentially from left to right.
 ```
-for stage in [FeatureExtractor, TransformToDataset, DatasetSplitter]:
+for stage in [FeatureExtractor, FeatureProcessor, DatasetSplitter]:
     processor = stage(resource)
     resource = processor()
 ```

@@ -14,7 +14,7 @@ import torch_geometric as pyg
 import torch
 import numpy as np
 
-from icegraph.data.transform import generate_vector_mapping
+from icegraph.data.processor import generate_vector_mapping
 from icegraph.config import IGConfig
 
 __all__ = ["IGData"]
