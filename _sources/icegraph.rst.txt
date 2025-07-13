@@ -11,8 +11,9 @@ Subpackages
    icegraph.console
    icegraph.data
    icegraph.geometry
-   icegraph.render
-   icegraph.train
+   icegraph.pathutils
+   icegraph.renderer
+   icegraph.trainer
 
 Module contents
 ---------------

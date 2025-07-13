@@ -1,5 +1,5 @@
-icegraph.data.merge package
-===========================
+icegraph.data.extractor package
+===============================
 
 Subpackages
 -----------
@@ -7,15 +7,12 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   icegraph.data.merge.base
-
-Submodules
-----------
+   icegraph.data.extractor.base
 
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.merge
+.. automodule:: icegraph.data.extractor
    :members:
    :undoc-members:
    :show-inheritance:

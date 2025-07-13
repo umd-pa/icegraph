@@ -1,10 +1,10 @@
-icegraph.data.base package
+icegraph.pathutils package
 ==========================
 
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.base
+.. automodule:: icegraph.pathutils
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,5 +1,5 @@
-icegraph.render package
-=======================
+icegraph.trainer package
+========================
 
 Subpackages
 -----------
@@ -7,15 +7,12 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   icegraph.render.base
-
-Submodules
-----------
+   icegraph.trainer.module
 
 Module contents
 ---------------
 
-.. automodule:: icegraph.render
+.. automodule:: icegraph.trainer
    :members:
    :undoc-members:
    :show-inheritance:

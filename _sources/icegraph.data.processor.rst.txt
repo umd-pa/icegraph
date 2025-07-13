@@ -1,13 +1,13 @@
-icegraph.data.transform package
+icegraph.data.processor package
 ===============================
 
 Submodules
 ----------
 
-icegraph.data.transform.schemas module
+icegraph.data.processor.schemas module
 --------------------------------------
 
-.. automodule:: icegraph.data.transform.schemas
+.. automodule:: icegraph.data.processor.schemas
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ icegraph.data.transform.schemas module
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.transform
+.. automodule:: icegraph.data.processor
    :members:
    :undoc-members:
    :show-inheritance:

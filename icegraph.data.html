@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.data package &mdash; IceGraph 0.5.1 documentation</title>
+  <title>icegraph.data package &mdash; IceGraph 0.5.3 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="_static/documentation_options.js?v=2a2fe768"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -51,12 +51,14 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.data package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#icegraph-data-registry-module">icegraph.data.registry module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a></li>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.render.html">icegraph.render package</a></li>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.train.html">icegraph.train package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.pathutils.html">icegraph.pathutils package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.renderer.html">icegraph.renderer package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
@@ -96,71 +98,62 @@
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.data.base.html">icegraph.data.base package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.base.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.data.convert.html">icegraph.data.convert package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.convert.html#subpackages">Subpackages</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.data.convert.base.html">icegraph.data.convert.base package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.convert.base.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.convert.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.data.converters.html">icegraph.data.converters package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.converters.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.converters.base.html">icegraph.data.converters.base package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.converters.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.convert.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.convert.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.converters.html#module-contents">Module contents</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.data.extract.html">icegraph.data.extract package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.extract.html#subpackages">Subpackages</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.data.extract.base.html">icegraph.data.extract.base package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extract.base.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extract.base.html#icegraph-data-extract-base-modules-module">icegraph.data.extract.base.modules module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extract.base.html#module-contents">Module contents</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.extract.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.extract.html#module-contents">Module contents</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.data.merge.html">icegraph.data.merge package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.merge.html#subpackages">Subpackages</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.data.merge.base.html">icegraph.data.merge.base package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.merge.base.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.merge.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.data.extractor.html">icegraph.data.extractor package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.extractor.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.extractor.base.html">icegraph.data.extractor.base package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.base.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.base.html#icegraph-data-extractor-base-modules-module">icegraph.data.extractor.base.modules module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.merge.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.merge.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.extractor.html#module-contents">Module contents</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.data.split.html">icegraph.data.split package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.split.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.split.html#module-contents">Module contents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.data.mergers.html">icegraph.data.mergers package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.mergers.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.mergers.base.html">icegraph.data.mergers.base package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.mergers.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.data.transform.html">icegraph.data.transform package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.transform.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.transform.html#icegraph-data-transform-schemas-module">icegraph.data.transform.schemas module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.transform.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.mergers.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.data.processor.html">icegraph.data.processor package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.processor.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.processor.html#icegraph-data-processor-schemas-module">icegraph.data.processor.schemas module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.processor.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.data.splitter.html">icegraph.data.splitter package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.splitter.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.data.writers.html">icegraph.data.writers package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.writers.base.html">icegraph.data.writers.base package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.base.html#submodules">Submodules</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.html#module-contents">Module contents</a></li>
 </ul>
 </li>
@@ -169,6 +162,9 @@
 </section>
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="icegraph-data-registry-module">
+<h2>icegraph.data.registry module<a class="headerlink" href="#icegraph-data-registry-module" title="Link to this heading"></a></h2>
 </section>
 <section id="module-contents">
 <h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>

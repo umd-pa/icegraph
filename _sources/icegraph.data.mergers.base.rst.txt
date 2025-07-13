@@ -1,13 +1,10 @@
-icegraph.data.convert.base package
+icegraph.data.mergers.base package
 ==================================
-
-Submodules
-----------
 
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.convert.base
+.. automodule:: icegraph.data.mergers.base
    :members:
    :undoc-members:
    :show-inheritance:

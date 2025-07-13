@@ -1,9 +1,6 @@
 icegraph.data.writers.base package
 ==================================
 
-Submodules
-----------
-
 Module contents
 ---------------
 
