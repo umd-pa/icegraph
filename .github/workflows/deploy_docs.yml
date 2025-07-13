@@ -7,7 +7,7 @@ permissions:
 
 on:
   push:
-    branches: [main]  # adjust if needed
+    branches: [main]  # or your default branch
 
 jobs:
   build-and-deploy:
@@ -22,13 +22,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          pip install -r docs/requirements.txt
-          pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
+      - name: Install IceGraph dependencies
+        run: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121 --find-links https://data.pyg.org/whl/torch-2.2.2+cu121.html
 
-      - name: Install project in editable mode
-        run: pip install -e .
+      - name: Install IceGraph
+        run: pip install .
 
       - name: Build documentation
         run: make -C docs html
