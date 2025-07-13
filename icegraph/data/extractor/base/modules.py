@@ -3,7 +3,11 @@
 
 import uuid
 
-from icecube import icetray, dataclasses
+try:
+    from icecube import icetray, dataclasses
+except ImportError:
+    icetray = None
+    dataclasses = None
 
 
 class UniqueID(icetray.I3Module):

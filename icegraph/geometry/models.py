@@ -3,8 +3,12 @@
 
 from typing import Any, Optional
 
-from icecube.icetray import OMKey
-from icecube import dataio
+try:
+    from icecube.icetray import OMKey
+    from icecube import dataio
+except ImportError:
+    OMKey = None
+    dataio = None
 
 from icegraph.config import IGConfig
 from .exceptions import GeometryFrameNotFound
