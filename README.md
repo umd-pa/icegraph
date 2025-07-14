@@ -6,11 +6,10 @@ Documentation: https://umd-pa.github.io/icegraph
 
 ## Installation (Ubuntu)
 
----
 Install the package via git clone:
 
 ```
-git clone github@github.com:umd-pa/icegraph
+git clone github@github.com:umd-pa/icegraph.git
 cd icegraph
 ```
 
@@ -41,7 +40,6 @@ Example scripts are located under icegraph/examples. Before running these, tailo
 
 ## Usage
 
----
 This program has two primary functions; loading and processing data from I3 files into an ML friendly format (in this case Lightning Memory-Mapped Database, or LMDB), and training GNN's using the PyTorch framework.
 
 To get from I3 --> trained model, the pipeline is as follows:
@@ -87,14 +85,11 @@ Load the split data and register it. The DatasetRegistry class acts as an interf
 dataset_registry = DatasetRegistry.load_from_lmdb(*resource)
 ```
 
-Pass the dataset registry instance to a Trainer, then run the training. Training configuration and hyperparameter selection is all done via config.yaml. The trained model can be saved.
+Pass the dataset registry instance to a Trainer, then run the training. Training configuration and hyperparameter selection is all done via config.yaml. The trained model is automatically saved on each epoch.
 ```
-trainer = Trainer(dataset_registry)
-trainer.run()
-
-# save the model 
 save_path = Path("path/to/model.pth")
-trainer.save(save_path)
+trainer = Trainer(dataset_registry, save_path)
+trainer.run()
 ```
 
 ### Parallelized (large datasets)
