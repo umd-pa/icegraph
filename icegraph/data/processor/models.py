@@ -48,9 +48,9 @@ class FeatureProcessor:
         self._config: IGConfig = IGConfig.get()
 
         # get relevant columns from config
-        self.dom_id_cols = self._config.standard_id_col_config.dom_id_columns
-        self.event_id_cols = self._config.standard_id_col_config.event_id_columns
-        self.dom_pos_cols = self._config.standard_id_col_config.dom_position_columns
+        self.dom_id_cols = self._config.internal_config.column_names.dom_id_columns
+        self.event_id_cols = self._config.internal_config.column_names.event_id_columns
+        self.dom_pos_cols = self._config.internal_config.column_names.dom_position_columns
 
         # define a simple getter to extract data columns in a table and ignore IDs
         self.data_cols = lambda table: [c for c in table.columns if c not in self.dom_id_cols + self.event_id_cols]

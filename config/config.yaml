@@ -23,7 +23,6 @@ data:
   splits:
     # !!! only stratify for classification tasks
     stratify: false
-    seed: 12
 
   normalization:
     apply_log_scaling:

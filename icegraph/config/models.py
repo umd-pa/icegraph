@@ -43,13 +43,11 @@ class IGConfig:
         self.internal_config_dir = self.src_dir / "config" / "defaults"  # internal-use configuration files
 
         # internal config file paths
-        self.feature_map_config_file = self.internal_config_dir / "features_map.yaml"
-        self.standard_id_col_config_file = self.internal_config_dir / "standard_id_cols.yaml"
+        self.internal_config_file = self.internal_config_dir / "internal.config.yaml"
 
         # cache attributes
-        self._user_config_cache: DotMap | None = None
-        self._feature_map_config_cache: DotMap | None = None
-        self._standard_id_col_config_cache: DotMap | None = None
+        self._user_config_cache: Optional[DotMap] = None
+        self._internal_config_cache: Optional[DotMap] = None
 
         # fallback GCD file
         self.gcd_path = Path(
@@ -71,30 +69,17 @@ class IGConfig:
         return self._user_config_cache
 
     @property
-    def feature_map_config(self) -> DotMap:
+    def internal_config(self) -> DotMap:
         """
         Loads and returns the internal feature mapping configuration as a DotMap.
 
         Returns:
             DotMap: Parsed feature mapping configuration.
         """
-        if self._feature_map_config_cache is None:
-            raw = self._load_file(self.feature_map_config_file)
-            self._feature_map_config_cache = DotMap(raw)
-        return self._feature_map_config_cache
-
-    @property
-    def standard_id_col_config(self) -> DotMap:
-        """
-        Loads and returns the internal standard ID column configuration as a DotMap.
-
-        Returns:
-            DotMap: Parsed standard ID column configuration.
-        """
-        if self._standard_id_col_config_cache is None:
-            raw = self._load_file(self.standard_id_col_config_file)
-            self._standard_id_col_config_cache = DotMap(raw)
-        return self._standard_id_col_config_cache
+        if self._internal_config_cache is None:
+            raw = self._load_file(self.internal_config_file)
+            self._internal_config_cache = DotMap(raw)
+        return self._internal_config_cache
 
     @property
     def ml_suite_config_file(self) -> Path:

@@ -89,7 +89,7 @@ class DatasetSplitter:
         Returns:
             tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
         """
-        seed = seed or self._config.user_config.data.splits.seed
+        seed = seed or self._config.user_config.training.seed
         df_train, df_temp = train_test_split(self.table, test_size=0.4, random_state=seed)
         df_val, df_test = train_test_split(df_temp, test_size=0.5, random_state=seed)
         return df_train.reset_index(drop=True), df_val.reset_index(drop=True), df_test.reset_index(drop=True)
@@ -158,8 +158,8 @@ class DatasetSplitter:
             table (pd.DataFrame): Data to write.
             outfile (Union[str, Path]): Output LMDB path.
         """
-        dom_id_cols = self._config.standard_id_col_config.dom_id_columns
-        event_id_cols = self._config.standard_id_col_config.event_id_columns
+        dom_id_cols = self._config.internal_config.column_names.dom_id_columns
+        event_id_cols = self._config.internal_config.column_names.event_id_columns
         include_cols = [c for c in table.columns if c not in dom_id_cols + event_id_cols]
 
         writer = LMDBWriter(table)
