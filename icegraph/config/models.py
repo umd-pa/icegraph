@@ -8,8 +8,6 @@ import tempfile
 from dotmap import DotMap
 import yaml
 
-from .hash_utils import hash_directory
-
 __all__ = ["IGConfig"]
 
 

@@ -35,6 +35,13 @@ def main() -> None:
         "-o", "--output",
         help="Path to the output file"
     )
+    parser.add_argument(
+        '--tensorboard',
+        action=argparse.BooleanOptionalAction
+    )
+    parser.set_defaults(
+        tensorboard=False
+    )
 
     args = parser.parse_args()
 
@@ -49,7 +56,7 @@ def main() -> None:
 
     # use dataset_registry to pass data to training system
     trainer = Trainer(dataset_registry, args.output)
-    trainer.run()
+    trainer.run(tensorboard=args.tensorboard)
 
 if __name__ == "__main__":
     main()

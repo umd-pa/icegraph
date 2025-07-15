@@ -14,6 +14,7 @@ from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 from .module import GravNet
 from icegraph.pathutils import PathResolver
+from .tensorboard import TensorBoard
 
 __all__ = ["Trainer"]
 
@@ -37,7 +38,7 @@ class Trainer:
 
         Args:
             dataset_registry (DatasetRegistry): Dataset registry containing dataloaders.
-            outfile
+            outfile (Optional[Union[str, Path]]): Path to save the trained model.
             model (str): The model to be trained and evaluated, must be one of ['gravnet'].
             device (str, optional): Preferred device for computation. Defaults to 'cuda'.
         """
@@ -47,8 +48,13 @@ class Trainer:
         resolver = PathResolver(path=outfile, origin=None, extension="pt", stage="trainer")
         self.outfile = resolver.resolve()
 
+        # place log dir next to run files
+        self.log_dir = self.outfile.parent / "logs"
+
         # grab config values
         self.num_epochs = self._config.user_config.training.trainer_params.max_epochs
+        self.test_interval_epochs = self._config.user_config.training.trainer_params.test_interval_epochs
+
         hidden_channels = self._config.user_config.training.trainer_params.hidden_channels
         seed = self._config.user_config.training.seed
         layers = self._config.user_config.training.trainer_params.hidden_layers
@@ -81,6 +87,8 @@ class Trainer:
         )
         self.loss_fn = torch.nn.MSELoss()
 
+        self._tensorboard: Optional[TensorBoard] = None
+
     @staticmethod
     def _set_seed(seed: int) -> None:
         """
@@ -107,19 +115,25 @@ class Trainer:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    def train(self) -> None:
+    def train(self, tensorboard: bool = False) -> None:
         """
         Train the model for the configured number of epochs using the training dataloader.
 
         Logs training progress and computes both MSE and RMSE per epoch.
+
+        Args:
+            tensorboard (bool): Whether to start TensorBoard, defaults to False.
         """
         Console.banner("Trainer")
-
         Console.out(f"Model save path: {self.outfile}")
 
         # warn if falling back to CPU
         if self.device == "cpu":
             Console.out("No accelerators found, falling back to CPU training.", severity=2)
+
+        if tensorboard:
+            self._tensorboard = TensorBoard(self.log_dir)
+            self._tensorboard.launch()
 
         self.model.train()
 
@@ -150,9 +164,16 @@ class Trainer:
             rmse = total_rmse / total
             Console.out(f" --> MSE: {avg_loss:.4f} | RMSE: {rmse:.4f}")
 
+            if self._tensorboard is not None:
+                self._tensorboard.writer.add_scalar("Train/MSE", avg_loss, epoch + 1)
+                self._tensorboard.writer.add_scalar("Train/RMSE", rmse, epoch + 1)
+
             # save the model after every epoch and run test
-            self.save()
-            self.test()
+            self.save(epoch=epoch)
+
+            # only run on specified intervals
+            if self.test_interval_epochs > 0 and (epoch + 1) % self.test_interval_epochs == 0:
+                self.test(epoch=epoch)
 
     def validate(self) -> None:
         """
@@ -182,11 +203,19 @@ class Trainer:
         rmse = total_rmse / total
         Console.out(f" --> MSE: {avg_loss:.4f} | RMSE: {rmse:.4f}")
 
-    def test(self) -> None:
+        # tensorboard
+        if self._tensorboard is not None:
+            self._tensorboard.writer.add_scalar("Validation/MSE", avg_loss, self.num_epochs - 1)
+            self._tensorboard.writer.add_scalar("Validation/RMSE", rmse, self.num_epochs - 1)
+
+    def test(self, epoch: Optional[int] = None) -> None:
         """
         Evaluate the final model performance on the test dataset.
 
         Reports RMSE only, without computing or logging loss.
+
+        Args:
+            epoch (int): The current epoch.
         """
         self.model.eval()
         total_rmse = 0.0
@@ -205,19 +234,37 @@ class Trainer:
         rmse = total_rmse / total
         Console.out(f" --> RMSE: {rmse:.4f}")
 
+        # tensorboard
+        if self._tensorboard is not None and epoch is not None:
+            self._tensorboard.writer.add_scalar("Test/RMSE", rmse, epoch + 1)
+
     def save(self, epoch: Optional[int] = None) -> None:
         """
         Save the model.
         """
         if epoch:
-            Console.out(f"[Epoch {epoch + 1}] Model saved.")
+            Console.out(f"[Epoch {epoch + 1}] Saving model...")
+            save_path = self.outfile.with_name(f"{self.outfile.stem}_{epoch}{self.outfile.suffix}")
         else:
-            Console.out("Model has been saved.")
-        torch.save(self.model.state_dict(), self.outfile)
+            Console.out("Saving model...")
+            save_path = self.outfile
 
-    def run(self) -> None:
+        try:
+            torch.save(self.model.state_dict(), save_path)
+            Console.out("Saved successfully.")
+        except Exception as e:
+            Console.out(f"Failed to save model: {e}", severity=3)
+
+    def run(self, tensorboard: bool = False) -> None:
         """
         Run the full training pipeline including training, validation, and testing.
+
+        Args:
+            tensorboard (bool): Whether to start TensorBoard, defaults to False.
         """
-        self.train()
+        self.train(tensorboard)
         self.validate()
+
+        if self._tensorboard is not None:
+            self._tensorboard.writer.close()
+            self._tensorboard.shutdown()

@@ -38,7 +38,7 @@ def main():
 
     # use dataset_registry to pass data to training system
     trainer = Trainer(dataset_registry)
-    trainer.run()
+    trainer.run(True)
 
 if __name__ == "__main__":
     main()

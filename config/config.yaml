@@ -38,10 +38,11 @@ training:
   num_workers: 1
 
   trainer_params:
-    max_epochs: 10
+    max_epochs: 100
     num_nbrs: 16
     hidden_layers: 3
     hidden_channels: 64
+    test_interval_epochs: 5
 
   optimizer:
     learning_rate: 5e-4

@@ -1,3 +1,27 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+--find-links https://data.pyg.org/whl/torch-2.7.0+cu128.html
+
+# PyTorch 2.7.1
+torch==2.7.1
+torchaudio==2.7.1
+torchvision==0.22.1
+
+# PyG core
+torch-geometric==2.6.1
+
+# PyG CUDA extensions (built for torch 2.7.0+cu128, compatible with 2.7.1)
+https://data.pyg.org/whl/torch-2.7.0+cu128/torch_scatter-2.1.2+pt27cu128-cp311-cp311-linux_x86_64.whl
+https://data.pyg.org/whl/torch-2.7.0+cu128/torch_sparse-0.6.18+pt27cu128-cp311-cp311-linux_x86_64.whl
+https://data.pyg.org/whl/torch-2.7.0+cu128/torch_cluster-1.6.3+pt27cu128-cp311-cp311-linux_x86_64.whl
+https://data.pyg.org/whl/torch-2.7.0+cu128/torch_spline_conv-1.2.2+pt27cu128-cp311-cp311-linux_x86_64.whl
+
+absl-py==2.3.1
+grpcio==1.73.1
+markdown==3.8.2
+protobuf==6.31.1
+tensorboard==2.19.0
+tensorboard-data-server==0.7.2
+werkzeug==3.1.3
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.13
 aiosignal==1.3.2
@@ -33,20 +57,6 @@ msgpack-numpy==0.4.8
 multidict==6.5.0
 networkx==3.5
 numpy==1.26.4
-nvidia-cublas-cu12==12.1.3.1
-nvidia-cuda-cupti-cu12==12.1.105
-nvidia-cuda-nvrtc-cu12==12.1.105
-nvidia-cuda-runtime-cu12==12.1.105
-nvidia-cudnn-cu12==8.9.2.26
-nvidia-cufft-cu12==11.0.2.54
-nvidia-cufile-cu12==1.11.1.6
-nvidia-curand-cu12==10.3.2.106
-nvidia-cusolver-cu12==11.4.5.107
-nvidia-cusparse-cu12==12.1.0.106
-nvidia-cusparselt-cu12==0.6.3
-nvidia-nccl-cu12==2.19.3
-nvidia-nvjitlink-cu12==12.6.85
-nvidia-nvtx-cu12==12.1.105
 packaging==25.0
 pandas==2.3.0
 pillow==11.2.1
@@ -83,16 +93,9 @@ sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
 sympy==1.14.0
 threadpoolctl==3.6.0
-torch==2.2.2+cu121
-torch-geometric==2.6.1
-torch_cluster==1.6.3+pt22cu121
-torch_scatter==2.1.2+pt22cu121
-torch_sparse==0.6.18+pt22cu121
-torchaudio==2.2.2+cu121
 torchmetrics==1.7.3
-torchvision==0.17.2+cu121
 tqdm==4.67.1
-triton==2.2.0
+triton==3.3.1
 typing_extensions==4.14.0
 tzdata==2025.2
 urllib3==2.4.0
