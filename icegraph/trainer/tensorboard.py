@@ -11,6 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 from icegraph.console import Console
 from icegraph.console.streams import suppress_stderr
 
+__all__ = ["TensorBoard"]
+
 
 class TensorBoard:
     """

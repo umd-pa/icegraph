@@ -2,7 +2,9 @@
 # Developed by Taylor St Jean
 
 from .models import Trainer
+from .tensorboard import TensorBoard
 
 Trainer.__module__ = __name__
+TensorBoard.__module__ = __name__
 
-__all__ = ["Trainer"]
+__all__ = ["Trainer", "TensorBoard"]

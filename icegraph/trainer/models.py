@@ -32,7 +32,13 @@ class Trainer:
         "gravnet": GravNet
     }
 
-    def __init__(self, dataset_registry: DatasetRegistry, outfile: Optional[Union[str, Path]] = None, model: str = "gravnet", device: str = "cuda") -> None:
+    def __init__(
+        self,
+        dataset_registry: DatasetRegistry,
+        outfile: Optional[Union[str, Path]] = None,
+        model: str = "gravnet",
+        device: str = "cuda"
+    ) -> None:
         """
         Initialize the Trainer.
 

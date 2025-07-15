@@ -14,7 +14,7 @@ class GravNet(nn.Module):
     """
     GravNet model for graph-level predictions.
 
-    The network applies two successive GravNet convolutional layers to learn
+    The network applies successive GravNet convolutional layers to learn
     node embeddings, each followed by a linear transformation and ReLU activation.
     Finally, it aggregates node embeddings with global mean pooling and computes
     graph-level outputs via a final linear layer.
