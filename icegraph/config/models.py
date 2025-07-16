@@ -7,6 +7,9 @@ import tempfile
 
 from dotmap import DotMap
 import yaml
+from pydantic import ValidationError
+
+from .schemas import FullConfig
 
 __all__ = ["IGConfig"]
 
@@ -97,14 +100,15 @@ class IGConfig:
             yaml.safe_dump(feature_extraction_config, tmp_file)
             return Path(tmp_file.name)
 
-    def validate(self) -> bool:
+    def validate(self) -> None:
         """
-        Placeholder for input configuration validation logic.
-
-        Returns:
-            bool: Whether the user configuration is valid.
+        Input configuration validation.
         """
-        ...
+        try:
+            raw = self._load_file(self.user_config_path)
+            _ = FullConfig(**raw)
+        except ValidationError as e:
+            print(e)
 
     @staticmethod
     def _load_file(path: Path) -> dict:
@@ -124,6 +128,7 @@ class IGConfig:
     def register(cls, instance: Self) -> None:
         """Register the config instance for global access."""
         cls._instance = instance
+        cls._instance.validate()
 
     @classmethod
     def get(cls) -> Self:
