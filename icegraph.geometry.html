@@ -51,8 +51,8 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.geometry package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.geometry.exceptions">icegraph.geometry.exceptions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.geometry">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#icegraph-geometry-exceptions-module">icegraph.geometry.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.pathutils.html">icegraph.pathutils package</a></li>
@@ -60,7 +60,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -95,74 +95,11 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
 </section>
-<section id="module-icegraph.geometry.exceptions">
-<span id="icegraph-geometry-exceptions-module"></span><h2>icegraph.geometry.exceptions module<a class="headerlink" href="#module-icegraph.geometry.exceptions" title="Link to this heading"></a></h2>
-<dl class="py exception">
-<dt class="sig sig-object py" id="icegraph.geometry.exceptions.GeometryFrameNotFound">
-<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.geometry.exceptions.</span></span><span class="sig-name descname"><span class="pre">GeometryFrameNotFound</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.geometry.exceptions.GeometryFrameNotFound" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.geometry.exceptions.GeometryFrameNotFound.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.geometry.exceptions.GeometryFrameNotFound.__init__" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
+<section id="icegraph-geometry-exceptions-module">
+<h2>icegraph.geometry.exceptions module<a class="headerlink" href="#icegraph-geometry-exceptions-module" title="Link to this heading"></a></h2>
 </section>
-<section id="module-icegraph.geometry">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.geometry" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.geometry.Detector">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.geometry.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><a class="headerlink" href="#icegraph.geometry.Detector" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Handles detector-level information, such as accessing DOM coordinates
-from the GCD geometry using a provided configuration.</p>
-<p>This class loads the I3Geometry frame from a GCD file and provides
-utility methods for retrieving DOM positions using string/OM/PMT info.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.geometry.Detector.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.geometry.Detector.__init__" title="Link to this definition"></a></dt>
-<dd><p>Initialize the Detector object with IceGraph configuration.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.geometry.Detector.get_all_dom_ids">
-<span class="sig-name descname"><span class="pre">get_all_dom_ids</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.geometry.Detector.get_all_dom_ids" title="Link to this definition"></a></dt>
-<dd><p>Returns a list of all DOM identifiers present in the geometry.</p>
-<p>Each DOM ID is a tuple: (string, om, pmt)</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>List of all DOM identifiers.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>list[tuple[int, int, int]]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.geometry.Detector.get_dom_coords">
-<span class="sig-name descname"><span class="pre">get_dom_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">om</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pmt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.geometry.Detector.get_dom_coords" title="Link to this definition"></a></dt>
-<dd><p>Get the (x, y, z) coordinates of a DOM specified by string, OM, and PMT.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>string</strong> (<em>int</em>) – The string number of the DOM.</p></li>
-<li><p><strong>om</strong> (<em>int</em>) – The optical module (OM) number.</p></li>
-<li><p><strong>pmt</strong> (<em>int</em>) – The PMT index (0 for standard DOMs, &gt;=0 for mDOMs or IceCube Upgrade).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The (x, y, z) position of the specified DOM.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[float, float, float]</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
 </section>
 </section>
 

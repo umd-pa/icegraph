@@ -51,8 +51,8 @@
 <li class="toctree-l3 current"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul class="current">
 <li class="toctree-l4 current"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data.registry">icegraph.data.registry module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph-data-registry-module">icegraph.data.registry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a></li>
@@ -61,7 +61,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -99,83 +99,14 @@
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.data.writers.base.html">icegraph.data.writers.base package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.base.html#module-icegraph.data.writers.base">Module contents</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.data.writers.base.html#icegraph.data.writers.base.IGWriter"><code class="docutils literal notranslate"><span class="pre">IGWriter</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.base.html#icegraph.data.writers.base.IGWriter.__init__"><code class="docutils literal notranslate"><span class="pre">IGWriter.__init__()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.base.html#icegraph.data.writers.base.IGWriter.write"><code class="docutils literal notranslate"><span class="pre">IGWriter.write()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.writers.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </section>
-<section id="module-icegraph.data.writers">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.data.writers" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.data.writers.LMDBWriter">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.writers.</span></span><span class="sig-name descname"><span class="pre">LMDBWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.writers.LMDBWriter" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="icegraph.data.writers.base.html#icegraph.data.writers.base.IGWriter" title="icegraph.data.writers.base.models.IGWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">IGWriter</span></code></a></p>
-<p>Serializes a pandas DataFrame to LMDB format for efficient key-value storage.</p>
-<p>This class writes each row of the DataFrame as a serialized MessagePack object,
-using a consistent 8-byte key scheme to ensure deterministic and sortable entries.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="icegraph.data.writers.LMDBWriter.table">
-<span class="sig-name descname"><span class="pre">table</span></span><a class="headerlink" href="#icegraph.data.writers.LMDBWriter.table" title="Link to this definition"></a></dt>
-<dd><p>The data table to be serialized and stored.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>pd.DataFrame</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.data.writers.LMDBWriter.append">
-<span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.writers.LMDBWriter.append" title="Link to this definition"></a></dt>
-<dd><p>Append the DataFrame to an existing LMDB file, starting keys from <cite>start_idx</cite>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>outfile</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – Path to the LMDB file to append to.</p></li>
-<li><p><strong>start_idx</strong> (<em>int</em>) – The starting index for new entries.</p></li>
-<li><p><strong>include_cols</strong> (<em>Optional</em><em>[</em><em>list</em><em>]</em>) – Columns to include. If None, use all.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Number of entries written.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.data.writers.LMDBWriter.write">
-<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.writers.LMDBWriter.write" title="Link to this definition"></a></dt>
-<dd><p>Write the DataFrame to an LMDB file.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>outfile</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – Path to the output LMDB file.</p></li>
-<li><p><strong>include_cols</strong> (<em>Optional</em><em>[</em><em>list</em><em>]</em><em>, </em><em>optional</em>) – List of column names to include
-in the LMDB entries. If None, all columns in the table are included.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>Any exceptions from LMDB</strong><strong> or </strong><strong>msgpack during I/O are propagated.</strong> – </p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
 </section>
 </section>
 

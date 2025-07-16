@@ -53,13 +53,13 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.pathutils.html">icegraph.pathutils package</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.renderer package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.renderer">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -96,52 +96,14 @@
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.renderer.base.html">icegraph.renderer.base package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.renderer.base.html#module-icegraph.renderer.base">Module contents</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.renderer.base.html#icegraph.renderer.base.IGPlot"><code class="docutils literal notranslate"><span class="pre">IGPlot</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.base.html#icegraph.renderer.base.IGPlot.__init__"><code class="docutils literal notranslate"><span class="pre">IGPlot.__init__()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.base.html#icegraph.renderer.base.IGPlot.plot"><code class="docutils literal notranslate"><span class="pre">IGPlot.plot()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.base.html#icegraph.renderer.base.IGPlot.save"><code class="docutils literal notranslate"><span class="pre">IGPlot.save()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.base.html#icegraph.renderer.base.IGPlot.subplots"><code class="docutils literal notranslate"><span class="pre">IGPlot.subplots</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.renderer.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </section>
-<section id="module-icegraph.renderer">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.renderer" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.renderer.FeaturePlot">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.renderer.</span></span><span class="sig-name descname"><span class="pre">FeaturePlot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.renderer.FeaturePlot" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="icegraph.renderer.base.html#icegraph.renderer.base.IGPlot" title="icegraph.renderer.base.IGPlot"><code class="xref py py-class docutils literal notranslate"><span class="pre">IGPlot</span></code></a></p>
-<p>A plotting utility for visualizing specific DOM-level features.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.renderer.FeaturePlot.plot">
-<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.renderer.FeaturePlot.plot" title="Link to this definition"></a></dt>
-<dd><p>Generate a plot of the specified feature across all DOMs for all events.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>feature</strong> (<em>str</em>) – Name of the DOM-level feature.</p></li>
-<li><p><strong>save_path</strong> (<em>Path</em>) – Path to save the plot. Defaults to output_dir specified in the global config file.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="icegraph.renderer.FeaturePlot.subplots">
-<span class="sig-name descname"><span class="pre">subplots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code><span class="pre">]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1,</span> <span class="pre">3)</span></em><a class="headerlink" href="#icegraph.renderer.FeaturePlot.subplots" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
 </section>
 </section>
 

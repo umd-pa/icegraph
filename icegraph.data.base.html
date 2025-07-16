@@ -51,8 +51,8 @@
 <li class="toctree-l3 current"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul class="current">
 <li class="toctree-l4 current"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data.registry">icegraph.data.registry module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph-data-registry-module">icegraph.data.registry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a></li>
@@ -61,7 +61,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -94,87 +94,8 @@
              
   <section id="icegraph-data-base-package">
 <h1>icegraph.data.base package<a class="headerlink" href="#icegraph-data-base-package" title="Link to this heading"></a></h1>
-<section id="module-icegraph.data.base">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.data.base" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.data.base.IGData">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.base.</span></span><span class="sig-name descname"><span class="pre">IGData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.base.IGData" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
-<p>The base dataset class for loading and managing IceCube data stored in LMDB format.</p>
-<p>This class handles the truth table, feature loading, and optional selection filtering
-for training, validation, or test subsets. Subclasses must set the class attribute <cite>subset</cite>
-to one of: “train”, “validation”, or “test”.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.data.base.IGData.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.base.IGData.__init__" title="Link to this definition"></a></dt>
-<dd><p>Initialize an IGData object from an LMDB file.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>input_file</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – Path to the input file (LMDB).</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="icegraph.data.base.IGData.dataloader">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dataloader</span></span><a class="headerlink" href="#icegraph.data.base.IGData.dataloader" title="Link to this definition"></a></dt>
-<dd><p>A convenience property that returns a partially-applied torch geometric DataLoader constructor for this dataset.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.data.base.IGData.get">
-<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.base.IGData.get" title="Link to this definition"></a></dt>
-<dd><p>Read and decode a single event from the LMDB dataset.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>idx</strong> (<em>int</em>) – Index of the event to retrieve.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Tuple containing:</dt><dd><ul class="simple">
-<li><p>features (torch.Tensor): Node features of shape [num_nodes, num_features].</p></li>
-<li><p>labels (torch.Tensor): Target labels of shape [num_labels].</p></li>
-<li><p>edge_index (torch.Tensor): Edge indices of shape [2, num_edges].</p></li>
-<li><p>edge_weight (torch.Tensor): Edge weights of shape [num_edges].</p></li>
-</ul>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[torch.Tensor, …]</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>IndexError</strong> – If the sample key is not found in the LMDB.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="icegraph.data.base.IGData.num_output_features">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_output_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#icegraph.data.base.IGData.num_output_features" title="Link to this definition"></a></dt>
-<dd><p>Returns the dimensionality of the target (label) for each graph sample.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p><dl class="simple">
-<dt>The number of output features (e.g., 1 for scalar regression,</dt><dd><p>or the number of classes/targets for vector labels).</p>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="icegraph.data.base.IGData.subset">
-<span class="sig-name descname"><span class="pre">subset</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#icegraph.data.base.IGData.subset" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
 </section>
 </section>
 
