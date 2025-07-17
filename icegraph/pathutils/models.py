@@ -3,12 +3,11 @@
 
 from pathlib import Path
 from typing import Union, Optional
+import os
 
 from icegraph.config import IGConfig
 
-__all__ = ["PathResolver"]
-
-from sympy.codegen import Attribute
+__all__ = ["PathResolver", "PathValidator"]
 
 
 class PathResolver:
@@ -83,5 +82,71 @@ class PathResolver:
         return Path(path).suffix == ""
 
 
+class PathValidator:
 
+    @classmethod
+    def is_valid_file(cls, path: Union[str, Path]) -> None:
+        """
+        Check that the given path exists, is a file, and is readable.
+        Raises informative exceptions if any check fails.
+
+        Args:
+            path (str or Path): The file path to check.
+
+        Raises:
+            FileNotFoundError: If the path does not exist.
+            IsADirectoryError: If the path is a directory, not a file.
+            PermissionError: If the file is not readable.
+        """
+        path = Path(path)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Path does not exist: {path}")
+        if not path.is_file():
+            raise IsADirectoryError(f"Expected a file but found a directory or special file: {path}")
+        if not os.access(path, os.R_OK):
+            raise PermissionError(f"File is not readable: {path}")
+
+    @classmethod
+    def is_valid_dir(cls, path: Union[str, Path]) -> None:
+        """
+        Check that the given path exists, is a directory, and is readable.
+        Raises informative exceptions if any check fails.
+
+        Args:
+            path (str or Path): The file path to check.
+
+        Raises:
+            FileNotFoundError: If the path does not exist.
+            NotADirectoryError: If the path is a file, not a directory.
+            PermissionError: If the file is not readable.
+        """
+        path = Path(path)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Path does not exist: {path}")
+        if not path.is_dir():
+            raise NotADirectoryError(f"Expected a directory but found a file: {path}")
+        if not os.access(path, os.R_OK):
+            raise PermissionError(f"Directory is not readable: {path}")
+
+    @classmethod
+    def is_valid_path(cls, path: Union[str, Path]) -> None:
+        """
+        Check that the given path exists and is readable.
+        Raises informative exceptions if any check fails.
+
+        Args:
+            path (str or Path): The path to check.
+
+        Raises:
+            FileNotFoundError: If the path does not exist.
+            PermissionError: If the file is not readable.
+        """
+        path = Path(path)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Resource does not exist: {path}")
+        if not os.access(path, os.R_OK):
+            raise PermissionError(f"Resource is not readable: {path}")
 

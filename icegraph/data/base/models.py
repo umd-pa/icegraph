@@ -16,6 +16,8 @@ import numpy as np
 
 from icegraph.data.processor import generate_vector_mapping
 from icegraph.config import IGConfig
+from icegraph.pathutils import PathValidator
+from icegraph.data.base.exceptions import EmptyDatasetError, DataError, MissingFieldError
 
 __all__ = ["IGData"]
 
@@ -36,27 +38,37 @@ class IGData(Dataset, ABC):
         doc="A convenience property that returns a partially-applied torch geometric DataLoader constructor for this dataset."
     )
 
-    def __init__(self, input_file: Union[str, Path]) -> None:
+    def __init__(self, infile: Union[str, Path]) -> None:
         """
         Initialize an IGData object from an LMDB file.
 
         Args:
-            input_file (Union[str, Path]): Path to the input file (LMDB).
+            infile (Union[str, Path]): Path to the input file (LMDB).
+
+        Raises:
+            EmptyDatasetError: If the loaded dataset is empty.
         """
         super().__init__()
-        self.input_file = Path(input_file)
+        self.infile = Path(infile)
+        PathValidator.is_valid_file(self.infile)
+
+        # grab global config
         self._config: IGConfig = IGConfig.get()
 
         self.env = lmdb.open(
-            str(self.input_file),
+            str(self.infile),
             subdir=False,
             readonly=True,
             lock=False,
             readahead=False,
             meminit=False
         )
-        self.txn = self.env.begin(write=False)
-        self.keys = list(range(self._get_length()))
+
+        # build a flat list of keys
+        n_entries = self._txn().stat()["entries"]
+        if n_entries == 0:
+            raise EmptyDatasetError(f"Dataset at {self.infile!s} is empty.")
+        self.keys = list(range(n_entries))
 
         # load target labels once on instantiation
         self.target_labels = self._config.user_config.data.target_labels
@@ -77,9 +89,9 @@ class IGData(Dataset, ABC):
         """
         super().__init_subclass__(**kwargs)
         if cls.subset is None:
-            raise TypeError(f"{cls.__name__}.subset must be set to 'train'|'validation'|'test'")
+            raise DataError(f"{cls.__name__}.subset must be set to 'train'|'validation'|'test'")
         if not isinstance(cls.subset, str) or not cls.subset.isalpha():
-            raise ValueError(f"`subset` on {cls.__name__!r} must be alpha string, got {cls.subset!r}")
+            raise DataError(f"`subset` on {cls.__name__!r} must be alpha string, got {cls.subset!r}")
 
     def __getitem__(self, idx: int) -> pyg.data.Data:  # writing as pyg.data.Data for clarity
         """
@@ -103,16 +115,19 @@ class IGData(Dataset, ABC):
         """
         return len(self.keys)
 
-    def _get_length(self) -> int:
-        """
-        Return the number of events in the subset.
+    def __del__(self):
+        try:
+            self.env.close()
+        except Exception:
+            pass
 
-        Returns:
-            int: Number of events.
+    def _txn(self):
         """
-        with self.env.begin() as txn:
-            stat = txn.stat()
-            return stat['entries']
+        Thread-safe txn.
+        """
+        if not hasattr(self, "_thread_txn"):
+            self._thread_txn = self.env.begin(write=False)
+        return self._thread_txn
 
     @property
     def num_output_features(self) -> int:
@@ -126,7 +141,12 @@ class IGData(Dataset, ABC):
         y = self[0].y
         if y.ndim == 0:
             return 1
-        return y.shape[-1]
+        elif y.ndim == 1:
+            return y.shape[0]
+        else:
+            raise DataError(
+                f"Expected label tensor to be 0D or 1D, got {y.ndim}D (shape={tuple(y.shape)})"
+            )
 
     def get(self, idx: int) -> tuple[torch.Tensor, ...]:
         """
@@ -143,23 +163,73 @@ class IGData(Dataset, ABC):
                 - edge_weight (torch.Tensor): Edge weights of shape [num_edges].
 
         Raises:
-            IndexError: If the sample key is not found in the LMDB.
+            MissingFieldError, DataError
         """
-        # convert to tensors
-        key = struct.pack(">Q", self.keys[idx])
-        value = self.txn.get(key)
+        # verify passed index
+        if not isinstance(idx, int):
+            raise DataError(f"Index must be int, got {type(idx).__name__!r}")
+        if idx < 0 or idx >= len(self.keys):
+            raise DataError(f"Index {idx} out of bounds for dataset of size {len(self.keys)}")
+        key_id = self.keys[idx]
 
+        # pack key and fetch
+        packed = struct.pack(">Q", key_id)
+        value = self._txn().get(packed)
+
+        # quick check value
         if value is None:
-            raise IndexError(f"Key {self.keys[idx]} not found in {self.input_file!s}.")
+            raise DataError(f"Key {key_id} not found in LMDB '{self.infile}'")
 
-        data = msgpack.unpackb(value, raw=False)
+        # unpack msgpack
+        try:
+            data = msgpack.unpackb(value, raw=False)
+        except Exception as e:
+            raise DataError(f"Corrupt record {key_id}: {e}")
 
-        features_dict = data["features"]
-        key_order = list(features_dict[0].keys())
+        # get features list
+        try:
+            features_list = data["features"]
+        except KeyError:
+            raise MissingFieldError(f"Record {key_id!r} missing 'features' field")
 
-        features = np.array([[d[k] for k in key_order] for d in features_dict], dtype=np.float32)
-        labels = np.array([data[label] for label in self.target_labels], dtype=np.float32)
-        edge_index = np.array(data["edge_index"], dtype=np.float32)
-        edge_weight = np.array(data["edge_weight"], dtype=np.float32)
+        key_order = list(features_list[0].keys())
 
-        return tuple(map(torch.from_numpy, (features, labels, edge_index, edge_weight)))
+        # build feature array
+        features_np = np.array(
+            [[feat[k] for k in key_order] for feat in features_list],
+            dtype=np.float32
+        )
+
+        # build labels array
+        labels_vals = []
+        for name in self.target_labels:
+            if name not in data:
+                raise MissingFieldError(f"Label '{name}' not found in record for key {key_id}")
+            labels_vals.append(data[name])
+        labels_np = np.array(labels_vals, dtype=np.float32)
+
+        # build edge index/weight
+        try:
+            ei_list = data["edge_index"]
+        except KeyError:
+            raise MissingFieldError(f"Record {key_id!r} missing 'edge_index' field")
+        try:
+            ew_list = data["edge_weight"]
+        except KeyError:
+            raise MissingFieldError(f"Record {key_id!r} missing 'edge_weight' field")
+
+        ei_np = np.array(ei_list, dtype=np.int64)
+        ew_np = np.array(ew_list, dtype=np.float32)
+
+        # assert dims are what we expect
+        assert ei_np.ndim == 2 and ei_np.shape[0] == 2, (
+            f"edge_index for key {key_id!r} must be [2, E], got {ei_np.shape}"
+        )
+
+        # convert everything to tensors
+        features = torch.from_numpy(features_np)
+        labels = torch.from_numpy(labels_np)
+        edge_index = torch.from_numpy(ei_np).long()
+        edge_weight = torch.from_numpy(ew_np)
+
+        return features, labels, edge_index, edge_weight

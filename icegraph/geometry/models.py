@@ -12,6 +12,7 @@ except ImportError:
 
 from icegraph.config import IGConfig
 from .exceptions import GeometryFrameNotFound
+from icegraph.pathutils import PathValidator
 
 
 class Detector:
@@ -54,7 +55,7 @@ class Detector:
 
         # if geometry was not found, raise an exception
         if not geometry:
-            raise(GeometryFrameNotFound(f"I3Geometry does not exist in GCD file: {self._config.gcd_path}"))
+            raise GeometryFrameNotFound(f"I3Geometry does not exist in GCD file: {self._config.gcd_path}")
 
         self._gcd_geometry = geometry.omgeo
 

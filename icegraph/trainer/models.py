@@ -8,6 +8,7 @@ import torch
 from torch.optim import Adam
 from torch_geometric.seed import seed_everything
 import torch.nn.functional as F
+import torch_scatter
 
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
@@ -156,7 +157,7 @@ class Trainer:
 
                 self.optimizer.zero_grad()
                 out = self.model(batch.x, batch.batch)
-                target = batch.y.view(-1, 1)
+                target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).view(-1, 1)
                 loss = self.loss_fn(out, target)
                 loss.backward()
                 self.optimizer.step()
@@ -197,7 +198,7 @@ class Trainer:
             for batch in Console.progress_bar(self.datasets.val_dataloader):
                 batch = batch.to(self.device)
                 out = self.model(batch.x, batch.batch)
-                target = batch.y.view(-1, 1)
+                target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).view(-1, 1)
                 loss = self.loss_fn(out, target)
 
                 total_loss += loss.item() * batch.y.size(0)
@@ -232,7 +233,7 @@ class Trainer:
             for batch in Console.progress_bar(self.datasets.test_dataloader):
                 batch = batch.to(self.device)
                 out = self.model(batch.x, batch.batch)
-                target = batch.y.view(-1, 1)
+                target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).view(-1, 1)
                 total_rmse += F.mse_loss(out, target, reduction="sum").sqrt().item()
                 total += batch.y.size(0)
 

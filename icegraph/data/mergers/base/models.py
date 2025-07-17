@@ -5,6 +5,10 @@ from abc import abstractmethod, ABC
 from typing import Union, Optional
 from pathlib import Path
 
+from icegraph.pathutils import PathValidator
+
+__all__ = ["IGMerger"]
+
 
 class IGMerger(ABC):
     """
@@ -13,8 +17,9 @@ class IGMerger(ABC):
 
     file_ext: Optional[str] = None
 
-    def __init__(self, input_dir: Union[str, Path]) -> None:
-        self.input_dir = Path(input_dir)
+    def __init__(self, indir: Union[str, Path]) -> None:
+        self.indir = Path(indir)
+        PathValidator.is_valid_dir(self.indir)
 
         # Verify that the subclass defined the required file extension
         if self.file_ext is None:
@@ -22,7 +27,7 @@ class IGMerger(ABC):
                 f"{self.__class__.__name__} must define the 'file_ext' class attribute."
             )
 
-        self.files = list(self.input_dir.glob(f"*.{self.file_ext}"))
+        self.files = list(self.indir.glob(f"*.{self.file_ext}"))
 
     @abstractmethod
     def merge(self, outfile: Optional[Union[str, Path]] = None) -> Path:

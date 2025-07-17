@@ -21,7 +21,7 @@ class Console:
     Provides unified formatting for standard output, progress bars, and spinners.
     """
 
-    _spinner: Optional['Spinner'] = None  # Shared spinner instance
+    _spinner: Optional[Spinner] = None  # Shared spinner instance
     _is_internal_write = threading.local()  # Thread-local flag to detect Console-originated output
     _is_internal_write.value = False
 

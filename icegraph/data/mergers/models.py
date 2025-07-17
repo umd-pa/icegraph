@@ -13,6 +13,7 @@ from .base import IGMerger
 from icegraph.console import Console
 from icegraph.data.writers import LMDBWriter
 from icegraph.pathutils import PathResolver
+from .base.exceptions import MissingLMDBFilesError, MissingHDF5FilesError, MergeError, MergeToolNotFoundError
 
 __all__ = ["HDF5Merger", "LMDBMerger"]
 
@@ -34,23 +35,32 @@ class HDF5Merger(IGMerger):
 
         Returns:
             Path: Path to the merged output file.
+
+        Raises:
+            MergeToolNotFoundError, MergeError, MissingHDF5FilesError
         """
         Console.banner("HDF5 Merger")
+
+        if len(self.files) == 0:
+            raise MissingHDF5FilesError(f"No HDF5 files found in directory {self.indir!s}")
+
         Console.out(f"Merging {len(self.files)} HDF5 files...")
         Console.spinner().start()
 
-        resolver = PathResolver(path=outfile, origin=self.input_dir, extension="hdf5", stage="merger")
+        resolver = PathResolver(path=outfile, origin=self.indir, extension="hdf5", stage="merger")
         outfile = resolver.resolve()
 
         # configure the merge command
         merge_command = ["hdfwriter-merge", "-o", str(outfile)] + [str(f) for f in self.files]
-
-        # run merge
         try:
-            subprocess.run(merge_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            subprocess.run(merge_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        except FileNotFoundError:
+            Console.spinner().stop()
+            raise MergeToolNotFoundError("Could not find `hdfwriter-merge` on $PATH")
         except subprocess.CalledProcessError as e:
             Console.spinner().stop()
-            raise
+            stderr = e.stderr.decode(errors="ignore").strip()
+            raise MergeError(f"`hdfwriter-merge` failed: {stderr!r}") from e
 
         Console.spinner().stop()
         Console.out(f"Merge complete, output file saved to {outfile}")
@@ -64,6 +74,9 @@ class LMDBMerger(IGMerger):
 
     Attributes:
         file_ext (str): File extension for LMDB files.
+
+    Raises:
+        MergeToolNotFoundError, MergeError, MissingLMDBFilesError
     """
 
     file_ext = "lmdb"
@@ -76,24 +89,46 @@ class LMDBMerger(IGMerger):
             Path: Path to the merged output file.
         """
         Console.banner("LMDB Merger")
+
+        if len(self.files) == 0:
+            raise MissingLMDBFilesError(f"No LMDB files found in directory {self.indir!s}")
+
         Console.out(f"Merging {len(self.files)} LMDB files...")
 
-        resolver = PathResolver(path=outfile, origin=self.input_dir, extension="lmdb", stage="merger")
+        resolver = PathResolver(path=outfile, origin=self.indir, extension="lmdb", stage="merger")
         outfile = resolver.resolve()
 
         global_idx = 0
+        writer: Optional[LMDBWriter] = None
 
-        for path in Console.progress_bar(self.files):
-            # Read LMDB entries and decode
-            rows = []
-            with lmdb.open(str(path), readonly=True, lock=False, readahead=False, subdir=False) as env:
-                with env.begin() as txn:
-                    cursor = txn.cursor()
-                    for _, value in cursor:
-                        rows.append(msgpack.unpackb(value, raw=False))
+        for src in Console.progress_bar(self.files):
+            # open source LMDB
+            with lmdb.open(str(src),
+                           subdir=False, readonly=True,
+                           lock=False, readahead=False,
+                           meminit=False) as env:
+                with env.begin(write=False) as txn:
+                    rows: list[dict] = []
+                    for _, raw in txn.cursor():
+                        try:
+                            rows.append(msgpack.unpackb(raw, raw=False))
+                        except Exception as e:
+                            raise MergeError(
+                                f"Corrupt record in {src}: {e}"
+                            )
 
-            # Append to output
-            writer = LMDBWriter(pd.DataFrame(rows))
+            # convert to DataFrame (may be large!)
+            df = pd.DataFrame(rows)
+            if df.empty:
+                Console.out(f"No records in {src}", severity=2)
+                continue
+
+            # initialize or update writer with this batch
+            if writer is None:
+                writer = LMDBWriter(df)
+            else:
+                writer.table = df  # update its internal DataFrame
+
             written = writer.append(outfile, start_idx=global_idx)
             global_idx += written
 

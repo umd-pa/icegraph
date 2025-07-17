@@ -27,7 +27,8 @@ except ImportError:
 from icegraph.console import Console
 from .base import IGExtractor
 from .base.modules import UniqueID
-from icegraph.pathutils import PathResolver
+from icegraph.pathutils import PathResolver, PathValidator
+from .base.exceptions import MissingI3FilesError
 
 __all__ = ["FeatureExtractor"]
 
@@ -56,28 +57,31 @@ class FeatureExtractor(IGExtractor):
             Path: Path to the generated HDF5 output file.
         """
         # Path to output file
-        resolver = PathResolver(path=outfile, origin=self.resource, extension="hdf5", stage="extractor")
+        resolver = PathResolver(path=outfile, origin=self.inpath, extension="hdf5", stage="extractor")
         outfile = resolver.resolve()
 
         Console.banner("Feature Extractor")
-        Console.out(f"Running feature extraction: {self.resource}")
+        Console.out(f"Running feature extraction: {self.inpath}")
         Console.spinner().start()
 
         tray = I3Tray()
 
         # Read the i3 file(s) to memory
-        if self.resource.is_dir():
+        if self.inpath.is_dir():
+            if len(self.inpath.glob("*.i3.zst")) == 0:
+                raise MissingI3FilesError(f"No I3 files found in directory {self.inpath!s}")
             input_files = [str(self._config.gcd_path)] + [
-                str(p) for p in sorted(self.resource.glob("*.i3.zst"))
+                str(p) for p in sorted(self.inpath.glob("*.i3.zst"))
             ]
         else:
             input_files = [str(self._config.gcd_path)] + [
-                str(self.resource)
+                str(self.inpath)
             ]
 
         tray.Add('I3Reader', Filenamelist=input_files)
 
         # This module labels MC events based on their topology
+        # TODO: make this optional
         tray.Add(
             MCLabeler,
             event_properties_name=None,

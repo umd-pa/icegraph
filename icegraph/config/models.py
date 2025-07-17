@@ -33,6 +33,7 @@ class IGConfig:
         Args:
             config_path (Union[str, Path]): Path to the user's main configuration file.
         """
+
         self.user_config_path = Path(config_path)
 
         # paths

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Union, Optional
 
 from icegraph.config import IGConfig
+from icegraph.pathutils import PathValidator, PathResolver
 
 __all__ = ["IGExtractor"]
 
@@ -15,24 +16,28 @@ class IGExtractor(ABC):
     Abstract base class for data extraction pipelines.
     """
 
-    def __init__(self, resource: Union[str, Path]) -> None:
+    def __init__(self, inpath: Union[str, Path]) -> None:
         """
         Initialize the base extractor.
 
         Args:
-            resource (Union[str, Path]): Path to the input directory or file.
+            inpath (Union[str, Path]): Path to the input directory or file.
         """
         self._config: IGConfig = IGConfig.get()
 
         # Use provided resource
-        self.resource = Path(resource)
+        self.inpath = Path(inpath)
+
+        # validate input paths
+        PathValidator.is_valid_path(self.inpath)
+        PathValidator.is_valid_file(self._config.gcd_path)
 
         # Derive output directory next to the input
-        base_dir = self.resource if self.resource.is_dir() else self.resource.parent
-        self.output_dir = base_dir / "extraction"
+        resolver = PathResolver(None, origin=inpath, extension=None, stage="extractor")
+        self.outdir = resolver.resolve(return_dir=True)
 
-    def __call__(self):
-        return self.extract()
+    def __call__(self, outfile: Optional[Union[str, Path]] = None) -> Path:
+        return self.extract(outfile)
 
     @abstractmethod
     def extract(self, outfile: Optional[Union[str, Path]] = None) -> Path:
