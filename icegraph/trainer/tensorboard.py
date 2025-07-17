@@ -9,7 +9,9 @@ import atexit
 from torch.utils.tensorboard import SummaryWriter
 
 from icegraph.console import Console
+from icegraph.config import IGConfig
 from icegraph.console.streams import suppress_stderr
+from icegraph.utils import is_port_available
 
 __all__ = ["TensorBoard"]
 
@@ -27,8 +29,13 @@ class TensorBoard:
             log_dir (Union[str, Path]): The directory where TensorBoard logs will be stored.
         """
         self.log_dir = log_dir
+
         # init tensorboard
         self._writer = SummaryWriter(log_dir=str(self.log_dir))
+
+        # grab global config
+        self._config = IGConfig.get()
+        self.port = self._config.user_config.training.tensorboard.port
 
         self._tensorboard_proc: Optional[subprocess.Popen] = None
 
@@ -51,13 +58,16 @@ class TensorBoard:
         """
         return self._writer
 
-    def launch(self, port: int=6006) -> None:
+    def launch(self, port: Optional[int] = None) -> None:
         """
         Launch a TensorBoard instance.
 
         Args:
-            port (int): Localhost port to serve TensorBoard on. Defaults to 6006.
+            port (Optional[int]): Localhost port to serve TensorBoard on. Defaults to value specified in config.
         """
+        if port is None:
+            port = self.port
+
         with suppress_stderr():
             self._tensorboard_proc = subprocess.Popen([
                 "tensorboard",
@@ -81,6 +91,6 @@ class TensorBoard:
                 self._tensorboard_proc.wait()
                 self._tensorboard_proc = None
             except Exception as e:
-                Console.out(f"Failed to terminate TensorBoard: {e}", severity=2)
+                Console.out(f"Failed to terminate TensorBoard with PID {self._tensorboard_proc.pid}: {e}", severity=2)
 
             Console.out("TensorBoard shut down.")

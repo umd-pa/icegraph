@@ -50,6 +50,10 @@ training:
     weight_decay: 5e-5
     amsgrad: False
 
+  tensorboard:
+    port: 6006
+
+# ml_suite configurations, see ml_suite docs
 feature_extraction:
   # Define name of pulse series from which to extract features
   pulse_key: InIceDSTPulses

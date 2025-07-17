@@ -14,14 +14,12 @@ from .schemas import FullConfig
 __all__ = ["IGConfig"]
 
 
-# TODO: convert IGConfig to a pydantic model for config validation
 class IGConfig:
     """
     Handles configuration loading, caching, and utility paths for the IceGraph pipeline.
 
     This class reads user and internal configuration files, provides structured access
-    to relevant settings, computes input hashes for caching, and generates
-    config files for external tools (e.g., `ml_suite`).
+    to relevant settings, and generates config files for external tools (e.g., `ml_suite`).
     """
 
     _instance: Optional[Self] = None

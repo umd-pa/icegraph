@@ -63,12 +63,17 @@ class OptimizerConfig(BaseModel):
         return v
 
 
+class TensorBoardConfig(BaseModel):
+    port: int
+
+
 class TrainingConfig(BaseModel):
     seed: int
     batch_size: int
     num_workers: int
     trainer_params: TrainerParamsConfig
     optimizer: OptimizerConfig
+    tensorboard: TensorBoardConfig
 
 
 # === feature_extraction ===
