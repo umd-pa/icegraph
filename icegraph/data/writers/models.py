@@ -2,13 +2,16 @@
 # Developed by Taylor St Jean
 
 import lmdb
+import uuid
 from typing import Union, Optional
 import struct
 from pathlib import Path
 import msgpack
+import os
 
 from .base import IGWriter
 from icegraph.console import Console
+from .base.exceptions import WriterError
 
 # allow msgpack to pack numpy objects
 import msgpack_numpy as m
@@ -60,6 +63,10 @@ class LMDBWriter(IGWriter):
         outfile = Path(outfile)
         outfile.parent.mkdir(parents=True, exist_ok=True)
 
+        tmp_path = outfile.parent / f".{outfile.name}.{uuid.uuid4().hex}.tmp"
+        if tmp_path.exists():
+            tmp_path.unlink()
+
         # use all columns if none are specified
         include_cols = include_cols or self.table.columns.tolist()
 
@@ -69,23 +76,34 @@ class LMDBWriter(IGWriter):
 
         # initialize LMDB environment
         env = lmdb.open(
-            str(outfile),
+            str(tmp_path),
             map_size=10 * 1024 ** 3,
             subdir=False,
             lock=True,
             readahead=False
         )
 
-        with env.begin(write=True) as txn:
-            for idx, row in enumerate(Console.progress_bar(self.table.itertuples(index=False), total=self.table.shape[0])):
-                # use 8 byte big-endian integer as the LMDB key for numeric ordering
-                key = struct.pack('>Q', idx)
-                feats = {col: getattr(row, col) for col in include_cols}
+        try:
+            with env.begin(write=True) as txn:
+                for idx, row in enumerate(Console.progress_bar(self.table.itertuples(index=False), total=self.table.shape[0])):
+                    # use 8 byte big-endian integer as the LMDB key for numeric ordering
+                    key = struct.pack('>Q', idx)
+                    feats = {col: getattr(row, col) for col in include_cols}
 
-                # serialize
-                value = msgpack.packb(feats, use_bin_type=True)
-                txn = self._safe_put(txn, key, value, env)
+                    # serialize
+                    value = msgpack.packb(feats, use_bin_type=True)
+                    txn = self._safe_put(txn, key, value, env)
 
+        finally:
+            env.close()
+
+        if not tmp_path.exists():
+            raise WriterError(
+                f"Temporary LMDB file not found at {tmp_path!r}; write may have failed."
+            )
+
+        # write atomically to prevent multithread race conditions
+        os.replace(str(tmp_path), str(outfile))
         Console.out(f"LMDB written to {outfile}")
 
         env.close()

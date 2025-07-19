@@ -45,24 +45,23 @@ class HDF5Merger(IGMerger):
             raise MissingHDF5FilesError(f"No HDF5 files found in directory {self.indir!s}")
 
         Console.out(f"Merging {len(self.files)} HDF5 files...")
-        Console.spinner().start()
 
-        resolver = PathResolver(path=outfile, origin=self.indir, extension="hdf5", stage="merger")
-        outfile = resolver.resolve()
+        with Console.spinner():
+            resolver = PathResolver(path=outfile, origin=self.indir, extension="hdf5", stage="merger")
+            outfile = resolver.resolve()
 
-        # configure the merge command
-        merge_command = ["hdfwriter-merge", "-o", str(outfile)] + [str(f) for f in self.files]
-        try:
-            subprocess.run(merge_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        except FileNotFoundError:
-            Console.spinner().stop()
-            raise MergeToolNotFoundError("Could not find `hdfwriter-merge` on $PATH")
-        except subprocess.CalledProcessError as e:
-            Console.spinner().stop()
-            stderr = e.stderr.decode(errors="ignore").strip()
-            raise MergeError(f"`hdfwriter-merge` failed: {stderr!r}") from e
+            # configure the merge command
+            merge_command = ["hdfwriter-merge", "-o", str(outfile)] + [str(f) for f in self.files]
+            try:
+                subprocess.run(merge_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            except FileNotFoundError:
+                Console.spinner().stop()
+                raise MergeToolNotFoundError("Could not find `hdfwriter-merge` on $PATH")
+            except subprocess.CalledProcessError as e:
+                Console.spinner().stop()
+                stderr = e.stderr.decode(errors="ignore").strip()
+                raise MergeError(f"`hdfwriter-merge` failed: {stderr!r}") from e
 
-        Console.spinner().stop()
         Console.out(f"Merge complete, output file saved to {outfile}")
 
         return outfile

@@ -6,6 +6,7 @@ from pathlib import Path
 import json
 
 import pandas as pd
+from pandas import HDFStore
 import numpy as np
 import torch
 from torch_cluster import knn_graph
@@ -17,7 +18,8 @@ from icegraph.console.streams import suppress_stderr
 from .schemas import generate_vector_mapping
 from icegraph.geometry import Detector
 from icegraph.data.writers import LMDBWriter
-from icegraph.pathutils import PathResolver
+from icegraph.pathutils import PathResolver, PathValidator
+from .base.exceptions import ProcessorError
 
 __all__ = ["FeatureProcessor", "Normalize"]
 
@@ -45,6 +47,8 @@ class FeatureProcessor:
 
         """
         self.infile = Path(infile)
+        PathValidator.is_valid_file(self.infile)
+
         self._config: IGConfig = IGConfig.get()
 
         # get relevant columns from config
@@ -74,60 +78,71 @@ class FeatureProcessor:
         Returns:
             Path: Path to the output LMDB file.
         """
-        Console.banner("Data Transformer")
+        Console.banner("Feature Processor")
         Console.out(f"Building graph samples from raw data: {self.infile}")
-        Console.spinner().start()
 
-        resolver = PathResolver(path=outfile, origin=self.infile, extension="lmdb", stage="transformer")
-        outfile = resolver.resolve()
+        with Console.spinner():
+            resolver = PathResolver(path=outfile, origin=self.infile, extension="lmdb", stage="transformer")
+            outfile = resolver.resolve()
 
-        # Load data to DataFrames
-        # IDE might complain these aren't DataFrames; they are.
-        # Suppressing very loud HDF5 mismatched header warning
-        with suppress_stderr():
-            features_table = cast(pd.DataFrame, pd.read_hdf(
-                self.infile,
-                key=self._config.user_config.table_names.features
-            ))
-            truth_table = cast(pd.DataFrame, pd.read_hdf(
-                self.infile,
-                key=self._config.user_config.table_names.truth
-            ))
+            feat_key = self._config.user_config.table_names.features
+            truth_key = self._config.user_config.table_names.truth
 
-        # Run reshaping
-        features_table = self._reshape_features_table(features_table)
+            try:
+                with HDFStore(self.infile, mode='r') as store:
+                    for key in (feat_key, truth_key):
+                        if key not in store:
+                            raise ProcessorError(f"Missing HDF5 key '{key}' in {self.infile}.")
 
-        # Apply feature vector mapping
-        vector_map = generate_vector_mapping()
-        self._apply_column_map(features_table, vector_map)
+            except Exception as e:
+                raise ProcessorError(f"Error accessing HDF5 keys: {e}")
 
-        # normalize the data, and save the norms for inversion later
-        scaler_params_outfile = outfile.parent / "scaler-params-features.json"
-        features_table = self._normalize(features_table, scaler_params_outfile)
+            # Load data to DataFrames
+            # IDE might complain these aren't DataFrames; they are.
+            # Suppressing very loud HDF5 mismatched header warning
+            with suppress_stderr():
+                features_table = cast(pd.DataFrame, pd.read_hdf(
+                    self.infile,
+                    key=feat_key
+                ))
+                truth_table = cast(pd.DataFrame, pd.read_hdf(
+                    self.infile,
+                    key=truth_key
+                ))
 
-        Console.out(
-            f"Scaler parameters saved to {scaler_params_outfile}. "
-            f"Use this to normalize/denormalize features in production.",
-            control_prefix="\r"
-        )
+            # Run reshaping
+            features_table = self._reshape_features_table(features_table)
 
-        scaler_params_outfile = outfile.parent / "scaler-params-labels.json"
-        truth_table = self._normalize(truth_table, scaler_params_outfile)
+            # Apply feature vector mapping
+            vector_map = generate_vector_mapping()
+            self._apply_column_map(features_table, vector_map)
 
-        Console.out(
-            f"Scaler parameters saved to {scaler_params_outfile}. "
-            f"Use this to normalize/denormalize labels in production.",
-            control_prefix="\r"
-        )
+            # normalize the data, and save the norms for inversion later
+            scaler_params_outfile = outfile.parent / "scaler-params-features.json"
+            features_table = self._normalize(features_table, scaler_params_outfile)
 
-        # compress features by event
-        features_table = self._compress(features_table)
+            Console.out(
+                f"Scaler parameters saved to {scaler_params_outfile}. "
+                f"Use this to normalize/denormalize features in production.",
+                control_prefix="\r"
+            )
 
-        # merge the truth and features tables and calculate edge indices
-        table = self._merge_tables(features_table, truth_table)
-        table = self._append_edge_index(table)
+            scaler_params_outfile = outfile.parent / "scaler-params-labels.json"
+            truth_table = self._normalize(truth_table, scaler_params_outfile)
 
-        Console.spinner().stop()
+            Console.out(
+                f"Scaler parameters saved to {scaler_params_outfile}. "
+                f"Use this to normalize/denormalize labels in production.",
+                control_prefix="\r"
+            )
+
+            # compress features by event
+            features_table = self._compress(features_table)
+
+            # merge the truth and features tables and calculate edge indices
+            table = self._merge_tables(features_table, truth_table)
+            table = self._append_edge_index(table)
+
         Console.out("Build complete, writing to LMDB...")
 
         # export to lmdb
@@ -155,28 +170,25 @@ class FeatureProcessor:
         """
 
         def compute_edges(row: pd.Series) -> pd.Series:
-            features_dict = row["features"]
-
-            # Extract DOM positions as tensor [num_nodes, num_coords]
+            event_id = tuple(row[c] for c in self.event_id_cols)
+            features_dict = row['features']
             dom_positions = torch.tensor(
                 [[f[c] for c in self.dom_pos_cols] for f in features_dict],
                 dtype=torch.float
             )
+            n = dom_positions.size(0)
+            k_eff = min(max(n - 1, 0), 10)
+            if k_eff <= 0:
+                return pd.Series({'edge_index': [], 'edge_weight': []})
 
-            # Compute kNN graph (k=10 neighbors)
-            edge_index = knn_graph(dom_positions, k=10, loop=False)  # shape: [2, num_edges]
-
-            # Compute edge weights (Euclidean distance)
+            edge_index = knn_graph(dom_positions, k=k_eff, loop=False)
             src, dst = edge_index
-            distances = torch.norm(dom_positions[src] - dom_positions[dst], dim=1)  # [num_edges]
+            distances = torch.norm(dom_positions[src] - dom_positions[dst], dim=1)
+            if not torch.isfinite(distances).all():
+                raise ProcessorError(f"Non-finite distances for event {event_id}")
+            return pd.Series({'edge_index': edge_index.tolist(), 'edge_weight': distances.tolist()})
 
-            return pd.Series({
-                "edge_index": edge_index.tolist(),
-                "edge_weight": distances.tolist()
-            })
-
-        # Apply to all rows
-        table[["edge_index", "edge_weight"]] = table.apply(compute_edges, axis=1)
+        table[['edge_index', 'edge_weight']] = table.apply(compute_edges, axis=1)
         return table
 
     def _merge_tables(self, features: pd.DataFrame, truth: pd.DataFrame) -> pd.DataFrame:
@@ -197,16 +209,20 @@ class FeatureProcessor:
             AssertionError: If the number of rows in `features` and `truth` does not match,
                             indicating a potential ID mismatch.
         """
+        feat_ids = set(map(tuple, features[self.event_id_cols].values))
+        truth_ids = set(map(tuple, truth[self.event_id_cols].values))
+        missing = feat_ids.symmetric_difference(truth_ids)
+        if missing:
+            raise ProcessorError(f"Event ID mismatch between features and truth: {missing}")
+
         assert len(features) == len(truth), "ID collision, please rerun feature extraction."
 
-        table = pd.merge(
+        return pd.merge(
             features,
             truth,
             on=self.event_id_cols,
             how='left'
         )
-
-        return table
 
     def _reshape_features_table(self, table: pd.DataFrame) -> pd.DataFrame:
         """
@@ -218,33 +234,67 @@ class FeatureProcessor:
         Returns:
             pd.DataFrame: Reshaped features table.
         """
+        if table is None or table.empty:
+            raise ProcessorError("Input features table is empty or None")
+
+        detector = Detector()
+
+        # func for safely computing dom coords (avoiding any silent nans)
+        def __safe_coords(row: pd.Series) -> pd.Series:
+            dom_ids = tuple(row[c] for c in self.dom_id_cols)
+            try:
+                coords = detector.get_dom_coords(*dom_ids)
+
+            except Exception as e:
+                raise ProcessorError(f"Failed to get coords for DOM {dom_ids}: {e}")
+
+            if (coords is None) or (len(coords) != len(self.dom_pos_cols)):
+                raise ProcessorError(f"Invalid coords for DOM {dom_ids}: {coords}")
+
+            return pd.Series(coords, index=self.dom_pos_cols)
+
         # Pivot the table
         pivot_col = "vector_index"
         value_col = "item"
         index_cols = [c for c in table.columns if c not in {pivot_col, value_col}]
 
-        table = table.pivot_table(index=index_cols, columns=pivot_col, values=value_col, aggfunc="first")
-        table = table.reset_index()
+        # quick data checks
+        for col in (pivot_col, value_col):
+            if col not in table.columns:
+                raise ProcessorError(f"Missing expected column '{col}' in features table")
 
-        detector = Detector()
+        if not any(c in index_cols for c in self.dom_id_cols + self.event_id_cols):
+            raise ProcessorError("No DOM or event ID columns found for pivot index")
 
-        # apply & expand into separate columns
-        coords_df = table.apply(
-            lambda row: pd.Series(
-                detector.get_dom_coords(
-                    row[self.dom_id_cols[0]],
-                    row[self.dom_id_cols[1]],
-                    row[self.dom_id_cols[2]]
-                ),
-                index=self.dom_pos_cols
-            ),
-            axis=1
-        )
+        reshaped = table.pivot_table(
+            index=index_cols,
+            columns=pivot_col,
+            values=value_col,
+            aggfunc="first"
+        ).reset_index()
+        if reshaped.empty:
+            raise ProcessorError("Reshaped features table is empty after pivot")
 
-        table = pd.concat([table, coords_df], axis=1, ignore_index=False)
-        table.drop(columns=self.dom_id_cols, inplace=True)
+        # Verify pivot created contiguous vector indices
+        vector_indices = sorted([col for col in reshaped.columns if isinstance(col, int)])
+        expected = list(range(min(vector_indices, default=0), max(vector_indices, default=-1) + 1))
+        if vector_indices != expected:
+            raise ProcessorError(f"Non-contiguous vector indices: found {vector_indices}, expected {expected}")
 
-        return table
+        coords_df = reshaped.apply(__safe_coords, axis=1)
+        # Check for NaN or infinite in coordinates
+        if coords_df.isnull().any().any() or not np.isfinite(coords_df.values).all():
+            raise ProcessorError("Detected NaN or infinite values in DOM coordinates")
+
+        final = pd.concat([reshaped, coords_df], axis=1)
+        final.drop(columns=self.dom_id_cols, inplace=True)
+
+        # confirm DOM position columns present
+        for pos in self.dom_pos_cols:
+            if pos not in final.columns:
+                raise ProcessorError(f"Missing DOM position column '{pos}' after concatenation")
+
+        return final
 
     def _compress(self, table: pd.DataFrame) -> pd.DataFrame:
         """
@@ -335,6 +385,10 @@ class Normalize:
         """
         outfile = Path(outfile)
 
+        if log_cols and (self.table[log_cols] < -1).any().any():
+            bad = [c for c in log_cols if (self.table[c] < -1).any()]
+            raise ProcessorError(f"Values < -1 in log columns: {bad}")
+
         # apply log to specified columns
         self.table[log_cols] = np.log1p(self.table[log_cols])
 
@@ -343,6 +397,11 @@ class Normalize:
         table_scaled[cols] = scaler.fit_transform(self.table[cols])
 
         log_mask = [col in log_cols for col in cols]
+
+        # Guard against zero scale (constant) columns
+        zero_scale = [c for c, s in zip(cols, scaler.scale_) if s == 0]
+        if zero_scale:
+            raise ProcessorError(f"Constant columns detected with zero scale: {zero_scale}")
 
         params = {
             "columns": cols,
@@ -367,14 +426,20 @@ class Normalize:
             DataFrame with normalized columns.
         """
         infile = Path(infile)
-        with infile.open("r") as file:
-            params = json.load(file)
+        PathValidator.is_valid_file(infile)
+
+        with infile.open('r') as f:
+            params = json.load(f)
+
+        for c, s in zip(params['columns'], params['scale']):
+            if s == 0:
+                raise ProcessorError(f"Zero scale for column '{c}' in saved model")
 
         table_norm = self.table.copy()
-        for col, mu, sigma, log in zip(params["columns"], params["mean"], params["scale"], params["log"]):
+        for col, mu, sigma, log in zip(params['columns'], params['mean'], params['scale'], params['log']):
             if log:
                 table_norm[col] = np.log1p(table_norm[col])
-            table_norm[col] = (self.table[col] - mu) / sigma
+            table_norm[col] = (table_norm[col] - mu) / sigma
 
         return table_norm
 
@@ -389,33 +454,22 @@ class Normalize:
             DataFrame with columns in original scale.
         """
         infile = Path(infile)
+        PathValidator.is_valid_file(infile)
+
         with infile.open("r") as file:
             params = json.load(file)
 
-        # only keep entries for columns that exist in self.table
-        filtered_params = [
-            (col, mu, sigma, log)
-            for col, mu, sigma, log in zip(
-                params["columns"],
-                params["mean"],
-                params["scale"],
-                params["log"]
-            )
-            if col in self.table.columns
+        filtered = [
+            (c, m, s, l)
+            for c, m, s, l in zip(params["columns"], params["mean"], params["scale"], params["log"])
+            if c in self.table.columns
         ]
 
-        if filtered_params:
-            cols, means, scales, logs = zip(*filtered_params)
-            params["columns"] = list(cols)
-            params["mean"] = list(means)
-            params["scale"] = list(scales)
-            params["log"] = list(logs)
+        if filtered:
+            cols, means, scales, logs = zip(*filtered)
+            params = {"columns": list(cols), "mean": list(means), "scale": list(scales), "log": list(logs)}
         else:
-            # no matching columns → clear everything
-            params["columns"] = []
-            params["mean"] = []
-            params["scale"] = []
-            params["log"] = []
+            params = {"columns": [], "mean": [], "scale": [], "log": []}
 
         table_denorm = self.table.copy()
         for col, mu, sigma, log in zip(params["columns"], params["mean"], params["scale"], params["log"]):

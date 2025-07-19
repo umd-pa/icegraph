@@ -92,8 +92,9 @@ class Trainer:
             weight_decay=float(optimizer_params["weight_decay"]),
             amsgrad=bool(optimizer_params["amsgrad"])
         )
-        self.loss_fn = torch.nn.MSELoss()
+        self.loss_fn = torch.nn.MSELoss(reduction="mean")
 
+        # setup tensorboard attr
         self._tensorboard: Optional[TensorBoard] = None
 
     @staticmethod
@@ -157,7 +158,14 @@ class Trainer:
 
                 self.optimizer.zero_grad()
                 out = self.model(batch.x, batch.batch)
-                target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).view(-1, 1)
+
+                if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
+                    # graph labels: just reshape
+                    target = batch.y.unsqueeze(-1)
+                else:
+                    # node labels: aggregate per graph
+                    target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
+
                 loss = self.loss_fn(out, target)
                 loss.backward()
                 self.optimizer.step()
@@ -198,7 +206,14 @@ class Trainer:
             for batch in Console.progress_bar(self.datasets.val_dataloader):
                 batch = batch.to(self.device)
                 out = self.model(batch.x, batch.batch)
-                target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).view(-1, 1)
+
+                if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
+                    # graph labels: just reshape
+                    target = batch.y.unsqueeze(-1)
+                else:
+                    # node labels: aggregate per graph
+                    target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
+
                 loss = self.loss_fn(out, target)
 
                 total_loss += loss.item() * batch.y.size(0)
@@ -233,7 +248,14 @@ class Trainer:
             for batch in Console.progress_bar(self.datasets.test_dataloader):
                 batch = batch.to(self.device)
                 out = self.model(batch.x, batch.batch)
-                target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).view(-1, 1)
+
+                if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
+                    # graph labels: just reshape
+                    target = batch.y.unsqueeze(-1)
+                else:
+                    # node labels: aggregate per graph
+                    target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
+
                 total_rmse += F.mse_loss(out, target, reduction="sum").sqrt().item()
                 total += batch.y.size(0)
 

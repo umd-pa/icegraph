@@ -26,7 +26,7 @@ def main():
     IGConfig.register(config)
 
     # specify the data input directory, usually the i3 file set
-    resource = "/data/i3store/users/tstjean/i3_10_test"
+    resource = "/data/i3store/users/tstjean/i3_100_test"
 
     # define the processing chain and run each process sequentially left to right
     for stage in [FeatureExtractor, FeatureProcessor, DatasetSplitter]:

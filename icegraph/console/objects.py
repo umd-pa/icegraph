@@ -2,6 +2,7 @@
 # Developed by Taylor St Jean
 
 import threading
+from typing import Self
 import time
 import atexit
 
@@ -30,6 +31,19 @@ class Spinner:
 
         # Ensure spinner is stopped gracefully on program exit
         atexit.register(self.stop)
+
+    def __enter__(self) -> Self:
+        """
+        Enter context: start the spinner.
+        """
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Exit context: stop the spinner.
+        """
+        self.stop()
 
     def _spinner_task(self) -> None:
         """

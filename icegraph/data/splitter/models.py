@@ -187,17 +187,16 @@ class DatasetSplitter:
         if self._config.user_config.data.splits.stratify:
             Console.out(
                 "Running multi-label stratification..." if multilabel else "Running single-label stratification...")
-            Console.spinner().start()
-            if multilabel:
-                df_train, df_val, df_test = self._multi_label_stratification()
-            else:
-                df_train, df_val, df_test = self._single_label_stratification()
+            with Console.spinner():
+                if multilabel:
+                    df_train, df_val, df_test = self._multi_label_stratification()
+                else:
+                    df_train, df_val, df_test = self._single_label_stratification()
         else:
             Console.out("Running standard train/test/val split...")
-            Console.spinner().start()
-            df_train, df_val, df_test = self._standard_split()
+            with Console.spinner():
+                df_train, df_val, df_test = self._standard_split()
 
-        Console.spinner().stop()
         Console.out("Split generation complete. Saving to LMDB...")
 
         self._to_lmdb(df_train, outdir / "train.graphs.lmdb")
