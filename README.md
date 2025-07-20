@@ -1,5 +1,9 @@
 # IceGraph
 
+[![CodeQL](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql)
+
+---
+
 IceGraph is a work-in-progress pipeline for training Graph Neural Networks for reconstruction/classification work on IceCube data using PyTorch.
 
 Documentation: https://umd-pa.github.io/icegraph
