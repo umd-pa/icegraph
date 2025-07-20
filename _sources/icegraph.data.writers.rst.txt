@@ -14,5 +14,5 @@ Module contents
 
 .. automodule:: icegraph.data.writers
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

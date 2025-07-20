@@ -14,5 +14,5 @@ Module contents
 
 .. automodule:: icegraph.data.mergers
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

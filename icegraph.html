@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph package &mdash; IceGraph 0.5.3 documentation</title>
+  <title>icegraph package &mdash; IceGraph 0.6.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=2a2fe768"></script>
+      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -49,10 +49,12 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.config.html">icegraph.config package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.console.html">icegraph.console package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.exceptions.html">icegraph.exceptions package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.pathutils.html">icegraph.pathutils package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.renderer.html">icegraph.renderer package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#module-contents">Module contents</a></li>
@@ -100,6 +102,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#icegraph-config-hash-utils-module">icegraph.config.hash_utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#icegraph-config-schemas-module">icegraph.config.schemas module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#module-contents">Module contents</a></li>
 </ul>
 </li>
@@ -121,6 +124,8 @@
 <li class="toctree-l1"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.base.html">icegraph.data.base package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#icegraph-data-base-exceptions-module">icegraph.data.base.exceptions module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#module-contents">Module contents</a></li>
 </ul>
 </li>
@@ -140,6 +145,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.processor.html">icegraph.data.processor package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#submodules">Submodules</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#icegraph-data-processor-schemas-module">icegraph.data.processor.schemas module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#module-contents">Module contents</a></li>
@@ -159,6 +165,10 @@
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#icegraph-data-registry-module">icegraph.data.registry module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.exceptions.html">icegraph.exceptions package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.exceptions.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a><ul>
@@ -184,13 +194,35 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#subpackages">Subpackages</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.module.html">icegraph.trainer.module package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.module.html#module-contents">Module contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.arch.html">icegraph.trainer.arch package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph-trainer-arch-factory-module">icegraph.trainer.arch.factory module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.base.html">icegraph.trainer.base package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#icegraph-trainer-base-exceptions-module">icegraph.trainer.base.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.callbacks.html">icegraph.trainer.callbacks package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-config-module">icegraph.trainer.config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-tensorboard-module">icegraph.trainer.tensorboard module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#icegraph-utils-networking-module">icegraph.utils.networking module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>

@@ -1,13 +1,13 @@
-icegraph.data.base package
-==========================
+icegraph.trainer.arch package
+=============================
 
 Submodules
 ----------
 
-icegraph.data.base.exceptions module
+icegraph.trainer.arch.factory module
 ------------------------------------
 
-.. automodule:: icegraph.data.base.exceptions
+.. automodule:: icegraph.trainer.arch.factory
    :members:
    :show-inheritance:
    :undoc-members:
@@ -15,7 +15,7 @@ icegraph.data.base.exceptions module
 Module contents
 ---------------
 
-.. automodule:: icegraph.data.base
+.. automodule:: icegraph.trainer.arch
    :members:
    :show-inheritance:
    :undoc-members:

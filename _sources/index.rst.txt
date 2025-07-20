@@ -6,7 +6,3 @@ Welcome to IceGraph’s documentation!
    :caption: API Reference:
 
    icegraph
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

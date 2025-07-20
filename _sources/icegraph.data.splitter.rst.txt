@@ -6,5 +6,5 @@ Module contents
 
 .. automodule:: icegraph.data.splitter
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
