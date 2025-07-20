@@ -50,12 +50,12 @@ Required imports:
 ```
 from pathlib import Path
 
-from icegraph.data.transform import FeatureProcessor
-from icegraph.data.extract import FeatureExtractor
+from icegraph.data.processor import FeatureProcessor
+from icegraph.data.extractor import FeatureExtractor
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from icegraph.data.split import DatasetSplitter
-from icegraph.train import Trainer
+from icegraph.data.splitter import DatasetSplitter
+from icegraph.trainer import Trainer
 ```
 
 Define and register project configurations:
