@@ -14,5 +14,5 @@ Module contents
 
 .. automodule:: icegraph.data.extractor
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

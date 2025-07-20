@@ -10,15 +10,17 @@ Subpackages
    icegraph.config
    icegraph.console
    icegraph.data
+   icegraph.exceptions
    icegraph.geometry
    icegraph.pathutils
    icegraph.renderer
    icegraph.trainer
+   icegraph.utils
 
 Module contents
 ---------------
 
 .. automodule:: icegraph
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

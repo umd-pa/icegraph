@@ -35,13 +35,6 @@ def main() -> None:
         "-o", "--output",
         help="Path to the output file"
     )
-    parser.add_argument(
-        '--tensorboard',
-        action=argparse.BooleanOptionalAction
-    )
-    parser.set_defaults(
-        tensorboard=False
-    )
 
     args = parser.parse_args()
 
@@ -55,8 +48,12 @@ def main() -> None:
     dataset_registry = DatasetRegistry.load_from_lmdb(args.train_file, args.val_file, args.test_file)
 
     # use dataset_registry to pass data to training system
-    trainer = Trainer(dataset_registry, args.output)
-    trainer.run(tensorboard=args.tensorboard)
+    # optionally define specific callbacks to pass to trainer:
+    # callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
+    # trainer = Trainer(dataset_registry, outfile=args.output, callbacks=callbacks)
+
+    trainer = Trainer(dataset_registry, outfile=args.output)
+    trainer.run()
 
 if __name__ == "__main__":
     main()

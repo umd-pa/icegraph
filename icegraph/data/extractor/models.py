@@ -6,7 +6,7 @@ from typing import Optional, Union
 
 # have to wrap in try/except block so sphinx can properly generate docs
 try:
-    from icecube.icetray import I3Tray
+    from icecube.icetray import I3Tray, I3Module
     from icecube import dataclasses, icetray, dataio, hdfwriter, ml_suite
     from icecube.sim_services.label_events import (
         MCLabeler,
@@ -23,6 +23,7 @@ except ImportError:
     MCLabeler = None
     ClassificationConverter = None
     MuonLabels = None
+    I3Module = None
 
 from icegraph.console import Console
 from .base import IGExtractor

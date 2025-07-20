@@ -23,13 +23,13 @@ icegraph.data.registry module
 
 .. automodule:: icegraph.data.registry
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 Module contents
 ---------------
 
 .. automodule:: icegraph.data
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

@@ -9,13 +9,13 @@ icegraph.geometry.exceptions module
 
 .. automodule:: icegraph.geometry.exceptions
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 Module contents
 ---------------
 
 .. automodule:: icegraph.geometry
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

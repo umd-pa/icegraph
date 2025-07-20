@@ -1,5 +1,14 @@
 # Changelog
 
+### Version [0.6.0] --- July 19th, 2025:
+- Refactored the `Trainer` for more future extensibility. Created a `ModelFactory` and reworked the `Trainer` to run on a callback architecture.
+- Fixed an issue with incorrect RMSE and MSE calculation during training. Both are now correct.
+- Fixed the autodocs, this time they work as expected.
+- Added more robust error handling throughout. Still work in progress for full error handling.
+- Updated installation instructions in README.md.
+- Improved and pruned the config system slightly, and added config validation via pydantic.
+- Added TensorBoard support via the `TensorBoardCallback` callback.
+
 #### Version [0.5.3] --- July 13th, 2025:
 - Slightly renamed some `icegraph.data` submodules for clarity.
 - Renamed `TransformToDataset` -> `FeatureProcessor`.

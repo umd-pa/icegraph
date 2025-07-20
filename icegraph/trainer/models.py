@@ -1,21 +1,27 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional
+from typing import Union, Optional, Literal
 from pathlib import Path
+import math
+from dataclasses import dataclass
 
 import torch
 from torch.optim import Adam
 from torch_geometric.seed import seed_everything
-import torch.nn.functional as F
+from torch_geometric.data import Batch
+from torch_geometric.loader import DataLoader
 import torch_scatter
 
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from .module import GravNet
+from .config import TrainerConfig
+from .arch import ModelFactory
 from icegraph.pathutils import PathResolver
-from .tensorboard import TensorBoard
+from .callbacks.base import Callback
+from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
+from .base.exceptions import EmptyDataLoaderError
 
 __all__ = ["Trainer"]
 
@@ -29,13 +35,33 @@ class Trainer:
     for each stage of the training lifecycle.
     """
 
-    _model_map = {
-        "gravnet": GravNet
-    }
+    # define a metrics dataclass
+    @dataclass
+    class Metrics:
+        samples: int
+        sse_sum: Union[float, int]
+
+        _avg_loss: Optional[Union[float, int]] = None
+        _rmse: Optional[Union[float, int]] = None
+
+        @property
+        def avg_loss(self) -> Union[float, int]:
+            if self._avg_loss is None:
+                self._avg_loss = self.sse_sum / self.samples
+            return self._avg_loss
+
+        @property
+        def rmse(self) -> Union[float, int]:
+            if self._rmse is None:
+                self._rmse = math.sqrt(self.avg_loss)
+            return self._rmse
+
 
     def __init__(
         self,
         dataset_registry: DatasetRegistry,
+        callbacks: Optional[list[Callback]] = None,
+        trainer_config: Optional[TrainerConfig] = None,
         outfile: Optional[Union[str, Path]] = None,
         model: str = "gravnet",
         device: str = "cuda"
@@ -43,78 +69,91 @@ class Trainer:
         """
         Initialize the Trainer.
 
+        Sets up global configuration, reproducibility, datasets, model, optimizer,
+        loss function, and metrics tracking.
+
         Args:
             dataset_registry (DatasetRegistry): Dataset registry containing dataloaders.
+            callbacks (Optional[list[Callback]]): List of callbacks to pass to the trainer. If none are passed,
+                defaults to Console, Checkpoint and TensorBoard callbacks.
+            trainer_config (TrainerConfig): A TrainerConfig instance with training params.
             outfile (Optional[Union[str, Path]]): Path to save the trained model.
             model (str): The model to be trained and evaluated, must be one of ['gravnet'].
             device (str, optional): Preferred device for computation. Defaults to 'cuda'.
         """
-        # grab global config
+        # grab global config and generate local trainer config
         self._config = IGConfig.get()
+        self.trainer_config = TrainerConfig.from_config(self._config) if trainer_config is None else trainer_config
 
+        # resolve the output path
         resolver = PathResolver(path=outfile, origin=None, extension="pt", stage="trainer")
         self.outfile = resolver.resolve()
 
         # place log dir next to run files
         self.log_dir = self.outfile.parent / "logs"
 
-        # grab config values
-        self.num_epochs = self._config.user_config.training.trainer_params.max_epochs
-        self.test_interval_epochs = self._config.user_config.training.trainer_params.test_interval_epochs
-
-        hidden_channels = self._config.user_config.training.trainer_params.hidden_channels
-        seed = self._config.user_config.training.seed
-        layers = self._config.user_config.training.trainer_params.hidden_layers
-
-        # optimizer dict
-        optimizer_params = self._config.user_config.training.optimizer.toDict()
-
         # set global seed for reproducibility
-        self._set_seed(seed)
+        self._set_seed(self.trainer_config.seed)
 
+        # load datasets and device
         self.datasets = dataset_registry
-        self.device = device if torch.cuda.is_available() else "cpu"
+        self.device: torch.device = (
+            torch.device("cuda")
+            if torch.cuda.is_available() and device == "cuda"
+            else torch.device("cpu")
+        )
+
+        # grab callbacks
+        self.callbacks = callbacks or [ConsoleCallback(), CheckpointCallback(), TensorBoardCallback()]
 
         # determine dimensions of input and output
         in_channels = dataset_registry.train_dataset.num_node_features
         out_channels = dataset_registry.train_dataset.num_output_features
 
         # get the active model
-        active_model: Union[GravNet] = self._model_map[model](in_channels, hidden_channels, out_channels, layers)
+        active_model = ModelFactory.create(
+            model, in_channels, self.trainer_config.hidden_channels, out_channels, self.trainer_config.hidden_layers
+        )
         self.model = active_model.to(self.device)
 
         # define optimizer and the loss function
         self.optimizer = Adam(
             active_model.parameters(),
-            lr=float(optimizer_params["learning_rate"]),
-            betas=tuple(map(float, optimizer_params["betas"])),
-            eps=float(optimizer_params["eps"]),
-            weight_decay=float(optimizer_params["weight_decay"]),
-            amsgrad=bool(optimizer_params["amsgrad"])
+            lr=self.trainer_config.lr,
+            betas=self.trainer_config.betas,
+            eps=self.trainer_config.eps,
+            weight_decay=self.trainer_config.weight_decay,
+            amsgrad=self.trainer_config.amsgrad
         )
         self.loss_fn = torch.nn.MSELoss(reduction="mean")
 
-        # setup tensorboard attr
-        self._tensorboard: Optional[TensorBoard] = None
+        # init metric dicts
+        self._train_metrics: dict[int, Trainer.Metrics] = {}
+        self._val_metrics: dict[int, Trainer.Metrics] = {}
+        self._test_metrics: dict[int, Trainer.Metrics] = {}
+
+        self._fire("on_init")
+
+    def _fire(self, hook_name: str, *args, **kwargs):
+        """
+        Invoke a hook on every registered callback.
+
+        Args:
+            hook_name (str): The name of the callback method to call.
+            *args: Positional arguments to forward into the callback.
+            **kwargs: Keyword arguments to forward into the callback.
+        """
+        for cb in self.callbacks:
+            fn = getattr(cb, hook_name)
+            fn(self, *args, **kwargs)
 
     @staticmethod
     def _set_seed(seed: int) -> None:
         """
-        Set seeds for PyTorch to ensure reproducibility.
-
-        This method configures global random number generators and sets
-        deterministic flags for PyTorch's CUDA backend to make training runs
-        as reproducible as possible.
+        Configure seeds and deterministic flags for full reproducibility.
 
         Args:
-            seed (int): The seed value to use for all random number generators.
-
-        Notes:
-            - This affects torch (CPU and GPU), NumPy, and Python's `random` module.
-            - `torch.backends.cudnn.deterministic = True` ensures deterministic
-              results at the cost of some performance.
-            - `torch.backends.cudnn.benchmark = False` prevents dynamic algorithm
-              selection that could introduce non-determinism.
+            seed (int): Seed for torch, NumPy, and Python random.
         """
         # seed everything
         seed_everything(seed)
@@ -123,177 +162,188 @@ class Trainer:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    def train(self, tensorboard: bool = False) -> None:
+    def _forward_and_target(self, batch: Batch) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Train the model for the configured number of epochs using the training dataloader.
-
-        Logs training progress and computes both MSE and RMSE per epoch.
+        Perform a forward pass and align targets to batch-aggregated outputs.
 
         Args:
-            tensorboard (bool): Whether to start TensorBoard, defaults to False.
+            batch (Batch): A PyG batch.
+
+        Returns:
+            out (Tensor): Model predictions per graph in the batch.
+            target (Tensor): True values aggregated by graph, shaped to match `out`.
         """
-        Console.banner("Trainer")
-        Console.out(f"Model save path: {self.outfile}")
+        out = self.model(batch.x, batch.batch)
+        if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
+            target = batch.y.unsqueeze(-1)
+        else:
+            target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
+        return out, target
 
-        # warn if falling back to CPU
-        if self.device == "cpu":
-            Console.out("No accelerators found, falling back to CPU training.", severity=2)
+    def _train_batchwise(self, dataloader: DataLoader) -> Metrics:
+        """
+        Run one epoch of training over `dataloader` and collect SSE and sample counts.
 
-        if tensorboard:
-            self._tensorboard = TensorBoard(self.log_dir)
-            self._tensorboard.launch()
+        Args:
+            dataloader (DataLoader): Yields batches for training.
 
+        Returns:
+            Metrics: Contains total samples and sum of squared errors for the epoch.
+        """
+        metrics = self.Metrics(0, 0)
+
+        # make sure correct mode is active
         self.model.train()
 
-        # iterate over epochs
-        for epoch in range(self.num_epochs):
-            total_loss = 0.0
-            total_rmse = 0.0
-            total = 0
+        # iterate over each batch
+        for batch in Console.progress_bar(dataloader):
+            self._fire("on_batch_begin", batch)
 
-            Console.out(f"[Train] Epoch {epoch + 1}/{self.num_epochs}")
-            # iterate over batches in the dataloader
-            for batch in Console.progress_bar(self.datasets.train_dataloader):
+            batch = batch.to(self.device)
+            batch_size = batch.y.size(0)
+
+            self.optimizer.zero_grad()
+
+            out, target = self._forward_and_target(batch)
+            loss = self.loss_fn(out, target)
+
+            loss.backward()
+            self.optimizer.step()
+
+            metrics.sse_sum += loss.item() * batch_size
+            metrics.samples += batch_size
+
+            self._fire("on_batch_end", batch, loss.item(), metrics)
+
+        return metrics
+
+    def _evaluate_batchwise(self, dataloader: DataLoader) -> Metrics:
+        """
+        Run one pass of evaluation (no gradient) over `dataloader`.
+
+        Args:
+            dataloader (DataLoader): Yields batches for validation or testing.
+
+        Returns:
+            Metrics: Contains total samples and sum of squared errors for the run.
+        """
+        metrics = self.Metrics(0, 0)
+
+        # make sure correct mode is active
+        self.model.eval()
+
+        # use no_grad on eval loops
+        with torch.no_grad():
+            # iterate over each batch
+            for batch in Console.progress_bar(dataloader):
+                self._fire("on_batch_begin", batch)
+
                 batch = batch.to(self.device)
+                batch_size = batch.y.size(0)
 
-                self.optimizer.zero_grad()
-                out = self.model(batch.x, batch.batch)
-
-                if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
-                    # graph labels: just reshape
-                    target = batch.y.unsqueeze(-1)
-                else:
-                    # node labels: aggregate per graph
-                    target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
-
+                out, target = self._forward_and_target(batch)
                 loss = self.loss_fn(out, target)
-                loss.backward()
-                self.optimizer.step()
 
-                total_loss += loss.item() * batch.y.size(0)
-                total_rmse += F.mse_loss(out, target, reduction="sum").sqrt().item()
-                total += batch.y.size(0)
+                metrics.sse_sum += loss.item() * batch_size
+                metrics.samples += batch_size
 
-            # compute and display RMSE and MSE
-            avg_loss = total_loss / total
-            rmse = total_rmse / total
-            Console.out(f" --> MSE: {avg_loss:.4f} | RMSE: {rmse:.4f}")
+                self._fire("on_batch_end", batch, loss.item(), metrics)
 
-            if self._tensorboard is not None:
-                self._tensorboard.writer.add_scalar("Train/MSE", avg_loss, epoch + 1)
-                self._tensorboard.writer.add_scalar("Train/RMSE", rmse, epoch + 1)
+        return metrics
+
+    @property
+    def train_metrics(self) -> dict[int, Metrics]:
+        """Getter for training metrics."""
+        return self._train_metrics
+
+    @property
+    def val_metrics(self) -> dict[int, Metrics]:
+        """Getter for validation metrics."""
+        return self._val_metrics
+
+    @property
+    def test_metrics(self) -> dict[int, Metrics]:
+        """Getter for testing metrics."""
+        return self._test_metrics
+
+    def train(self) -> None:
+        """
+        Train the model for the configured number of epochs.
+
+        Loops over epochs, logs MSE/RMSE, writes TensorBoard scalars if enabled,
+        and saves both latest and best checkpoints after each epoch.
+        """
+        self._fire("on_train_begin")
+
+        # iterate over epochs
+        for epoch in range(self.trainer_config.max_epochs):
+            self._fire("on_epoch_begin", epoch)
+
+            metrics = self._train_batchwise(self.datasets.train_dataloader)
+
+            if metrics.samples == 0:
+                raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
+
+            self._train_metrics[epoch + 1] = metrics
+
+            self._fire("on_epoch_end", epoch, metrics)
 
             # save the model after every epoch and run test
-            self.save(epoch=epoch)
+            self.save(epoch=epoch, metrics=metrics)
 
             # only run on specified intervals
-            if self.test_interval_epochs > 0 and (epoch + 1) % self.test_interval_epochs == 0:
+            if self.trainer_config.test_interval > 0 and (epoch + 1) % self.trainer_config.test_interval == 0:
                 self.test(epoch=epoch)
 
-    def validate(self) -> None:
+        self._fire("on_train_end")
+
+    def validate(self, epoch: int) -> None:
         """
-        Evaluate the model using the validation dataloader.
-
-        Reports MSE and RMSE on the validation set without updating model weights.
-        """
-        self.model.eval()
-        total_loss = 0.0
-        total_rmse = 0.0
-        total = 0
-
-        Console.out("[Validation]")
-        with torch.no_grad():
-            for batch in Console.progress_bar(self.datasets.val_dataloader):
-                batch = batch.to(self.device)
-                out = self.model(batch.x, batch.batch)
-
-                if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
-                    # graph labels: just reshape
-                    target = batch.y.unsqueeze(-1)
-                else:
-                    # node labels: aggregate per graph
-                    target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
-
-                loss = self.loss_fn(out, target)
-
-                total_loss += loss.item() * batch.y.size(0)
-                total_rmse += F.mse_loss(out, target, reduction="sum").sqrt().item()
-                total += batch.y.size(0)
-
-        # compute and display RMSE and MSE
-        avg_loss = total_loss / total
-        rmse = total_rmse / total
-        Console.out(f" --> MSE: {avg_loss:.4f} | RMSE: {rmse:.4f}")
-
-        # tensorboard
-        if self._tensorboard is not None:
-            self._tensorboard.writer.add_scalar("Validation/MSE", avg_loss, self.num_epochs - 1)
-            self._tensorboard.writer.add_scalar("Validation/RMSE", rmse, self.num_epochs - 1)
-
-    def test(self, epoch: Optional[int] = None) -> None:
-        """
-        Evaluate the final model performance on the test dataset.
-
-        Reports RMSE only, without computing or logging loss.
+        Compute validation metrics without altering model weights.
 
         Args:
-            epoch (int): The current epoch.
+            epoch (int): The epoch index for logging/scalar steps.
         """
-        self.model.eval()
-        total_rmse = 0.0
-        total = 0
+        self._fire("on_validation_begin", epoch)
+        metrics = self._evaluate_batchwise(self.datasets.val_dataloader)
 
-        Console.out("[Test]")
-        with torch.no_grad():
-            for batch in Console.progress_bar(self.datasets.test_dataloader):
-                batch = batch.to(self.device)
-                out = self.model(batch.x, batch.batch)
+        if metrics.samples == 0:
+            raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
 
-                if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
-                    # graph labels: just reshape
-                    target = batch.y.unsqueeze(-1)
-                else:
-                    # node labels: aggregate per graph
-                    target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
+        self._val_metrics[epoch + 1] = metrics
 
-                total_rmse += F.mse_loss(out, target, reduction="sum").sqrt().item()
-                total += batch.y.size(0)
+        self._fire("on_validation_end", epoch, metrics)
 
-        # compute and display RMSE
-        rmse = total_rmse / total
-        Console.out(f" --> RMSE: {rmse:.4f}")
-
-        # tensorboard
-        if self._tensorboard is not None and epoch is not None:
-            self._tensorboard.writer.add_scalar("Test/RMSE", rmse, epoch + 1)
-
-    def save(self, epoch: Optional[int] = None) -> None:
+    def test(self, epoch: int) -> None:
         """
-        Save the model.
-        """
-        if epoch:
-            Console.out(f"[Epoch {epoch + 1}] Saving model...")
-            save_path = self.outfile.with_name(f"{self.outfile.stem}_{epoch}{self.outfile.suffix}")
-        else:
-            Console.out("Saving model...")
-            save_path = self.outfile
-
-        try:
-            torch.save(self.model.state_dict(), save_path)
-            Console.out("Saved successfully.")
-        except Exception as e:
-            Console.out(f"Failed to save model: {e}", severity=3)
-
-    def run(self, tensorboard: bool = False) -> None:
-        """
-        Run the full training pipeline including training, validation, and testing.
+        Compute test metrics using the final model (no weight updates).
 
         Args:
-            tensorboard (bool): Whether to start TensorBoard, defaults to False.
+            epoch (int): The epoch index for logging/scalar steps.
         """
-        self.train(tensorboard)
-        self.validate()
+        self._fire("on_test_begin", epoch)
+        metrics = self._evaluate_batchwise(self.datasets.test_dataloader)
 
-        if self._tensorboard is not None:
-            self._tensorboard.writer.close()
-            self._tensorboard.shutdown()
+        if metrics.samples == 0:
+            raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
+
+        self._test_metrics[epoch + 1] = metrics
+
+        self._fire("on_test_end", epoch, metrics)
+
+    def save(self, epoch: Optional[int] = None, metrics: Optional[Metrics] = None) -> None:
+        """
+        Saves the model if there is an associated callback.
+        """
+        self._fire("on_save", epoch, metrics)
+
+    def run(self) -> None:
+        """
+        Execute the full pipeline: training, testing at set intervals, final validation, and teardown.
+        """
+        Console.banner("Trainer")
+
+        self.train()
+        self.validate(self.trainer_config.max_epochs - 1)
+
+        self._fire("on_teardown")

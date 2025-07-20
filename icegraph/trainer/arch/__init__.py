@@ -2,7 +2,9 @@
 # Developed by Taylor St Jean
 
 from .models import GravNet
+from .factory import ModelFactory
 
 GravNet.__module__ = __name__
+ModelFactory.__module__ = __name__
 
-__all__ = ["GravNet"]
+__all__ = ["ModelFactory", "GravNet"]

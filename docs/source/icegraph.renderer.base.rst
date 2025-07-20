@@ -6,5 +6,5 @@ Module contents
 
 .. automodule:: icegraph.renderer.base
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

@@ -14,5 +14,5 @@ Module contents
 
 .. automodule:: icegraph.data.converters
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

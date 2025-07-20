@@ -4,13 +4,17 @@
 import uuid
 
 try:
-    from icecube import icetray, dataclasses
+    from icecube import dataclasses
+    from icecube.icetray import I3Module
 except ImportError:
     icetray = None
     dataclasses = None
 
+    class I3Module:
+        def PushFrame(self, frame): pass
 
-class UniqueID(icetray.I3Module):
+
+class UniqueID(I3Module):
 
     def DAQ(self, frame) -> None:
         self._apply_tag(frame)

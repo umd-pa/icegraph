@@ -20,12 +20,10 @@ First step after cloning the repository is to create the virtual environment usi
 source venv/bin/activate
 ```
 
-Next, install dependencies. IceGraph needs very specific versions of torch, so we need to tell pip where to find the correct wheels:
+Next, install dependencies:
 
 ```
-pip install -r requirements.txt \
-  --extra-index-url https://download.pytorch.org/whl/cu121 \
-  --find-links https://data.pyg.org/whl/torch-2.2.2+cu121.html
+pip install -r requirements.txt
 ```
 
 Finally, install IceGraph:
@@ -87,8 +85,21 @@ dataset_registry = DatasetRegistry.load_from_lmdb(*resource)
 
 Pass the dataset registry instance to a Trainer, then run the training. Training configuration and hyperparameter selection is all done via config.yaml. The trained model is automatically saved on each epoch.
 ```
-save_path = Path("path/to/model.pth")
-trainer = Trainer(dataset_registry, save_path)
+outfile = Path("path/to/model.pt")
+trainer = Trainer(dataset_registry, outfile=outfile)
+trainer.run()
+```
+
+Or, you can optionally specify callbacks to use during training. You can also define custom callbacks if necessary.
+```
+from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
+
+# these are the default callbacks used in Trainer
+# if you only need these callbacks, there is no need to pass them manually
+callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
+
+outfile = Path("path/to/model.pt")
+trainer = Trainer(dataset_registry, outfile=outfile, callbacks=callbacks)
 trainer.run()
 ```
 
