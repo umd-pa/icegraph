@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.console package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph.console package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -50,8 +50,8 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.console package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#module-icegraph.console.objects">icegraph.console.objects module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#icegraph-console-streams-module">icegraph.console.streams module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.console.streams">icegraph.console.streams module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.console">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a></li>
@@ -63,7 +63,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -144,11 +144,119 @@
 </dd></dl>
 
 </section>
-<section id="icegraph-console-streams-module">
-<h2>icegraph.console.streams module<a class="headerlink" href="#icegraph-console-streams-module" title="Link to this heading"></a></h2>
+<section id="module-icegraph.console.streams">
+<span id="icegraph-console-streams-module"></span><h2>icegraph.console.streams module<a class="headerlink" href="#module-icegraph.console.streams" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="icegraph.console.streams.suppress_stderr">
+<span class="sig-prename descclassname"><span class="pre">icegraph.console.streams.</span></span><span class="sig-name descname"><span class="pre">suppress_stderr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.streams.suppress_stderr" title="Link to this definition"></a></dt>
+<dd><p>Context manager to suppress C-level stderr.</p>
+</dd></dl>
+
 </section>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.console">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.console" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.console.Console">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.console.</span></span><span class="sig-name descname"><span class="pre">Console</span></span><a class="headerlink" href="#icegraph.console.Console" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to standardize all console outputs across the application.</p>
+<p>Provides unified formatting for standard output, progress bars, and spinners.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.console.Console.banner">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">banner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stage</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.Console.banner" title="Link to this definition"></a></dt>
+<dd><p>Prints a banner for the current processing stage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.console.Console.color">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">color</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.Console.color" title="Link to this definition"></a></dt>
+<dd><p>Apply ANSI color codes to text for terminal output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<em>str</em>) – The text to color.</p></li>
+<li><p><strong>color</strong> (<em>str</em>) – Color name.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The colored text.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.console.Console.newline">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">newline</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.Console.newline" title="Link to this definition"></a></dt>
+<dd><p>Prints an empty line.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.console.Console.out">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">out</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">severity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">control_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flush</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">newline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.Console.out" title="Link to this definition"></a></dt>
+<dd><p>Print standardized program output to stdout.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<em>str</em>) – The message to print.</p></li>
+<li><p><strong>severity</strong> (<em>int</em>) – Severity level, integer from 0 to 3 representing INFO, IMPT, WARN, and CRIT. Defaults to 0.</p></li>
+<li><p><strong>control_prefix</strong> (<em>str</em>) – Optional prefix (e.g., indentation or control characters).</p></li>
+<li><p><strong>flush</strong> (<em>bool</em>) – Whether to flush stdout immediately.</p></li>
+<li><p><strong>newline</strong> (<em>bool</em>) – Whether to append a newline character.</p></li>
+<li><p><strong>include_info</strong> (<em>bool</em>) – Whether to include timestamp/severity in the output.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.console.Console.progress_bar">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">progress_bar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_iter</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.Console.progress_bar" title="Link to this definition"></a></dt>
+<dd><p>Create a standardized progress bar using <cite>tqdm</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>_iter</strong> (<em>iterable</em>) – The iterable to wrap in a progress bar.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The wrapped iterable with progress bar display.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>iterator</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.console.Console.spinner">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinner</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.console.Console.spinner" title="Link to this definition"></a></dt>
+<dd><p>Access the shared Spinner object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The shared spinner instance.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#icegraph.console.objects.Spinner" title="icegraph.console.objects.Spinner">Spinner</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 

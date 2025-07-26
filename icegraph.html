@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -57,7 +57,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -95,15 +95,145 @@
 <li class="toctree-l1"><a class="reference internal" href="icegraph.config.html">icegraph.config package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.config.defaults.html">icegraph.config.defaults package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.config.defaults.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.defaults.html#module-icegraph.config.defaults">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#icegraph-config-hash-utils-module">icegraph.config.hash_utils module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#icegraph-config-schemas-module">icegraph.config.schemas module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#module-icegraph.config.hash_utils">icegraph.config.hash_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.hash_utils.hash_directory"><code class="docutils literal notranslate"><span class="pre">hash_directory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#module-icegraph.config.schemas">icegraph.config.schemas module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DOMExclusionsConfig"><code class="docutils literal notranslate"><span class="pre">DOMExclusionsConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DOMExclusionsConfig.exclusions"><code class="docutils literal notranslate"><span class="pre">DOMExclusionsConfig.exclusions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DOMExclusionsConfig.model_config"><code class="docutils literal notranslate"><span class="pre">DOMExclusionsConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DOMExclusionsConfig.partial_exclusion"><code class="docutils literal notranslate"><span class="pre">DOMExclusionsConfig.partial_exclusion</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataConfig"><code class="docutils literal notranslate"><span class="pre">DataConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataConfig.model_config"><code class="docutils literal notranslate"><span class="pre">DataConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataConfig.normalization"><code class="docutils literal notranslate"><span class="pre">DataConfig.normalization</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataConfig.splits"><code class="docutils literal notranslate"><span class="pre">DataConfig.splits</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataConfig.target_labels"><code class="docutils literal notranslate"><span class="pre">DataConfig.target_labels</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataNormalizationConfig"><code class="docutils literal notranslate"><span class="pre">DataNormalizationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataNormalizationConfig.apply_log_scaling"><code class="docutils literal notranslate"><span class="pre">DataNormalizationConfig.apply_log_scaling</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataNormalizationConfig.model_config"><code class="docutils literal notranslate"><span class="pre">DataNormalizationConfig.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataSplitsConfig"><code class="docutils literal notranslate"><span class="pre">DataSplitsConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataSplitsConfig.model_config"><code class="docutils literal notranslate"><span class="pre">DataSplitsConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.DataSplitsConfig.stratify"><code class="docutils literal notranslate"><span class="pre">DataSplitsConfig.stratify</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureConfig"><code class="docutils literal notranslate"><span class="pre">FeatureConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureConfig.features"><code class="docutils literal notranslate"><span class="pre">FeatureConfig.features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureConfig.model_config"><code class="docutils literal notranslate"><span class="pre">FeatureConfig.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureEntry"><code class="docutils literal notranslate"><span class="pre">FeatureEntry</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureEntry.class_"><code class="docutils literal notranslate"><span class="pre">FeatureEntry.class_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureEntry.kwargs"><code class="docutils literal notranslate"><span class="pre">FeatureEntry.kwargs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureEntry.model_config"><code class="docutils literal notranslate"><span class="pre">FeatureEntry.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureExtractionConfig"><code class="docutils literal notranslate"><span class="pre">FeatureExtractionConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureExtractionConfig.dom_exclusions"><code class="docutils literal notranslate"><span class="pre">FeatureExtractionConfig.dom_exclusions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureExtractionConfig.feature_config"><code class="docutils literal notranslate"><span class="pre">FeatureExtractionConfig.feature_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureExtractionConfig.model_config"><code class="docutils literal notranslate"><span class="pre">FeatureExtractionConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureExtractionConfig.pulse_key"><code class="docutils literal notranslate"><span class="pre">FeatureExtractionConfig.pulse_key</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FeatureExtractionConfig.pulse_modifier"><code class="docutils literal notranslate"><span class="pre">FeatureExtractionConfig.pulse_modifier</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FrameKeysConfig"><code class="docutils literal notranslate"><span class="pre">FrameKeysConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FrameKeysConfig.bg_mctree"><code class="docutils literal notranslate"><span class="pre">FrameKeysConfig.bg_mctree</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FrameKeysConfig.mctree"><code class="docutils literal notranslate"><span class="pre">FrameKeysConfig.mctree</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FrameKeysConfig.model_config"><code class="docutils literal notranslate"><span class="pre">FrameKeysConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FrameKeysConfig.truth_dict"><code class="docutils literal notranslate"><span class="pre">FrameKeysConfig.truth_dict</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FrameKeysConfig.weight_dict"><code class="docutils literal notranslate"><span class="pre">FrameKeysConfig.weight_dict</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig"><code class="docutils literal notranslate"><span class="pre">FullConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.data"><code class="docutils literal notranslate"><span class="pre">FullConfig.data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.feature_extraction"><code class="docutils literal notranslate"><span class="pre">FullConfig.feature_extraction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.frame_keys"><code class="docutils literal notranslate"><span class="pre">FullConfig.frame_keys</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.io"><code class="docutils literal notranslate"><span class="pre">FullConfig.io</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.model_config"><code class="docutils literal notranslate"><span class="pre">FullConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.table_names"><code class="docutils literal notranslate"><span class="pre">FullConfig.table_names</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.FullConfig.training"><code class="docutils literal notranslate"><span class="pre">FullConfig.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.IOConfig"><code class="docutils literal notranslate"><span class="pre">IOConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.IOConfig.default_dir"><code class="docutils literal notranslate"><span class="pre">IOConfig.default_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.IOConfig.gcd_path"><code class="docutils literal notranslate"><span class="pre">IOConfig.gcd_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.IOConfig.model_config"><code class="docutils literal notranslate"><span class="pre">IOConfig.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.amsgrad"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.amsgrad</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.betas"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.betas</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.betas_must_have_two_elements"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.betas_must_have_two_elements()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.eps"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.eps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.learning_rate"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.learning_rate</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.model_config"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.OptimizerConfig.weight_decay"><code class="docutils literal notranslate"><span class="pre">OptimizerConfig.weight_decay</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.PulseModifierConfig"><code class="docutils literal notranslate"><span class="pre">PulseModifierConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.PulseModifierConfig.class_"><code class="docutils literal notranslate"><span class="pre">PulseModifierConfig.class_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.PulseModifierConfig.kwargs"><code class="docutils literal notranslate"><span class="pre">PulseModifierConfig.kwargs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.PulseModifierConfig.model_config"><code class="docutils literal notranslate"><span class="pre">PulseModifierConfig.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TableNamesConfig"><code class="docutils literal notranslate"><span class="pre">TableNamesConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TableNamesConfig.features"><code class="docutils literal notranslate"><span class="pre">TableNamesConfig.features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TableNamesConfig.model_config"><code class="docutils literal notranslate"><span class="pre">TableNamesConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TableNamesConfig.truth"><code class="docutils literal notranslate"><span class="pre">TableNamesConfig.truth</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TensorBoardConfig"><code class="docutils literal notranslate"><span class="pre">TensorBoardConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TensorBoardConfig.model_config"><code class="docutils literal notranslate"><span class="pre">TensorBoardConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TensorBoardConfig.port"><code class="docutils literal notranslate"><span class="pre">TensorBoardConfig.port</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig.hidden_channels"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig.hidden_channels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig.hidden_layers"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig.hidden_layers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig.max_epochs"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig.max_epochs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig.model_config"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig.num_nbrs"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig.num_nbrs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainerParamsConfig.test_interval_epochs"><code class="docutils literal notranslate"><span class="pre">TrainerParamsConfig.test_interval_epochs</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig"><code class="docutils literal notranslate"><span class="pre">TrainingConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.batch_size"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.batch_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.model_config"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.num_workers"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.num_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.optimizer"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.optimizer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.seed"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.seed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.tensorboard"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.tensorboard</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.schemas.TrainingConfig.trainer_params"><code class="docutils literal notranslate"><span class="pre">TrainingConfig.trainer_params</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.config.html#module-icegraph.config">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig"><code class="docutils literal notranslate"><span class="pre">IGConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.PROGRAM_NAME"><code class="docutils literal notranslate"><span class="pre">IGConfig.PROGRAM_NAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.__init__"><code class="docutils literal notranslate"><span class="pre">IGConfig.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.get"><code class="docutils literal notranslate"><span class="pre">IGConfig.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.internal_config"><code class="docutils literal notranslate"><span class="pre">IGConfig.internal_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.ml_suite_config_file"><code class="docutils literal notranslate"><span class="pre">IGConfig.ml_suite_config_file</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.register"><code class="docutils literal notranslate"><span class="pre">IGConfig.register()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.user_config"><code class="docutils literal notranslate"><span class="pre">IGConfig.user_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.config.html#icegraph.config.IGConfig.validate"><code class="docutils literal notranslate"><span class="pre">IGConfig.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.console.html">icegraph.console package</a><ul>
@@ -117,119 +247,268 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.console.html#icegraph-console-streams-module">icegraph.console.streams module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.console.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.console.html#module-icegraph.console.streams">icegraph.console.streams module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.console.html#icegraph.console.streams.suppress_stderr"><code class="docutils literal notranslate"><span class="pre">suppress_stderr()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.console.html#module-icegraph.console">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console"><code class="docutils literal notranslate"><span class="pre">Console</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console.banner"><code class="docutils literal notranslate"><span class="pre">Console.banner()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console.color"><code class="docutils literal notranslate"><span class="pre">Console.color()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console.newline"><code class="docutils literal notranslate"><span class="pre">Console.newline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console.out"><code class="docutils literal notranslate"><span class="pre">Console.out()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console.progress_bar"><code class="docutils literal notranslate"><span class="pre">Console.progress_bar()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.console.html#icegraph.console.Console.spinner"><code class="docutils literal notranslate"><span class="pre">Console.spinner()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.base.html">icegraph.data.base package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#icegraph-data-base-exceptions-module">icegraph.data.base.exceptions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#module-icegraph.data.base.exceptions">icegraph.data.base.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.base.html#module-icegraph.data.base">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.converters.html">icegraph.data.converters package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.converters.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.converters.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.converters.html#module-icegraph.data.converters">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.extractor.html">icegraph.data.extractor package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.html#module-icegraph.data.extractor">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.mergers.html">icegraph.data.mergers package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.mergers.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.mergers.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.mergers.html#module-icegraph.data.mergers">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.processor.html">icegraph.data.processor package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#icegraph-data-processor-schemas-module">icegraph.data.processor.schemas module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#module-icegraph.data.processor.schemas">icegraph.data.processor.schemas module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.processor.html#module-icegraph.data.processor">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.splitter.html">icegraph.data.splitter package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.splitter.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.splitter.html#module-icegraph.data.splitter">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.writers.html">icegraph.data.writers package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.writers.html#module-icegraph.data.writers">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#icegraph-data-registry-module">icegraph.data.registry module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#module-icegraph.data.registry">icegraph.data.registry module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry._train_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry._train_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry._validation_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry._validation_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry._test_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry._test_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.__init__"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.load_from_lmdb"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.load_from_lmdb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.test_dataloader"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.test_dataloader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.test_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.test_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.train_dataloader"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.train_dataloader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.train_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.train_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.val_dataloader"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.val_dataloader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry.val_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.val_dataset</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.data.html#module-icegraph.data">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry._train_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry._train_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry._validation_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry._validation_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry._test_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry._test_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.__init__"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.load_from_lmdb"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.load_from_lmdb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.test_dataloader"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.test_dataloader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.test_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.test_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.train_dataloader"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.train_dataloader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.train_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.train_dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.val_dataloader"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.val_dataloader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.DatasetRegistry.val_dataset"><code class="docutils literal notranslate"><span class="pre">DatasetRegistry.val_dataset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.html#icegraph.data.TestDataset"><code class="docutils literal notranslate"><span class="pre">TestDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.TestDataset.subset"><code class="docutils literal notranslate"><span class="pre">TestDataset.subset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.html#icegraph.data.TrainingDataset"><code class="docutils literal notranslate"><span class="pre">TrainingDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.TrainingDataset.subset"><code class="docutils literal notranslate"><span class="pre">TrainingDataset.subset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.data.html#icegraph.data.ValidationDataset"><code class="docutils literal notranslate"><span class="pre">ValidationDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph.data.ValidationDataset.subset"><code class="docutils literal notranslate"><span class="pre">ValidationDataset.subset</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.exceptions.html">icegraph.exceptions package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.exceptions.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.exceptions.html#module-icegraph.exceptions">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError"><code class="docutils literal notranslate"><span class="pre">IceGraphError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError.__init__"><code class="docutils literal notranslate"><span class="pre">IceGraphError.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.geometry.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.geometry.html#icegraph-geometry-exceptions-module">icegraph.geometry.exceptions module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.geometry.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.geometry.html#module-icegraph.geometry.exceptions">icegraph.geometry.exceptions module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html#icegraph.geometry.exceptions.GeometryFrameNotFound"><code class="docutils literal notranslate"><span class="pre">GeometryFrameNotFound</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.geometry.html#module-icegraph.geometry">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html#icegraph.geometry.Detector"><code class="docutils literal notranslate"><span class="pre">Detector</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.geometry.html#icegraph.geometry.Detector.__init__"><code class="docutils literal notranslate"><span class="pre">Detector.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.geometry.html#icegraph.geometry.Detector.get_all_dom_ids"><code class="docutils literal notranslate"><span class="pre">Detector.get_all_dom_ids()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.geometry.html#icegraph.geometry.Detector.get_dom_coords"><code class="docutils literal notranslate"><span class="pre">Detector.get_dom_coords()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.pathutils.html">icegraph.pathutils package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.pathutils.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.pathutils.html#module-icegraph.pathutils">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathResolver"><code class="docutils literal notranslate"><span class="pre">PathResolver</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathResolver.__init__"><code class="docutils literal notranslate"><span class="pre">PathResolver.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathResolver.resolve"><code class="docutils literal notranslate"><span class="pre">PathResolver.resolve()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathValidator"><code class="docutils literal notranslate"><span class="pre">PathValidator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathValidator.is_valid_dir"><code class="docutils literal notranslate"><span class="pre">PathValidator.is_valid_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathValidator.is_valid_file"><code class="docutils literal notranslate"><span class="pre">PathValidator.is_valid_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.pathutils.html#icegraph.pathutils.PathValidator.is_valid_path"><code class="docutils literal notranslate"><span class="pre">PathValidator.is_valid_path()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.renderer.html">icegraph.renderer package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.renderer.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.renderer.base.html">icegraph.renderer.base package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.base.html#module-icegraph.renderer.base">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.renderer.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.renderer.html#module-icegraph.renderer">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.renderer.html#icegraph.renderer.FeaturePlot"><code class="docutils literal notranslate"><span class="pre">FeaturePlot</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.html#icegraph.renderer.FeaturePlot.plot"><code class="docutils literal notranslate"><span class="pre">FeaturePlot.plot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.renderer.html#icegraph.renderer.FeaturePlot.subplots"><code class="docutils literal notranslate"><span class="pre">FeaturePlot.subplots</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.arch.html">icegraph.trainer.arch package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph-trainer-arch-factory-module">icegraph.trainer.arch.factory module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#module-icegraph.trainer.arch.factory">icegraph.trainer.arch.factory module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#module-icegraph.trainer.arch">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.base.html">icegraph.trainer.base package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#icegraph-trainer-base-exceptions-module">icegraph.trainer.base.exceptions module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#module-icegraph.trainer.base.exceptions">icegraph.trainer.base.exceptions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.base.html#module-icegraph.trainer.base">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.callbacks.html">icegraph.trainer.callbacks package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#module-icegraph.trainer.callbacks">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-config-module">icegraph.trainer.config module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-tensorboard-module">icegraph.trainer.tensorboard module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer.config">icegraph.trainer.config module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig"><code class="docutils literal notranslate"><span class="pre">TrainerConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.__init__"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.amsgrad"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.amsgrad</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.betas"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.betas</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.eps"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.eps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.from_config"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.from_config()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.hidden_channels"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.hidden_channels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.hidden_layers"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.hidden_layers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.lr"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.lr</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.max_epochs"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.max_epochs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.seed"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.seed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.test_interval"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.test_interval</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.config.TrainerConfig.weight_decay"><code class="docutils literal notranslate"><span class="pre">TrainerConfig.weight_decay</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer.tensorboard">icegraph.trainer.tensorboard module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.tensorboard.TensorBoard"><code class="docutils literal notranslate"><span class="pre">TensorBoard</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.tensorboard.TensorBoard.__init__"><code class="docutils literal notranslate"><span class="pre">TensorBoard.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.tensorboard.TensorBoard.launch"><code class="docutils literal notranslate"><span class="pre">TensorBoard.launch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.tensorboard.TensorBoard.shutdown"><code class="docutils literal notranslate"><span class="pre">TensorBoard.shutdown()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.tensorboard.TensorBoard.writer"><code class="docutils literal notranslate"><span class="pre">TensorBoard.writer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.TensorBoard"><code class="docutils literal notranslate"><span class="pre">TensorBoard</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.TensorBoard.__init__"><code class="docutils literal notranslate"><span class="pre">TensorBoard.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.TensorBoard.launch"><code class="docutils literal notranslate"><span class="pre">TensorBoard.launch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.TensorBoard.shutdown"><code class="docutils literal notranslate"><span class="pre">TensorBoard.shutdown()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.TensorBoard.writer"><code class="docutils literal notranslate"><span class="pre">TensorBoard.writer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.Metrics"><code class="docutils literal notranslate"><span class="pre">Trainer.Metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.__init__"><code class="docutils literal notranslate"><span class="pre">Trainer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.run"><code class="docutils literal notranslate"><span class="pre">Trainer.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.save"><code class="docutils literal notranslate"><span class="pre">Trainer.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.test"><code class="docutils literal notranslate"><span class="pre">Trainer.test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.test_metrics"><code class="docutils literal notranslate"><span class="pre">Trainer.test_metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.train"><code class="docutils literal notranslate"><span class="pre">Trainer.train()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.train_metrics"><code class="docutils literal notranslate"><span class="pre">Trainer.train_metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.val_metrics"><code class="docutils literal notranslate"><span class="pre">Trainer.val_metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph.trainer.Trainer.validate"><code class="docutils literal notranslate"><span class="pre">Trainer.validate()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#icegraph-utils-networking-module">icegraph.utils.networking module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#module-icegraph.utils.networking">icegraph.utils.networking module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html#icegraph.utils.networking.is_port_available"><code class="docutils literal notranslate"><span class="pre">is_port_available()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.utils.html#module-icegraph.utils">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html#icegraph.utils.is_port_available"><code class="docutils literal notranslate"><span class="pre">is_port_available()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
 </div>
 </section>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph" title="Link to this heading"></a></h2>
 </section>
 </section>
 

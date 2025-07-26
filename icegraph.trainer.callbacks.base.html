@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.trainer.callbacks.base package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph.trainer.callbacks.base package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -56,15 +56,15 @@
 <li class="toctree-l3 current"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a><ul class="current">
 <li class="toctree-l4 current"><a class="reference internal" href="icegraph.trainer.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-config-module">icegraph.trainer.config module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-tensorboard-module">icegraph.trainer.tensorboard module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer.config">icegraph.trainer.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer.tensorboard">icegraph.trainer.tensorboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -98,8 +98,160 @@
              
   <section id="icegraph-trainer-callbacks-base-package">
 <h1>icegraph.trainer.callbacks.base package<a class="headerlink" href="#icegraph-trainer-callbacks-base-package" title="Link to this heading"></a></h1>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.trainer.callbacks.base">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.trainer.callbacks.base" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.callbacks.base.</span></span><span class="sig-name descname"><span class="pre">Callback</span></span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Abstract base class defining hooks into the Trainer lifecycle.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_batch_begin">
+<span class="sig-name descname"><span class="pre">on_batch_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_batch_begin" title="Link to this definition"></a></dt>
+<dd><p>Called immediately before each batch is processed in training or eval.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>batch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Batch</span></code></span>) – The current PyG Batch instance about to be forwarded.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_batch_end">
+<span class="sig-name descname"><span class="pre">on_batch_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_batch_end" title="Link to this definition"></a></dt>
+<dd><p>Called immediately after each batch is processed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Batch</span></code></span>) – The PyG Batch that was just processed.</p></li>
+<li><p><strong>loss</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]</span>) – The scalar loss for that batch (detached).</p></li>
+<li><p><strong>metrics</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Metrics</span></code></span>) – Running Metrics object updated with this batch.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_epoch_begin">
+<span class="sig-name descname"><span class="pre">on_epoch_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_epoch_begin" title="Link to this definition"></a></dt>
+<dd><p>Called at the start of each epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch about to run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_epoch_end">
+<span class="sig-name descname"><span class="pre">on_epoch_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_epoch_end" title="Link to this definition"></a></dt>
+<dd><p>Called at the end of each epoch, after training (and optional testing)
+for that epoch has completed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch that just finished.</p></li>
+<li><p><strong>metrics</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Metrics</span></code></span>) – Training Metrics (SSE and sample count) for that epoch.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_init">
+<span class="sig-name descname"><span class="pre">on_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_init" title="Link to this definition"></a></dt>
+<dd><p>Called once, at the end of Trainer.__init__, after
+the model, optimizer, and all attributes are set up.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_save">
+<span class="sig-name descname"><span class="pre">on_save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_save" title="Link to this definition"></a></dt>
+<dd><p>Called whenever the Trainer invokes save(), regardless of whether
+it’s a “latest” or “best” checkpoint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch at which save was called.</p></li>
+<li><p><strong>metrics</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Metrics</span></code></span>) – Metrics corresponding to that epoch.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_teardown">
+<span class="sig-name descname"><span class="pre">on_teardown</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_teardown" title="Link to this definition"></a></dt>
+<dd><p>Called at the very end of Trainer.run(), after train, validate, and
+any final cleanup are complete.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_test_begin">
+<span class="sig-name descname"><span class="pre">on_test_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_test_begin" title="Link to this definition"></a></dt>
+<dd><p>Called before running the full test loop for a given epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch at which testing is starting.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_test_end">
+<span class="sig-name descname"><span class="pre">on_test_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_test_end" title="Link to this definition"></a></dt>
+<dd><p>Called after testing completes for a given epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch tested.</p></li>
+<li><p><strong>metrics</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Metrics</span></code></span>) – Test Metrics (SSE and sample count).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_train_begin">
+<span class="sig-name descname"><span class="pre">on_train_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_train_begin" title="Link to this definition"></a></dt>
+<dd><p>Called before the first training epoch starts.
+Use this to set up any state needed at the very start of training.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_train_end">
+<span class="sig-name descname"><span class="pre">on_train_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_train_end" title="Link to this definition"></a></dt>
+<dd><p>Called after the last training epoch finishes.
+Good for final cleanup or summary logging.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_validation_begin">
+<span class="sig-name descname"><span class="pre">on_validation_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_validation_begin" title="Link to this definition"></a></dt>
+<dd><p>Called before running the full validation loop for a given epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch at which validation is starting.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.callbacks.base.Callback.on_validation_end">
+<span class="sig-name descname"><span class="pre">on_validation_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.callbacks.base.Callback.on_validation_end" title="Link to this definition"></a></dt>
+<dd><p>Called after validation completes for a given epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epoch</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Zero-based index of the epoch validated.</p></li>
+<li><p><strong>metrics</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Metrics</span></code></span>) – Validation Metrics (SSE and sample count).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 

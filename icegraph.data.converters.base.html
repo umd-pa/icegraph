@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.data.converters.base package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph.data.converters.base package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -51,8 +51,8 @@
 <li class="toctree-l3 current"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul class="current">
 <li class="toctree-l4 current"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph-data-registry-module">icegraph.data.registry module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data.registry">icegraph.data.registry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.exceptions.html">icegraph.exceptions package</a></li>
@@ -63,7 +63,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -97,8 +97,51 @@
              
   <section id="icegraph-data-converters-base-package">
 <h1>icegraph.data.converters.base package<a class="headerlink" href="#icegraph-data-converters-base-package" title="Link to this heading"></a></h1>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.data.converters.base">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.data.converters.base" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.data.converters.base.IGConverter">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.converters.base.</span></span><span class="sig-name descname"><span class="pre">IGConverter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.converters.base.IGConverter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.data.converters.base.IGConverter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.converters.base.IGConverter.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize the base converter for file transformation tasks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_file</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – Path to the input file or directory.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If the subclass has not defined <cite>out_extension</cite>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.data.converters.base.IGConverter.convert">
+<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">convert</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.converters.base.IGConverter.convert" title="Link to this definition"></a></dt>
+<dd><p>Run the conversion process defined by the subclass.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path to the converted output file or directory.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>NotImplementedError</strong> – Must be implemented by any subclass of Converter.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.data.converters.base.IGConverter.out_extension">
+<span class="sig-name descname"><span class="pre">out_extension</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#icegraph.data.converters.base.IGConverter.out_extension" title="Link to this definition"></a></dt>
+<dd><p>File extension or format identifier used by subclasses to define output type (e.g., ‘hdf5’, ‘parquet’).</p>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 

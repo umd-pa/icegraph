@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.data.mergers.base package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph.data.mergers.base package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -51,8 +51,8 @@
 <li class="toctree-l3 current"><a class="reference internal" href="icegraph.data.html">icegraph.data package</a><ul class="current">
 <li class="toctree-l4 current"><a class="reference internal" href="icegraph.data.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#icegraph-data-registry-module">icegraph.data.registry module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data.registry">icegraph.data.registry module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.data.html#module-icegraph.data">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.exceptions.html">icegraph.exceptions package</a></li>
@@ -63,7 +63,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -100,11 +100,66 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
 </section>
-<section id="icegraph-data-mergers-base-exceptions-module">
-<h2>icegraph.data.mergers.base.exceptions module<a class="headerlink" href="#icegraph-data-mergers-base-exceptions-module" title="Link to this heading"></a></h2>
+<section id="module-icegraph.data.mergers.base.exceptions">
+<span id="icegraph-data-mergers-base-exceptions-module"></span><h2>icegraph.data.mergers.base.exceptions module<a class="headerlink" href="#module-icegraph.data.mergers.base.exceptions" title="Link to this heading"></a></h2>
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.exceptions.MergeError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.mergers.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">MergeError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.exceptions.MergeError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError" title="icegraph.exceptions.IceGraphError"><code class="xref py py-class docutils literal notranslate"><span class="pre">IceGraphError</span></code></a></p>
+<p>Raised when an error occurs during the merging process.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.exceptions.MergeToolNotFoundError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.mergers.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">MergeToolNotFoundError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.exceptions.MergeToolNotFoundError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError" title="icegraph.exceptions.IceGraphError"><code class="xref py py-class docutils literal notranslate"><span class="pre">IceGraphError</span></code></a></p>
+<p>Raised when a merge tool cannot be found.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.exceptions.MissingHDF5FilesError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.mergers.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">MissingHDF5FilesError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.exceptions.MissingHDF5FilesError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError" title="icegraph.exceptions.IceGraphError"><code class="xref py py-class docutils literal notranslate"><span class="pre">IceGraphError</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">FileNotFoundError</span></code></p>
+<p>Raised when no HDF5 files are found in the input directory.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.exceptions.MissingLMDBFilesError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.mergers.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">MissingLMDBFilesError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.exceptions.MissingLMDBFilesError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError" title="icegraph.exceptions.IceGraphError"><code class="xref py py-class docutils literal notranslate"><span class="pre">IceGraphError</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">FileNotFoundError</span></code></p>
+<p>Raised when no LMDB files are found in the input directory.</p>
+</dd></dl>
+
 </section>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.data.mergers.base">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.data.mergers.base" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.IGMerger">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.mergers.base.</span></span><span class="sig-name descname"><span class="pre">IGMerger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">indir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.IGMerger" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Base class for file merging operations.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.IGMerger.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">indir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.IGMerger.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.IGMerger.file_ext">
+<span class="sig-name descname"><span class="pre">file_ext</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#icegraph.data.mergers.base.IGMerger.file_ext" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.data.mergers.base.IGMerger.merge">
+<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">merge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.mergers.base.IGMerger.merge" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 

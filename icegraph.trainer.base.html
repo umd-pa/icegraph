@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.trainer.base package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph.trainer.base package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -56,15 +56,15 @@
 <li class="toctree-l3 current"><a class="reference internal" href="icegraph.trainer.html">icegraph.trainer package</a><ul class="current">
 <li class="toctree-l4 current"><a class="reference internal" href="icegraph.trainer.html#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-config-module">icegraph.trainer.config module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#icegraph-trainer-tensorboard-module">icegraph.trainer.tensorboard module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer.config">icegraph.trainer.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer.tensorboard">icegraph.trainer.tensorboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.html#module-icegraph.trainer">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -100,11 +100,32 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
 </section>
-<section id="icegraph-trainer-base-exceptions-module">
-<h2>icegraph.trainer.base.exceptions module<a class="headerlink" href="#icegraph-trainer-base-exceptions-module" title="Link to this heading"></a></h2>
+<section id="module-icegraph.trainer.base.exceptions">
+<span id="icegraph-trainer-base-exceptions-module"></span><h2>icegraph.trainer.base.exceptions module<a class="headerlink" href="#module-icegraph.trainer.base.exceptions" title="Link to this heading"></a></h2>
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.trainer.base.exceptions.EmptyDataLoaderError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">EmptyDataLoaderError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.base.exceptions.EmptyDataLoaderError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#icegraph.trainer.base.exceptions.TrainerError" title="icegraph.trainer.base.exceptions.TrainerError"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainerError</span></code></a></p>
+<p>Raised when the trainer encounters a PyG DataLoader with no data.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.trainer.base.exceptions.TrainerError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">TrainerError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.base.exceptions.TrainerError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="icegraph.exceptions.html#icegraph.exceptions.IceGraphError" title="icegraph.exceptions.IceGraphError"><code class="xref py py-class docutils literal notranslate"><span class="pre">IceGraphError</span></code></a></p>
+<p>Raised when an exception occurs during training.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="icegraph.trainer.base.exceptions.UnknownModelError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.base.exceptions.</span></span><span class="sig-name descname"><span class="pre">UnknownModelError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.base.exceptions.UnknownModelError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#icegraph.trainer.base.exceptions.TrainerError" title="icegraph.trainer.base.exceptions.TrainerError"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainerError</span></code></a></p>
+<p>Raised when the user attempts to use a model that is not registered in the ModelFactory.</p>
+</dd></dl>
+
 </section>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.trainer.base">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.trainer.base" title="Link to this heading"></a></h2>
 </section>
 </section>
 

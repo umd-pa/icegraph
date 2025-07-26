@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>icegraph.trainer package &mdash; IceGraph 0.6.0 documentation</title>
+  <title>icegraph.trainer package &mdash; IceGraph 0.6.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/documentation_options.js?v=2bd037f0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -56,15 +56,15 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.trainer package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#subpackages">Subpackages</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#icegraph-trainer-config-module">icegraph.trainer.config module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#icegraph-trainer-tensorboard-module">icegraph.trainer.tensorboard module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.trainer.config">icegraph.trainer.config module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.trainer.tensorboard">icegraph.trainer.tensorboard module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.trainer">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -102,25 +102,69 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.trainer.arch.html">icegraph.trainer.arch package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.arch.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph-trainer-arch-factory-module">icegraph.trainer.arch.factory module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.arch.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.arch.html#module-icegraph.trainer.arch.factory">icegraph.trainer.arch.factory module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.arch.html#module-icegraph.trainer.arch">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph.trainer.arch.GravNet"><code class="docutils literal notranslate"><span class="pre">GravNet</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph.trainer.arch.GravNet.__init__"><code class="docutils literal notranslate"><span class="pre">GravNet.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph.trainer.arch.GravNet.forward"><code class="docutils literal notranslate"><span class="pre">GravNet.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph.trainer.arch.ModelFactory"><code class="docutils literal notranslate"><span class="pre">ModelFactory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph.trainer.arch.ModelFactory.create"><code class="docutils literal notranslate"><span class="pre">ModelFactory.create()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.arch.html#icegraph.trainer.arch.ModelFactory.register"><code class="docutils literal notranslate"><span class="pre">ModelFactory.register()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.trainer.base.html">icegraph.trainer.base package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.base.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.base.html#icegraph-trainer-base-exceptions-module">icegraph.trainer.base.exceptions module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.base.html#module-icegraph.trainer.base.exceptions">icegraph.trainer.base.exceptions module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.base.html#icegraph.trainer.base.exceptions.EmptyDataLoaderError"><code class="docutils literal notranslate"><span class="pre">EmptyDataLoaderError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.base.html#icegraph.trainer.base.exceptions.TrainerError"><code class="docutils literal notranslate"><span class="pre">TrainerError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.base.html#icegraph.trainer.base.exceptions.UnknownModelError"><code class="docutils literal notranslate"><span class="pre">UnknownModelError</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.base.html#module-icegraph.trainer.base">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="icegraph.trainer.callbacks.html">icegraph.trainer.callbacks package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.callbacks.html#subpackages">Subpackages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.callbacks.base.html">icegraph.trainer.callbacks.base package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.base.html#module-contents">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.base.html#module-icegraph.trainer.callbacks.base">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.callbacks.html#module-contents">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.trainer.callbacks.html#module-icegraph.trainer.callbacks">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.CheckpointCallback"><code class="docutils literal notranslate"><span class="pre">CheckpointCallback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.CheckpointCallback.__init__"><code class="docutils literal notranslate"><span class="pre">CheckpointCallback.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.CheckpointCallback.on_save"><code class="docutils literal notranslate"><span class="pre">CheckpointCallback.on_save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.display_loss"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.display_loss()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_epoch_begin"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_epoch_begin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_epoch_end"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_epoch_end()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_test_begin"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_test_begin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_test_end"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_test_end()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_train_begin"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_train_begin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_validation_begin"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_validation_begin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.ConsoleCallback.on_validation_end"><code class="docutils literal notranslate"><span class="pre">ConsoleCallback.on_validation_end()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback.__init__"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback.on_epoch_end"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback.on_epoch_end()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback.on_init"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback.on_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback.on_teardown"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback.on_teardown()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback.on_test_end"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback.on_test_end()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="icegraph.trainer.callbacks.html#icegraph.trainer.callbacks.TensorBoardCallback.on_validation_end"><code class="docutils literal notranslate"><span class="pre">TensorBoardCallback.on_validation_end()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -129,14 +173,346 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
 </section>
-<section id="icegraph-trainer-config-module">
-<h2>icegraph.trainer.config module<a class="headerlink" href="#icegraph-trainer-config-module" title="Link to this heading"></a></h2>
+<section id="module-icegraph.trainer.config">
+<span id="icegraph-trainer-config-module"></span><h2>icegraph.trainer.config module<a class="headerlink" href="#module-icegraph.trainer.config" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.config.</span></span><span class="sig-name descname"><span class="pre">TrainerConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_epochs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_interval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_layers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">betas</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_decay</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amsgrad</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_epochs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_interval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_layers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">betas</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_decay</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amsgrad</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.amsgrad">
+<span class="sig-name descname"><span class="pre">amsgrad</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.amsgrad" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.betas">
+<span class="sig-name descname"><span class="pre">betas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">]</span></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.betas" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.eps">
+<span class="sig-name descname"><span class="pre">eps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.eps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.from_config">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.from_config" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#icegraph.trainer.config.TrainerConfig" title="icegraph.trainer.config.TrainerConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrainerConfig</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.hidden_channels">
+<span class="sig-name descname"><span class="pre">hidden_channels</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.hidden_channels" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.hidden_layers">
+<span class="sig-name descname"><span class="pre">hidden_layers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.hidden_layers" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.lr">
+<span class="sig-name descname"><span class="pre">lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.lr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.max_epochs">
+<span class="sig-name descname"><span class="pre">max_epochs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.max_epochs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.seed">
+<span class="sig-name descname"><span class="pre">seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.seed" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.test_interval">
+<span class="sig-name descname"><span class="pre">test_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.test_interval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.config.TrainerConfig.weight_decay">
+<span class="sig-name descname"><span class="pre">weight_decay</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></em><a class="headerlink" href="#icegraph.trainer.config.TrainerConfig.weight_decay" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
-<section id="icegraph-trainer-tensorboard-module">
-<h2>icegraph.trainer.tensorboard module<a class="headerlink" href="#icegraph-trainer-tensorboard-module" title="Link to this heading"></a></h2>
+<section id="module-icegraph.trainer.tensorboard">
+<span id="icegraph-trainer-tensorboard-module"></span><h2>icegraph.trainer.tensorboard module<a class="headerlink" href="#module-icegraph.trainer.tensorboard" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.trainer.tensorboard.TensorBoard">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.tensorboard.</span></span><span class="sig-name descname"><span class="pre">TensorBoard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.tensorboard.TensorBoard" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A utility class for managing a TensorBoard instance and writing logs.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.tensorboard.TensorBoard.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.tensorboard.TensorBoard.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize the TensorBoard logger.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>log_dir</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – The directory where TensorBoard logs will be stored.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.tensorboard.TensorBoard.launch">
+<span class="sig-name descname"><span class="pre">launch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.tensorboard.TensorBoard.launch" title="Link to this definition"></a></dt>
+<dd><p>Launch a TensorBoard instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>port</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Localhost port to serve TensorBoard on. Defaults to value specified in config.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.tensorboard.TensorBoard.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.tensorboard.TensorBoard.shutdown" title="Link to this definition"></a></dt>
+<dd><p>Shut down any active TensorBoard instance if running.</p>
+<p>Terminates the subprocess and waits for it to exit.
+Any exception during termination is caught and logged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.tensorboard.TensorBoard.writer">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">writer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SummaryWriter</span></em><a class="headerlink" href="#icegraph.trainer.tensorboard.TensorBoard.writer" title="Link to this definition"></a></dt>
+<dd><p>Get the internal SummaryWriter instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The PyTorch TensorBoard SummaryWriter.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SummaryWriter</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
-<section id="module-contents">
-<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<section id="module-icegraph.trainer">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.trainer" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.trainer.TensorBoard">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.</span></span><span class="sig-name descname"><span class="pre">TensorBoard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.TensorBoard" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A utility class for managing a TensorBoard instance and writing logs.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.TensorBoard.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.TensorBoard.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize the TensorBoard logger.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>log_dir</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em>) – The directory where TensorBoard logs will be stored.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.TensorBoard.launch">
+<span class="sig-name descname"><span class="pre">launch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.TensorBoard.launch" title="Link to this definition"></a></dt>
+<dd><p>Launch a TensorBoard instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>port</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Localhost port to serve TensorBoard on. Defaults to value specified in config.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.TensorBoard.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.TensorBoard.shutdown" title="Link to this definition"></a></dt>
+<dd><p>Shut down any active TensorBoard instance if running.</p>
+<p>Terminates the subprocess and waits for it to exit.
+Any exception during termination is caught and logged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.TensorBoard.writer">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">writer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SummaryWriter</span></em><a class="headerlink" href="#icegraph.trainer.TensorBoard.writer" title="Link to this definition"></a></dt>
+<dd><p>Get the internal SummaryWriter instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The PyTorch TensorBoard SummaryWriter.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>SummaryWriter</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.trainer.</span></span><span class="sig-name descname"><span class="pre">Trainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callbacks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trainer_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gravnet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cuda'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Trainer class for managing the training, validation, and testing of a PyTorch model
+using datasets registered in a <cite>DatasetRegistry</cite>.</p>
+<p>This class handles model optimization, loss computation, and RMSE reporting
+for each stage of the training lifecycle.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.Metrics">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sse_sum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_avg_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_rmse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.Metrics" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.Metrics.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sse_sum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_avg_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_rmse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.Metrics.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.Metrics.avg_loss">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">avg_loss</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#icegraph.trainer.Trainer.Metrics.avg_loss" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.Metrics.rmse">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rmse</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#icegraph.trainer.Trainer.Metrics.rmse" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.Metrics.samples">
+<span class="sig-name descname"><span class="pre">samples</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><a class="headerlink" href="#icegraph.trainer.Trainer.Metrics.samples" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.Metrics.sse_sum">
+<span class="sig-name descname"><span class="pre">sse_sum</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code><span class="pre">]</span></em><a class="headerlink" href="#icegraph.trainer.Trainer.Metrics.sse_sum" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callbacks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trainer_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gravnet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cuda'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize the Trainer.</p>
+<p>Sets up global configuration, reproducibility, datasets, model, optimizer,
+loss function, and metrics tracking.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset_registry</strong> (<a class="reference internal" href="icegraph.data.html#icegraph.data.registry.DatasetRegistry" title="icegraph.data.registry.DatasetRegistry"><em>DatasetRegistry</em></a>) – Dataset registry containing dataloaders.</p></li>
+<li><p><strong>callbacks</strong> (<em>Optional</em><em>[</em><em>list</em><em>[</em><a class="reference internal" href="icegraph.trainer.callbacks.base.html#icegraph.trainer.callbacks.base.Callback" title="icegraph.trainer.callbacks.base.Callback"><em>Callback</em></a><em>]</em><em>]</em>) – List of callbacks to pass to the trainer. If none are passed,
+defaults to Console, Checkpoint and TensorBoard callbacks.</p></li>
+<li><p><strong>trainer_config</strong> (<a class="reference internal" href="#icegraph.trainer.config.TrainerConfig" title="icegraph.trainer.config.TrainerConfig"><em>TrainerConfig</em></a>) – A TrainerConfig instance with training params.</p></li>
+<li><p><strong>outfile</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>str</em><em>, </em><em>Path</em><em>]</em><em>]</em>) – Path to save the trained model.</p></li>
+<li><p><strong>model</strong> (<em>str</em>) – The model to be trained and evaluated, must be one of [‘gravnet’].</p></li>
+<li><p><strong>device</strong> (<em>str</em><em>, </em><em>optional</em>) – Preferred device for computation. Defaults to ‘cuda’.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.run" title="Link to this definition"></a></dt>
+<dd><p>Execute the full pipeline: training, testing at set intervals, final validation, and teardown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.save" title="Link to this definition"></a></dt>
+<dd><p>Saves the model if there is an associated callback.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.test">
+<span class="sig-name descname"><span class="pre">test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.test" title="Link to this definition"></a></dt>
+<dd><p>Compute test metrics using the final model (no weight updates).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>epoch</strong> (<em>int</em>) – The epoch index for logging/scalar steps.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.test_metrics">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">test_metrics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#icegraph.trainer.Trainer.Metrics" title="icegraph.trainer.models.Trainer.Metrics"><span class="pre">Metrics</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#icegraph.trainer.Trainer.test_metrics" title="Link to this definition"></a></dt>
+<dd><p>Getter for testing metrics.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.train">
+<span class="sig-name descname"><span class="pre">train</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.train" title="Link to this definition"></a></dt>
+<dd><p>Train the model for the configured number of epochs.</p>
+<p>Loops over epochs, logs MSE/RMSE, writes TensorBoard scalars if enabled,
+and saves both latest and best checkpoints after each epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.train_metrics">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">train_metrics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#icegraph.trainer.Trainer.Metrics" title="icegraph.trainer.models.Trainer.Metrics"><span class="pre">Metrics</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#icegraph.trainer.Trainer.train_metrics" title="Link to this definition"></a></dt>
+<dd><p>Getter for training metrics.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.val_metrics">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">val_metrics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#icegraph.trainer.Trainer.Metrics" title="icegraph.trainer.models.Trainer.Metrics"><span class="pre">Metrics</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#icegraph.trainer.Trainer.val_metrics" title="Link to this definition"></a></dt>
+<dd><p>Getter for validation metrics.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="icegraph.trainer.Trainer.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.trainer.Trainer.validate" title="Link to this definition"></a></dt>
+<dd><p>Compute validation metrics without altering model weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>epoch</strong> (<em>int</em>) – The epoch index for logging/scalar steps.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 
