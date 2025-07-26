@@ -6,6 +6,7 @@ import lmdb
 from typing import Optional, Union
 from pathlib import Path
 import subprocess
+import math
 
 import pandas as pd
 
@@ -97,8 +98,16 @@ class LMDBMerger(IGMerger):
         resolver = PathResolver(path=outfile, origin=self.indir, extension="lmdb", stage="merger")
         outfile = resolver.resolve()
 
+        # guess total file size to set map_size in writer
+        total_file_size = sum(
+            file.stat().st_size
+            for file in self.files
+            if file.is_file()
+        )
+        map_size = 1 << math.ceil(math.log2(total_file_size * 1.3))
+
         global_idx = 0
-        writer: Optional[LMDBWriter] = None
+        writer = LMDBWriter(outfile, map_size=map_size)
 
         for src in Console.progress_bar(self.files):
             # open source LMDB
@@ -122,14 +131,12 @@ class LMDBMerger(IGMerger):
                 Console.out(f"No records in {src}", severity=2)
                 continue
 
-            # initialize or update writer with this batch
-            if writer is None:
-                writer = LMDBWriter(df)
-            else:
-                writer.table = df  # update its internal DataFrame
-
-            written = writer.append(outfile, start_idx=global_idx)
+            written = writer.append(df, start_idx=global_idx)
             global_idx += written
+
+        # shutdown the writer environment and save the file
+        writer.finish()
+        writer.save()
 
         Console.out(f"Merge complete, output file saved to {outfile}")
         return outfile

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional, Literal
+from typing import Union, Optional
 from pathlib import Path
 import math
 from dataclasses import dataclass
@@ -132,6 +132,9 @@ class Trainer:
         self._val_metrics: dict[int, Trainer.Metrics] = {}
         self._test_metrics: dict[int, Trainer.Metrics] = {}
 
+        # get config values
+        self._max_epochs = self.trainer_config.max_epochs
+
         self._fire("on_init")
 
     def _fire(self, hook_name: str, *args, **kwargs):
@@ -173,11 +176,13 @@ class Trainer:
             out (Tensor): Model predictions per graph in the batch.
             target (Tensor): True values aggregated by graph, shaped to match `out`.
         """
-        out = self.model(batch.x, batch.batch)
-        if batch.y.dim() == 1 and batch.y.size(0) != batch.batch.size(0):
-            target = batch.y.unsqueeze(-1)
+        out = self.model(batch.x, batch.batch)  # type: ignore[arg-type]
+        # if y is a 1‑D tensor of node‑level scalars, collect it per graph
+        if batch.y.dim() == 1 and batch.y.size(0) == batch.batch.size(0):  # type: ignore[arg-type]
+            target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0)  # type: ignore[arg-type]
         else:
-            target = torch_scatter.scatter_mean(batch.y, batch.batch, dim=0).unsqueeze(-1)
+            # graph‑level truth already: just use it directly
+            target = batch.y  # type: ignore[arg-type]
         return out, target
 
     def _train_batchwise(self, dataloader: DataLoader) -> Metrics:
@@ -200,11 +205,10 @@ class Trainer:
             self._fire("on_batch_begin", batch)
 
             batch = batch.to(self.device)
-            batch_size = batch.y.size(0)
+            out, target = self._forward_and_target(batch)
+            batch_size = out.size(0)
 
             self.optimizer.zero_grad()
-
-            out, target = self._forward_and_target(batch)
             loss = self.loss_fn(out, target)
 
             loss.backward()
@@ -239,9 +243,9 @@ class Trainer:
                 self._fire("on_batch_begin", batch)
 
                 batch = batch.to(self.device)
-                batch_size = batch.y.size(0)
-
                 out, target = self._forward_and_target(batch)
+                batch_size = out.size(0)
+
                 loss = self.loss_fn(out, target)
 
                 metrics.sse_sum += loss.item() * batch_size
@@ -276,7 +280,7 @@ class Trainer:
         self._fire("on_train_begin")
 
         # iterate over epochs
-        for epoch in range(self.trainer_config.max_epochs):
+        for epoch in range(self._max_epochs):  # type: ignore[arg-type]
             self._fire("on_epoch_begin", epoch)
 
             metrics = self._train_batchwise(self.datasets.train_dataloader)
@@ -292,7 +296,8 @@ class Trainer:
             self.save(epoch=epoch, metrics=metrics)
 
             # only run on specified intervals
-            if self.trainer_config.test_interval > 0 and (epoch + 1) % self.trainer_config.test_interval == 0:
+            test_interval = self.trainer_config.test_interval
+            if test_interval > 0 and (epoch + 1) % test_interval == 0:
                 self.test(epoch=epoch)
 
         self._fire("on_train_end")
@@ -344,6 +349,6 @@ class Trainer:
         Console.banner("Trainer")
 
         self.train()
-        self.validate(self.trainer_config.max_epochs - 1)
+        self.validate(self._max_epochs - 1)
 
         self._fire("on_teardown")

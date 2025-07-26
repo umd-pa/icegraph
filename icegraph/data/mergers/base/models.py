@@ -27,7 +27,7 @@ class IGMerger(ABC):
                 f"{self.__class__.__name__} must define the 'file_ext' class attribute."
             )
 
-        self.files = list(self.indir.glob(f"*.{self.file_ext}"))
+        self.files: list[Path] = list(self.indir.glob(f"*.{self.file_ext}"))
 
     @abstractmethod
     def merge(self, outfile: Optional[Union[str, Path]] = None) -> Path:

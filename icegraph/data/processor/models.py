@@ -327,8 +327,8 @@ class FeatureProcessor:
             table (pd.DataFrame): Data to write.
             outfile (str): Output file path. Defaults to "graphs.lmdb" in the source dir.
         """
-        writer = LMDBWriter(table)
-        writer.write(outfile, self.data_cols(table))
+        writer = LMDBWriter(outfile)
+        writer.write(table, self.data_cols(table))
 
     @staticmethod
     def _apply_column_map(table: pd.DataFrame, mapping: dict) -> None:

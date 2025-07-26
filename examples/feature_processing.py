@@ -12,6 +12,7 @@ import os
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 
 import argparse
+from pathlib import Path
 
 from icegraph.data.processor import FeatureProcessor
 from icegraph.config import IGConfig
@@ -33,7 +34,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    config_path = "./config/config.yaml"
+    config_path = Path("/data/i3home/tstjean/icegraph/config/config.yaml")
     config = IGConfig(config_path)
 
     # register the config instance

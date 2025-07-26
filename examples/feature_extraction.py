@@ -7,6 +7,7 @@ warnings.filterwarnings(
 )
 
 import argparse
+from pathlib import Path
 
 from icegraph.data.extractor import FeatureExtractor
 from icegraph.config import IGConfig
@@ -27,7 +28,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    config_path = "./config/config.yaml"
+    config_path = Path("/data/i3home/tstjean/icegraph/config/config.yaml")
     config = IGConfig(config_path)
 
     # register the config instance

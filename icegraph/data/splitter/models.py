@@ -162,8 +162,8 @@ class DatasetSplitter:
         event_id_cols = self._config.internal_config.column_names.event_id_columns
         include_cols = [c for c in table.columns if c not in dom_id_cols + event_id_cols]
 
-        writer = LMDBWriter(table)
-        writer.write(outfile, include_cols)
+        writer = LMDBWriter(outfile)
+        writer.write(table, include_cols)
 
     def generate_splits(self, outdir: Optional[Union[str, Path]] = None) -> tuple[Path, Path, Path]:
         """

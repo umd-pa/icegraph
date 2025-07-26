@@ -1,5 +1,9 @@
 # Changelog
 
+#### Version [0.6.1] --- July 25th, 2025
+- Fixed a bug with multi-objective regression resulting in mismatched tensor sizes.
+- Improved the `LMDBMerger`, now runs around 3x faster.
+
 ### Version [0.6.0] --- July 19th, 2025:
 - Refactored the `Trainer` for more future extensibility. Created a `ModelFactory` and reworked the `Trainer` to run on a callback architecture.
 - Fixed an issue with incorrect RMSE and MSE calculation during training. Both are now correct.
