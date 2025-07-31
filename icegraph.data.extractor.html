@@ -63,7 +63,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.utils.html">icegraph.utils package</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-icegraph">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -107,10 +107,6 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="icegraph.data.extractor.base.html#module-icegraph.data.extractor.base.modules">icegraph.data.extractor.base.modules module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="icegraph.data.extractor.base.html#icegraph.data.extractor.base.modules.I3Module"><code class="docutils literal notranslate"><span class="pre">I3Module</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.base.html#icegraph.data.extractor.base.modules.I3Module.PushFrame"><code class="docutils literal notranslate"><span class="pre">I3Module.PushFrame()</span></code></a></li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.data.extractor.base.html#icegraph.data.extractor.base.modules.UniqueID"><code class="docutils literal notranslate"><span class="pre">UniqueID</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.base.html#icegraph.data.extractor.base.modules.UniqueID.DAQ"><code class="docutils literal notranslate"><span class="pre">UniqueID.DAQ()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="icegraph.data.extractor.base.html#icegraph.data.extractor.base.modules.UniqueID.Physics"><code class="docutils literal notranslate"><span class="pre">UniqueID.Physics()</span></code></a></li>
@@ -131,39 +127,8 @@
 </ul>
 </div>
 </section>
-<section id="module-icegraph.data.extractor">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.data.extractor" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.data.extractor.FeatureExtractor">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.data.extractor.</span></span><span class="sig-name descname"><span class="pre">FeatureExtractor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inpath</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.extractor.FeatureExtractor" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="icegraph.data.extractor.base.html#icegraph.data.extractor.base.IGExtractor" title="icegraph.data.extractor.base.IGExtractor"><code class="xref py py-class docutils literal notranslate"><span class="pre">IGExtractor</span></code></a></p>
-<p>Extracts features from I3 files using the IceTray module <cite>ml_suite</cite>.</p>
-<p>This class sets up an IceTray pipeline that:
-- Loads input I3 files (including the GCD file),
-- Labels Monte Carlo events,
-- Runs the <cite>ml_suite</cite> feature extraction module,
-- Outputs results to an HDF5 file with relevant classification and extracted data.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="icegraph.data.extractor.FeatureExtractor.cls_converter">
-<span class="sig-name descname"><span class="pre">cls_converter</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#icegraph.data.extractor.FeatureExtractor.cls_converter" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.data.extractor.FeatureExtractor.extract">
-<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.data.extractor.FeatureExtractor.extract" title="Link to this definition"></a></dt>
-<dd><p>Executes the IceTray feature extraction pipeline on the input directory.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Path to the generated HDF5 output file.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Path</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
 </section>
 </section>
 
