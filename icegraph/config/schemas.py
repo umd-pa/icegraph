@@ -13,6 +13,7 @@ class IOConfig(BaseModel):
 
 # === frame_keys ===
 class FrameKeysConfig(BaseModel):
+    header: str
     mctree: str
     bg_mctree: str
     weight_dict: str

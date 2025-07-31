@@ -3,15 +3,20 @@
 
 import uuid
 
-try:
-    from icecube import dataclasses
-    from icecube.icetray import I3Module
-except ImportError:
-    icetray = None
-    dataclasses = None
+from icegraph.exceptions import IceCubeImportError
 
-    class I3Module:
-        def PushFrame(self, frame): pass
+try:
+    from icecube import dataclasses as _dataclasses
+    from icecube import icetray as _icetray
+    from icecube.icetray import I3Module as _I3Module
+except ImportError:
+    _dataclasses = IceCubeImportError()
+    _icetray = IceCubeImportError()
+    _I3Module = IceCubeImportError.IceCubeMissingBase
+
+dataclasses = _dataclasses
+icetray = _icetray
+I3Module = _I3Module
 
 
 class UniqueID(I3Module):

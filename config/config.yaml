@@ -5,6 +5,7 @@ io:
 
 # frame keys (for feature extraction)
 frame_keys:
+  header: I3EventHeader
   mctree: I3MCTree_preMuonProp
   bg_mctree: BackgroundI3MCTree
   weight_dict: I3MCWeightDict

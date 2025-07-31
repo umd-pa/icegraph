@@ -4,32 +4,52 @@
 from pathlib import Path
 from typing import Optional, Union
 
-# have to wrap in try/except block so sphinx can properly generate docs
-try:
-    from icecube.icetray import I3Tray, I3Module
-    from icecube import dataclasses, icetray, dataio, hdfwriter, ml_suite
-    from icecube.sim_services.label_events import (
-        MCLabeler,
-        ClassificationConverter,
-        MuonLabels
-    )
-except ImportError:
-    I3Tray = None
-    dataclasses = None
-    icetray = None
-    dataio = None
-    hdfwriter = None
-    ml_suite = None
-    MCLabeler = None
-    ClassificationConverter = None
-    MuonLabels = None
-    I3Module = None
-
 from icegraph.console import Console
 from .base import IGExtractor
 from .base.modules import UniqueID
 from icegraph.pathutils import PathResolver, PathValidator
 from .base.exceptions import MissingI3FilesError
+from icegraph.exceptions import IceCubeImportError
+
+# have to wrap in try/except block so sphinx can properly generate docs
+try:
+    from icecube.icetray import I3Tray as _I3Tray, I3Module as _I3Module
+    from icecube import (
+        dataclasses as _dataclasses,
+        icetray as _icetray,
+        dataio as _dataio,
+        hdfwriter as _hdfwriter,
+        ml_suite as _ml_suite
+    )
+    from icecube.sim_services.label_events import (
+        MCLabeler as _MCLabeler,
+        ClassificationConverter as _ClassificationConverter,
+        MuonLabels as _MuonLabels
+    )
+except ImportError:
+    _dataclasses = IceCubeImportError()
+    _icetray = IceCubeImportError()
+    _dataio = IceCubeImportError()
+    _hdfwriter = IceCubeImportError()
+    _ml_suite = IceCubeImportError()
+
+    _I3Tray = IceCubeImportError.IceCubeMissingBase
+    _I3Module = IceCubeImportError.IceCubeMissingBase
+    _MCLabeler = IceCubeImportError.IceCubeMissingBase
+    _ClassificationConverter = IceCubeImportError.IceCubeMissingBase
+    _MuonLabels = IceCubeImportError.IceCubeMissingBase
+
+dataclasses = _dataclasses
+icetray = _icetray
+dataio = _dataio
+hdfwriter = _hdfwriter
+ml_suite = _ml_suite
+
+I3Tray = _I3Tray
+I3Module = _I3Module
+MCLabeler = _MCLabeler
+ClassificationConverter = _ClassificationConverter
+MuonLabels = _MuonLabels
 
 __all__ = ["FeatureExtractor"]
 

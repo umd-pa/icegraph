@@ -12,6 +12,7 @@ from icegraph.console import Console
 from icegraph.config import IGConfig
 from icegraph.console.streams import suppress_stderr
 from icegraph.utils import is_port_available
+from .base.exceptions import PortUnavailableError
 
 __all__ = ["TensorBoard"]
 
@@ -36,6 +37,11 @@ class TensorBoard:
         # grab global config
         self._config = IGConfig.get()
         self.port = self._config.user_config.training.tensorboard.port
+
+        if not is_port_available(self.port):
+            raise PortUnavailableError(
+                f"Failed to launch TensorBoard. Specified port {self.port} is already being used by another process."
+            )
 
         self._tensorboard_proc: Optional[subprocess.Popen] = None
 

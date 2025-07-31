@@ -3,16 +3,23 @@
 
 from typing import Any, Optional
 
-try:
-    from icecube.icetray import OMKey
-    from icecube import dataio
-except ImportError:
-    OMKey = None
-    dataio = None
-
 from icegraph.config import IGConfig
 from .exceptions import GeometryFrameNotFound
-from icegraph.pathutils import PathValidator
+from icegraph.exceptions import IceCubeImportError
+
+try:
+    from icecube.icetray import OMKey as _OMKey
+    from icecube import dataio as _dataio, icetray as _icetray
+except ImportError:
+    _dataio = IceCubeImportError()
+    _icetray = IceCubeImportError()
+    _OMKey = IceCubeImportError.IceCubeMissingBase
+
+dataio = _dataio
+icetray = _icetray
+OMKey = _OMKey
+
+__all__ = ["Detector"]
 
 
 class Detector:

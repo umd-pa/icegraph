@@ -16,15 +16,11 @@ from icegraph.data.splitter import DatasetSplitter
 from icegraph.data.mergers import LMDBMerger
 from icegraph.trainer import Trainer
 from icegraph.trainer.callbacks import CheckpointCallback, ConsoleCallback, TensorBoardCallback
+from icegraph.data.pulses import Pulses
+from icegraph.renderer import CDFPlot, ChargeDistributionPlot, PDFPlot
 
 
 def main():
-    config_path = Path("./config/config.yaml")
-    config = IGConfig(config_path)
-
-    # register the config instance
-    IGConfig.register(config)
-
     # specify the data input directory, usually the i3 file set
     resource = Path("/data/i3store/users/blaufuss/data/alert_catalog_v2/sim_21220_alerts")
 
@@ -41,16 +37,30 @@ def main():
 
 
 def run_parallel():
-    config_path = Path("./config/config.yaml")
-    config = IGConfig(config_path)
-
-    # register the config instance
-    IGConfig.register(config)
-
     resource = Path("/data/i3store/users/tstjean/21220_processed")
 
     merger = LMDBMerger(resource)
     lmdb_file = merger.merge("/data/i3store/users/tstjean/21220_merged/graphs.lmdb")
 
+
+def test_cdf():
+    resource = Path("/data/i3store/users/blaufuss/data/alert_catalog_v2/sim_21002_alerts/Alertv2_IC86.2016_NuMu.021002.000002.i3.zst")
+    pulses = Pulses(resource)
+
+    plot = CDFPlot(pulses)
+    plot.plot()
+
+    plot = ChargeDistributionPlot(pulses)
+    plot.plot()
+
+    plot = PDFPlot(pulses)
+    plot.plot()
+
+
 if __name__ == "__main__":
-    run_parallel()
+    config_path = Path("./config/config.yaml")
+    config = IGConfig(config_path)
+
+    # register the config instance
+    IGConfig.register(config)
+    test_cdf()

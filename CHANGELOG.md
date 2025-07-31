@@ -1,5 +1,10 @@
 # Changelog
 
+#### Version [0.6.2] --- July 31st, 2025
+- Fixed bug where if run outside of Icetray environment, got a cryptic attribute error. Now raises a descriptive import error.
+- Added `CDFPlot`, `PDFPlot`, `ChargeDistPlot`, and a new base class `IGDistributionPlot`.
+- Added a new subpackage `icegraph.data.pulses` containing a `Pulses` type that holds some utility methods for pulse data analysis.
+
 #### Version [0.6.1] --- July 25th, 2025
 - Fixed a bug with multi-objective regression resulting in mismatched tensor sizes.
 - Improved the `LMDBMerger`, now runs around 3x faster.

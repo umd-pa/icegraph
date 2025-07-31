@@ -15,3 +15,6 @@ class UnknownModelError(TrainerError):
 class EmptyDataLoaderError(TrainerError):
     """Raised when the trainer encounters a PyG DataLoader with no data."""
 
+
+class PortUnavailableError(TrainerError):
+    """Raised when a specified port is already being used by another process."""
