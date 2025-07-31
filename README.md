@@ -11,7 +11,7 @@ Documentation: https://umd-pa.github.io/icegraph
 Install the package via git clone:
 
 ```
-git clone github@github.com:umd-pa/icegraph.git
+git clone git@github.com:umd-pa/icegraph.git
 cd icegraph
 ```
 
