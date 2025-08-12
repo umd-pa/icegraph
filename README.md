@@ -44,8 +44,6 @@ This program has two primary functions; loading and processing data from I3 file
 
 To get from I3 --> trained model, the pipeline is as follows:
 
-### Non-parallelized (small datasets, testing configurations, etc)
-
 Required imports:
 ```
 from pathlib import Path
@@ -68,30 +66,31 @@ config = IGConfig(config_path)
 IGConfig.register(config)
 ```
 
-Set the path to your I3 file(s). This can be either a path to one I3 file, or to a directory containing multiple I3 files.
+Set the path to your I3 file(s). This can be either a path to one I3 file, a list of paths to multiple I3 files, or a directory containing one or more I3 files.
 ```
-resource = Path("path/to/i3_file(s)")
+source = Path("path/to/i3_file(s)")
 ```
 
-Extract data from I3 files and process it. This is done by first running the `FeatureExtractor` module (which accepts a , then running 
+Extract data from I3 files and process it. This is done by first running the `FeatureExtractor` module, then running:
 ```
 for stage in [FeatureExtractor, FeatureProcessor]:
-    processor = stage(resource)
-    resource = processor()
+    processor = stage(source)
+    source = processor()
+```
+Feature extraction and processing can both individually be run in parallel as jobs. These are the most computationally intensive portions of the data preparation pipeline, thus for larger datasets it is highly recommended to parallelize.
+
+Generate the split mapping file using the `SplitMapBuilder`. This must be done as one process and cannot be parallelized at the moment.
+
+```
+map_file = SplitMapBuilder(source).build_map()
 ```
 
-Generate the split mapping file using the `SplitMapBuilder`:
-
+Load the data and split file to a registry. The `DatasetRegistry` class acts as an interface between the training system and the formatted data.
 ```
-split_map_file = SplitMapBuilder(resource)
-```
-
-Load the split data and register it. The DatasetRegistry class acts as an interface between the training system and the formatted data.
-```
-dataset_registry = DatasetRegistry.load_from_lmdb(*resource)
+dataset_registry = DatasetRegistry.load_from_lmdb(source, map_file)
 ```
 
-Pass the dataset registry instance to a Trainer, then run the training. Training configuration and hyperparameter selection is all done via config.yaml. The trained model is automatically saved on each epoch.
+Pass the dataset registry instance to a `Trainer`, then run the training. Training configuration and hyperparameter selection is all done via config.yaml.
 ```
 outfile = Path("path/to/model.pt")
 trainer = Trainer(dataset_registry, outfile=outfile)
@@ -100,15 +99,13 @@ trainer.run()
 
 Or, you can optionally specify callbacks to use during training. You can also define custom callbacks if necessary.
 ```
-from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
+from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormCallback
 
 # these are the default callbacks used in Trainer
 # if you only need these callbacks, there is no need to pass them manually
-callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
+callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback(), MinMaxNormCallback()]
 
 outfile = Path("path/to/model.pt")
 trainer = Trainer(dataset_registry, outfile=outfile, callbacks=callbacks)
 trainer.run()
 ```
-
-### Parallelized (large datasets)
