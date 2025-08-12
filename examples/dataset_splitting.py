@@ -16,13 +16,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-i", "--input",
+        "--source",
         required=True,
-        help="Path to the input file"
+        help="Path to the LMDB dataset. Can be a file, list of files, or a directory."
     )
     parser.add_argument(
         "-o", "--output",
-        help="Path to the output directory"
+        help="Path to the output file. This is where the generated map file will be saved."
     )
 
     args = parser.parse_args()
@@ -35,7 +35,7 @@ def main() -> None:
 
     # run the dataset splitting
     splitter = DatasetSplitter(args.input)
-    splitter.generate_splits(args.output)
+    splitter.build_map(args.output)
 
 
 if __name__ == "__main__":

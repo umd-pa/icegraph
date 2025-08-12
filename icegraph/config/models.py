@@ -4,6 +4,7 @@
 from pathlib import Path
 from typing import Union, Any, Optional, Self
 import tempfile
+import os
 
 from dotmap import DotMap
 import yaml
@@ -56,6 +57,10 @@ class IGConfig:
             self.user_config.io.gcd_path or
             "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
         )
+
+    @staticmethod
+    def get_xdg_cache_dir() -> Path:
+        return Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "icegraph"
 
     @property
     def user_config(self) -> DotMap:

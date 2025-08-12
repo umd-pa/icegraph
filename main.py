@@ -1,4 +1,7 @@
 import warnings
+import time
+
+from icegraph.data.readers import LMDBConfiguredShardReader
 
 warnings.filterwarnings(
     "ignore",
@@ -7,6 +10,9 @@ warnings.filterwarnings(
 )
 
 from pathlib import Path
+import pprint
+
+import pandas as pd
 
 from icegraph.data.processor import FeatureProcessor
 from icegraph.data.extractor import FeatureExtractor
@@ -22,18 +28,39 @@ from icegraph.renderer import CDFPlot, ChargeDistributionPlot, PDFPlot
 
 def main():
     # specify the data input directory, usually the i3 file set
-    resource = Path("/data/i3store/users/blaufuss/data/alert_catalog_v2/sim_21220_alerts")
+    source = Path("/data/i3store/users/tstjean/i3_100_test/processor")
 
     # define the processing chain and run each process sequentially left to right
-    for stage in [FeatureExtractor, FeatureProcessor, DatasetSplitter]:
-        processor = stage(resource)
-        resource = processor()
+    for stage in []:
+        processor = stage(source)
+        source = processor()
+
+    map_file = DatasetSplitter(source).build_map()
 
     # load all data
-    dataset_registry = DatasetRegistry.load_from_lmdb(*resource)
+    dataset_registry = DatasetRegistry.load_from_lmdb(source, map_file)
 
     trainer = Trainer(dataset_registry)
     trainer.run()
+
+
+def measure_throughput():
+    resource = Path("/data/i3store/users/tstjean/i3_10_test/processor")
+    map_file = Path("/data/i3store/users/tstjean/i3_10_test/splits/split_map.lmdb")
+
+    # load all data
+    dataset_registry = DatasetRegistry.load_from_lmdb(resource, map_file)
+
+    loader = dataset_registry.train_dataloader
+
+    count = 0
+    start = time.perf_counter()
+    for batch in loader:
+        count += batch[0].size(0)  # or however many samples this batch holds
+        if count >= 50000:
+            break
+    elapsed = time.perf_counter() - start
+    print(f"Effective loader throughput: {count / elapsed:.1f} samples/s")
 
 
 def run_parallel():
@@ -58,9 +85,9 @@ def test_cdf():
 
 
 if __name__ == "__main__":
-    config_path = Path("./config/config.yaml")
+    config_path = Path("/data/i3home/tstjean/icegraph/config/config.yaml")
     config = IGConfig(config_path)
 
-    # register the config instance
+    # register for global access
     IGConfig.register(config)
-    test_cdf()
+    main()

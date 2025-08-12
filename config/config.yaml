@@ -1,6 +1,6 @@
 # file and dir paths
 io:
-  default_dir: "/data/i3store/users/tstjean/test_default_dir"
+  default_dir: "/data/i3store/users/tstjean/i3_100_test"
   gcd_path: ""
 
 # frame keys (for feature extraction)
@@ -22,7 +22,7 @@ data:
     - PrimaryNeutrinoEnergy
 
   splits:
-    # !!! only stratify for classification tasks
+    # !!! currently does nothing
     stratify: false
 
   normalization:
@@ -34,8 +34,8 @@ training:
   seed: 27
   # batch size controls how many samples are loaded into memory at a time in each
   # training batch (see torch_geometric.loader.DataLoader batch_size argument)
-  batch_size: 64
-  num_workers: 1
+  batch_size: 32
+  num_workers: 16
 
   trainer_params:
     max_epochs: 100

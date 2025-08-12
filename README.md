@@ -73,11 +73,17 @@ Set the path to your I3 file(s). This can be either a path to one I3 file, or to
 resource = Path("path/to/i3_file(s)")
 ```
 
-Define the processing chain. Each process in the list is run sequentially from left to right.
+Extract data from I3 files and process it. This is done by first running the `FeatureExtractor` module (which accepts a , then running 
 ```
-for stage in [FeatureExtractor, FeatureProcessor, DatasetSplitter]:
+for stage in [FeatureExtractor, FeatureProcessor]:
     processor = stage(resource)
     resource = processor()
+```
+
+Generate the split mapping file using the `SplitMapBuilder`:
+
+```
+split_map_file = SplitMapBuilder(resource)
 ```
 
 Load the split data and register it. The DatasetRegistry class acts as an interface between the training system and the formatted data.

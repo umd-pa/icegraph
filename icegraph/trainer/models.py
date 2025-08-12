@@ -20,7 +20,7 @@ from .config import TrainerConfig
 from .arch import ModelFactory
 from icegraph.pathutils import PathResolver
 from .callbacks.base import Callback
-from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
+from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormCallback
 from .base.exceptions import EmptyDataLoaderError
 
 __all__ = ["Trainer"]
@@ -85,6 +85,9 @@ class Trainer:
         self._config = IGConfig.get()
         self.trainer_config = TrainerConfig.from_config(self._config) if trainer_config is None else trainer_config
 
+        self.target_labels = self._config.user_config.data.target_labels
+        self.apply_log_scaling = self._config.user_config.data.normalization.apply_log_scaling
+
         # resolve the output path
         resolver = PathResolver(path=outfile, origin=None, extension="pt", stage="trainer")
         self.outfile = resolver.resolve()
@@ -103,8 +106,15 @@ class Trainer:
             else torch.device("cpu")
         )
 
+        default_callbacks = [
+            ConsoleCallback(),
+            CheckpointCallback(),
+            TensorBoardCallback(),
+            MinMaxNormCallback()
+        ]
+
         # grab callbacks
-        self.callbacks = callbacks or [ConsoleCallback(), CheckpointCallback(), TensorBoardCallback()]
+        self.callbacks = callbacks or default_callbacks
 
         # determine dimensions of input and output
         in_channels = dataset_registry.train_dataset.num_node_features
@@ -183,6 +193,10 @@ class Trainer:
         else:
             # graph‑level truth already: just use it directly
             target = batch.y  # type: ignore[arg-type]
+
+        if target.dim() == 1:
+            target = target.unsqueeze(-1)
+
         return out, target
 
     def _train_batchwise(self, dataloader: DataLoader) -> Metrics:
@@ -205,6 +219,8 @@ class Trainer:
             self._fire("on_batch_begin", batch)
 
             batch = batch.to(self.device)
+            self._fire("on_batch_transfer", batch)
+
             out, target = self._forward_and_target(batch)
             batch_size = out.size(0)
 
@@ -243,6 +259,8 @@ class Trainer:
                 self._fire("on_batch_begin", batch)
 
                 batch = batch.to(self.device)
+                self._fire("on_batch_transfer", batch)
+
                 out, target = self._forward_and_target(batch)
                 batch_size = out.size(0)
 

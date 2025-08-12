@@ -1,23 +1,24 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional
+from typing import Union, Optional, Literal, Sequence, ClassVar
 from pathlib import Path
 from abc import ABC
 import functools
-import lmdb
-import struct
-import msgpack
+import os
 
-from torch_geometric.data import Dataset
+from torch.utils.data import Dataset
 import torch_geometric as pyg
+from torch_geometric.data import Data as PyGData
 import torch
 import numpy as np
+import pandas as pd
 
 from icegraph.data.processor import generate_vector_mapping
 from icegraph.config import IGConfig
-from icegraph.pathutils import PathValidator
+from icegraph.data.splitter import DatasetSplitter
 from icegraph.data.base.exceptions import EmptyDatasetError, DataError, MissingFieldError
+from icegraph.data.readers import LMDBConfiguredShardReader, LMDBReader
 
 __all__ = ["IGData"]
 
@@ -31,44 +32,46 @@ class IGData(Dataset, ABC):
     to one of: "train", "validation", or "test".
     """
 
-    subset: Optional[str] = None
+    # subset defined in each subclass
+    subset:         ClassVar[Optional[Literal["train","validation","test"]]]            = None
+
+    # shared class vars
+    _reader:        ClassVar[Optional[LMDBConfiguredShardReader]]                       = None
+    _source:        ClassVar[Optional[Union[str, Path, Sequence[Union[str, Path]]]]]    = None
+    _map_dataframe: ClassVar[Optional[pd.DataFrame]]                                    = None
+
+    # reader process id for forks
+    _reader_pid:    ClassVar[Optional[int]]                                             = None
 
     dataloader = property(
         lambda self: functools.partial(pyg.loader.DataLoader, self),
         doc="A convenience property that returns a partially-applied torch geometric DataLoader constructor for this dataset."
     )
 
-    def __init__(self, infile: Union[str, Path]) -> None:
+    def __init__(self) -> None:
         """
         Initialize an IGData object from an LMDB file.
-
-        Args:
-            infile (Union[str, Path]): Path to the input file (LMDB).
 
         Raises:
             EmptyDatasetError: If the loaded dataset is empty.
         """
+        # verify preloading attributes have been set
+        cls = type(self)
+        if cls._source is None or cls._map_dataframe is None:
+            raise DataError("Please run IGData.configure() before instantiating subclasses.")
+
         super().__init__()
-        self.infile = Path(infile)
-        PathValidator.is_valid_file(self.infile)
+
+        # build the reader
+        cls._build_reader()
 
         # grab global config
         self._config: IGConfig = IGConfig.get()
 
-        self.env = lmdb.open(
-            str(self.infile),
-            subdir=False,
-            readonly=True,
-            lock=False,
-            readahead=False,
-            meminit=False
-        )
-
-        # build a flat list of keys
-        n_entries = self._txn().stat()["entries"]
-        if n_entries == 0:
-            raise EmptyDatasetError(f"Dataset at {self.infile!s} is empty.")
-        self.keys = list(range(n_entries))
+        # get the key list
+        split_int = DatasetSplitter.SPLIT_INT_MAP[self.subset]
+        map_df = cls._map_dataframe
+        self.keys = map_df[map_df["split"] == split_int]["index"].tolist()
 
         # load target labels once on instantiation
         self.target_labels = self._config.user_config.data.target_labels
@@ -93,7 +96,7 @@ class IGData(Dataset, ABC):
         if not isinstance(cls.subset, str) or not cls.subset.isalpha():
             raise DataError(f"`subset` on {cls.__name__!r} must be alpha string, got {cls.subset!r}")
 
-    def __getitem__(self, idx: int) -> pyg.data.Data:  # writing as pyg.data.Data for clarity
+    def __getitem__(self, idx: int) -> PyGData:
         """
         Retrieve a single sample by index.
 
@@ -104,7 +107,7 @@ class IGData(Dataset, ABC):
             pyg.data.Data: Torch-Geometric Data object containing data for the selected event.
         """
         features, labels, edge_index, edge_weight = self.get(idx)
-        return pyg.data.Data(x=features, y=labels, edge_index=edge_index, edge_attr=edge_weight)
+        return PyGData(x=features, y=labels, edge_index=edge_index, edge_attr=edge_weight)
 
     def __len__(self) -> int:
         """
@@ -115,19 +118,36 @@ class IGData(Dataset, ABC):
         """
         return len(self.keys)
 
-    def __del__(self):
-        try:
-            self.env.close()
-        except Exception:
-            pass
+    @classmethod
+    def _build_reader(cls) -> None:
+        """
+        Build the shared shard reader to be used by all subclasses.
+        """
+        pid = os.getpid()
+        if cls._reader is None or cls._reader_pid != pid:
+            cls._reader = LMDBConfiguredShardReader()
 
-    def _txn(self):
+    @classmethod
+    def configure(cls, source: Union[str, Path, Sequence[Union[str, Path]]], map_file: Union[str, Path]) -> None:
         """
-        Thread-safe txn.
+        Set the dataset configurations.
+
+        Args:
+            source (Union[str, Path, Sequence[Union[str, Path]]]): Path to the input file(s) (LMDB) or a directory.
+            map_file (Union[str, Path]): Path to the split mapping file generated by `DatasetSplitter`
         """
-        if not hasattr(self, "_thread_txn"):
-            self._thread_txn = self.env.begin(write=False)
-        return self._thread_txn
+        if cls._source is None:
+            cls._source = source
+        if cls._map_dataframe is None:
+            cls._map_dataframe = LMDBReader(map_file).to_pandas()
+
+        # configure the reader class
+        LMDBConfiguredShardReader.configure(
+            source=cls._source,
+            map_df=cls._map_dataframe,
+            max_open_envs=4,
+            clean=True
+        )
 
     @property
     def num_output_features(self) -> int:
@@ -148,7 +168,17 @@ class IGData(Dataset, ABC):
                 f"Expected label tensor to be 0D or 1D, got {y.ndim}D (shape={tuple(y.shape)})"
             )
 
-    def get(self, idx: int) -> tuple[torch.Tensor, ...]:
+    @property
+    def num_node_features(self):
+        """
+       Returns the dimensionality of the input feature list for each graph sample.
+
+       Returns:
+           int: The number of input features.
+       """
+        return self[0].x.size(-1)
+
+    def get(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Read and decode a single event from the LMDB dataset.
 
@@ -166,67 +196,57 @@ class IGData(Dataset, ABC):
             MissingFieldError, DataError
         """
         # verify passed index
+        # validate index
         if not isinstance(idx, int):
             raise DataError(f"Index must be int, got {type(idx).__name__!r}")
-        if idx < 0 or idx >= len(self.keys):
-            raise DataError(f"Index {idx} out of bounds for dataset of size {len(self.keys)}")
-        key_id = self.keys[idx]
 
-        # pack key and fetch
-        packed = struct.pack(">Q", key_id)
-        value = self._txn().get(packed)
-
-        # quick check value
-        if value is None:
-            raise DataError(f"Key {key_id} not found in LMDB '{self.infile}'")
-
-        # unpack msgpack
+        # fetch record via reader
         try:
-            data = msgpack.unpackb(value, raw=False)
-        except Exception as e:
-            raise DataError(f"Corrupt record {key_id}: {e}")
+            data, *_ = type(self)._reader[idx]  # dict unpacked from msgpack (string keys)
+        except (IndexError, KeyError) as e:
+            raise DataError(f"Failed to retrieve record at index {idx}: {e}")
 
-        # get features list
+        # normalize
+
+        # --- features ---
         try:
-            features_list = data["features"]
+            features_np = np.array(data["features"], dtype=np.float32, copy=True)
         except KeyError:
-            raise MissingFieldError(f"Record {key_id!r} missing 'features' field")
+            raise MissingFieldError(f"Record at index {idx} missing 'features' field")
 
-        key_order = list(features_list[0].keys())
-
-        # build feature array
-        features_np = np.array(
-            [[feat[k] for k in key_order] for feat in features_list],
-            dtype=np.float32
-        )
-
-        # build labels array
+        # --- labels ---
         labels_vals = []
         for name in self.target_labels:
             if name not in data:
-                raise MissingFieldError(f"Label '{name}' not found in record for key {key_id}")
+                raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])
-        labels_np = np.array(labels_vals, dtype=np.float32)
+        labels_np = np.asarray(labels_vals, dtype=np.float32)
 
-        # build edge index/weight
+        # --- edges ---
         try:
             ei_list = data["edge_index"]
         except KeyError:
-            raise MissingFieldError(f"Record {key_id!r} missing 'edge_index' field")
+            raise MissingFieldError(f"Record at index {idx} missing 'edge_index' field")
         try:
             ew_list = data["edge_weight"]
         except KeyError:
-            raise MissingFieldError(f"Record {key_id!r} missing 'edge_weight' field")
+            raise MissingFieldError(f"Record at index {idx} missing 'edge_weight' field")
 
-        ei_np = np.array(ei_list, dtype=np.int64)
-        ew_np = np.array(ew_list, dtype=np.float32)
+        ei_np = np.asarray(ei_list, dtype=np.int64)
+        ew_np = np.asarray(ew_list, dtype=np.float32)
 
-        # assert dims are what we expect
-        assert ei_np.ndim == 2 and ei_np.shape[0] == 2, (
-            f"edge_index for key {key_id!r} must be [2, E], got {ei_np.shape}"
-        )
+        # sanity checks
+        if ei_np.ndim != 2 or ei_np.shape[0] != 2:
+            raise DataError(f"'edge_index' must be shape [2, E], got {ei_np.shape} at index {idx}")
+        if ew_np.ndim != 1:
+            raise DataError(f"'edge_weight' must be 1-D, got {ew_np.shape} at index {idx}")
+        if ei_np.shape[1] != ew_np.shape[0]:
+            raise DataError(
+                f"edge count mismatch: edge_index has {ei_np.shape[1]} edges "
+                f"but edge_weight has {ew_np.shape[0]} at index {idx}"
+            )
 
-        # convert everything to tensors
+        # to tensors
         features = torch.from_numpy(features_np)
         labels = torch.from_numpy(labels_np)
         edge_index = torch.from_numpy(ei_np).long()

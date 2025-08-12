@@ -2,9 +2,10 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Sequence, List
 
 from icegraph.console import Console
+from icegraph.console.streams import suppress_output
 from .base import IGExtractor
 from .base.modules import UniqueID
 from icegraph.pathutils import PathResolver, PathValidator
@@ -65,10 +66,7 @@ class FeatureExtractor(IGExtractor):
     - Outputs results to an HDF5 file with relevant classification and extracted data.
     """
 
-    if ClassificationConverter is not None:
-        cls_converter = ClassificationConverter()
-    else:
-        cls_converter = None
+    cls_converter = ClassificationConverter and ClassificationConverter()
 
     def extract(self, outfile: Optional[Union[str, Path]] = None) -> Path:
         """
@@ -77,28 +75,25 @@ class FeatureExtractor(IGExtractor):
         Returns:
             Path: Path to the generated HDF5 output file.
         """
-        # Path to output file
-        resolver = PathResolver(path=outfile, origin=self.inpath, extension="hdf5", stage="extractor")
-        outfile = resolver.resolve()
+        self._file_paths: List[str] = PathResolver.normalize_sources(self._source, ".i3.zst", use_str=True)
+        source_repr = Console.source_repr(self._source)
 
         Console.banner("Feature Extractor")
-        Console.out(f"Running feature extraction: {self.inpath}")
+        Console.out(f"Running feature extraction: {source_repr}")
 
-        with Console.spinner():
+        if not self._file_paths:
+            raise MissingI3FilesError(f"No I3 files found in source {source_repr}")
+
+        # Path to output file
+        resolver = PathResolver(path=outfile, origin=None, extension=None, stage="extractor")
+        outdir = resolver.resolve(return_dir=True)
+
+        for infile in Console.progress_bar(self._file_paths):
             tray = I3Tray()
 
-            # Read the i3 file(s) to memory
-            if self.inpath.is_dir():
-                if len(list(self.inpath.glob("*.i3.zst"))) == 0:
-                    raise MissingI3FilesError(f"No I3 files found in directory {self.inpath!s}")
-
-                input_files = [str(self._config.gcd_path)] + [
-                    str(p) for p in sorted(self.inpath.glob("*.i3.zst"))
-                ]
-            else:
-                input_files = [str(self._config.gcd_path)] + [
-                    str(self.inpath)
-                ]
+            # get the i3 file paths and output hdf5 file path
+            input_files = [str(self._config.gcd_path), infile]
+            outfile = outdir / Path(infile).with_suffix(".hdf5").name
 
             tray.Add('I3Reader', Filenamelist=input_files)
 
@@ -134,8 +129,8 @@ class FeatureExtractor(IGExtractor):
                 SubEventStreams=["InIceSplit"]
             )
 
-            tray.Execute()
+            with suppress_output():
+                tray.Execute()
 
-        Console.out(f"Output files saved to {outfile}")
-
-        return outfile
+        Console.out(f"Output files saved to {outdir}")
+        return outdir

@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
-from typing import Union, Optional
+from typing import Union, Optional, Sequence, List
 import os
 
 from icegraph.config import IGConfig
@@ -26,12 +26,13 @@ class PathResolver:
         config = IGConfig.get()
         self.default_dir = Path(config.user_config.io.default_dir)
 
-    def resolve(self, return_dir: bool = False) -> Path:
+    def resolve(self, return_dir: bool = False, prefix: Optional[str] = None) -> Path:
         """
         Resolves the output path based on the provided path, origin, processing stage, and extension.
 
         Args:
             return_dir (bool): If True, returns a directory path. If False, returns a full file path.
+            prefix (Optional[str]): Optionally specify a desired file name prefix.
 
         Returns:
             Path: The resolved path.
@@ -46,10 +47,15 @@ class PathResolver:
         else:
             if not hasattr(self, "extension"):
                 raise AttributeError("PathResolver attribute 'extension' cannot be None if resolving a file path.")
-            if self.origin is not None:
-                inferred_name = self.origin.with_suffix(self.extension).name
+
+            if prefix is not None:
+                inferred_name = prefix + self.extension
             else:
-                inferred_name = self.stage + "_outfile" + self.extension
+                if self.origin is not None:
+                    inferred_name = self.origin.with_suffix(self.extension).name
+                else:
+                    inferred_name = self.stage + "_outfile" + self.extension
+
             if path is None:
                 resolve_path = self.default_dir / self.stage / inferred_name
             else:
@@ -80,6 +86,56 @@ class PathResolver:
             bool: True if the path has no suffix, indicating it is directory-like; False otherwise.
         """
         return Path(path).suffix == ""
+
+    @staticmethod
+    def normalize_sources(
+            source: Union[str, Path, Sequence[Union[str, Path]]],
+            extension: str,
+            use_str: bool = False
+    ) -> Union[List[str], List[Path]]:
+        extension = extension if extension.startswith(".") else "." + extension
+        want_suffixes = extension.lower().split(".")
+        want_suffixes = ["." + s for s in want_suffixes if s]
+
+        # Fast path for single extension
+        single_ext = (len(want_suffixes) == 1)
+        single_ext_lc = want_suffixes[0] if single_ext else None
+
+        def has_wanted_suffixes(p: Path) -> bool:
+            if single_ext:
+                return p.name.lower().endswith(single_ext_lc)
+            # multi extension case: suffix chain check
+            fs = [s.lower() for s in p.suffixes]
+            n = len(want_suffixes)
+            return len(fs) >= n and fs[-n:] == want_suffixes
+
+        def to_paths(obj: Union[str, Path]) -> List[Path]:
+            p = Path(obj).expanduser()
+            PathValidator.is_valid_path(p)
+            if p.is_dir():
+                # deterministic order
+                entries = sorted(p.iterdir(), key=lambda y: y.name)
+                return [x.resolve() for x in entries if x.is_file() and has_wanted_suffixes(x)]
+            q = p.resolve()
+            return [q] if q.is_file() and has_wanted_suffixes(q) else []
+
+        # collect
+        files: List[Path] = []
+        if isinstance(source, (str, Path)):
+            files = to_paths(source)
+        else:
+            for s in source:
+                files.extend(to_paths(s))
+
+        # dedupe while preserving order
+        seen = set()
+        out: Union[List[str], List[Path]] = []
+        for f in files:
+            if f not in seen:
+                out.append(str(f) if use_str else f)
+                seen.add(f)
+
+        return out
 
 
 class PathValidator:

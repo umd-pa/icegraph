@@ -71,6 +71,14 @@ class Callback(ABC):
         """
         pass
 
+    def on_batch_transfer(self, trainer: Trainer, batch: Batch):
+        """
+        Called immediately after batch has been transferred to GPU.
+
+        Args:
+            batch: The current PyG Batch instance about to be forwarded.
+        """
+
     def on_batch_end(self, trainer: Trainer, batch: Batch, loss: Union[int, float], metrics: Trainer.Metrics):
         """
         Called immediately after each batch is processed.

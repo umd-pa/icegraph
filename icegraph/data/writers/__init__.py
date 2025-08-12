@@ -3,4 +3,6 @@
 
 from .models import LMDBWriter
 
+LMDBWriter.__module__ = __name__
+
 __all__ = ["LMDBWriter"]

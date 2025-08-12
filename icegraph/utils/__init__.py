@@ -2,7 +2,9 @@
 # Developed by Taylor St Jean
 
 from .networking import is_port_available
+from .statutils import Statistics
 
 is_port_available.__module__ = __name__
+Statistics.__module__ = __name__
 
-__all__ = ["is_port_available"]
+__all__ = ["is_port_available", "Statistics"]

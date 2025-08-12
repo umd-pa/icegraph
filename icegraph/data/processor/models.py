@@ -1,10 +1,11 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import cast, Optional, Union
+from typing import cast, Optional, Union, Sequence, List, Dict
 from pathlib import Path
 import json
 
+import pandas
 import pandas as pd
 from pandas import HDFStore
 import numpy as np
@@ -20,8 +21,9 @@ from icegraph.geometry import Detector
 from icegraph.data.writers import LMDBWriter
 from icegraph.pathutils import PathResolver, PathValidator
 from .base.exceptions import ProcessorError
+from icegraph.utils import Statistics
 
-__all__ = ["FeatureProcessor", "Normalize"]
+__all__ = ["FeatureProcessor"]
 
 
 class FeatureProcessor:
@@ -38,16 +40,21 @@ class FeatureProcessor:
     - Writing to LMDB for training/evaluation
     """
 
-    def __init__(self, infile: Union[str, Path]) -> None:
+    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]]) -> None:
         """
         Initialize the data processor with an input file.
 
         Args:
-            infile (Union[str, Path]): Path to the input file or directory.
+            source (Union[str, Path, Sequence[Union[str, Path]]]): Path or sequence of paths to HDF5 files or a directory containing HDF5 files.
 
         """
-        self.infile = Path(infile)
-        PathValidator.is_valid_file(self.infile)
+        self._source = Path(source)
+        self._file_paths: List[str] = PathResolver.normalize_sources(source, ".hdf5", use_str=True)
+
+        if not self._file_paths:
+            raise ProcessorError(
+                f"No input files found matching extension '.hdf5' under {Console.source_repr(source)}"
+            )
 
         self._config: IGConfig = IGConfig.get()
 
@@ -59,93 +66,83 @@ class FeatureProcessor:
         # define a simple getter to extract data columns in a table and ignore IDs
         self.data_cols = lambda table: [c for c in table.columns if c not in self.dom_id_cols + self.event_id_cols]
 
-        # get columns we should be applying a log scale to (i.e. energy)
-        self.apply_log_scaling = self._config.user_config.data.normalization.apply_log_scaling
+        # get vector mapping
+        self._vector_map = generate_vector_mapping()
 
     def __call__(self) -> Path:
         """
-        Invoke the processor and return the processed output.
+        Runs the sample building script. Saves the resulting samples to LMDB file(s).
 
         Returns:
-            Path: Path to the output LMDB file.
+            Path: Path to the output LMDB file directory.
         """
         return self.process()
 
-    def process(self, outfile: Optional[Union[str | Path]] = None) -> Path:
+    def process(self, outdir: Optional[Union[str, Path]] = None) -> Path:
         """
-        Runs the sample building script. Saves the resulting samples to an LMDB file.
+        Runs the sample building script. Saves the resulting samples to LMDB file(s).
 
         Returns:
-            Path: Path to the output LMDB file.
+            Path: Path to the output LMDB file directory.
         """
+        source_repr = Console.source_repr(self._source)
+
         Console.banner("Feature Processor")
-        Console.out(f"Building graph samples from raw data: {self.infile}")
+        Console.out(f"Building graph samples from source: {source_repr}")
 
-        with Console.spinner():
-            resolver = PathResolver(path=outfile, origin=self.infile, extension="lmdb", stage="transformer")
-            outfile = resolver.resolve()
+        resolver = PathResolver(path=outdir, origin=None, extension="lmdb", stage="processor")
+        outdir = resolver.resolve(return_dir=True)
 
-            feat_key = self._config.user_config.table_names.features
-            truth_key = self._config.user_config.table_names.truth
+        for infile in Console.progress_bar(self._file_paths):
+            self._process_file(infile, outdir)
 
-            try:
-                with HDFStore(self.infile, mode='r') as store:
+        Console.out("Processing complete!")
+
+        return outdir
+
+    def _process_file(self, infile: str, outdir: Path) -> Path:
+        """Run the processing pipeline on one file."""
+        feat_key = self._config.user_config.table_names.features
+        truth_key = self._config.user_config.table_names.truth
+
+        try:
+            with suppress_stderr():
+                with HDFStore(infile, mode='r') as store:
                     for key in (feat_key, truth_key):
                         if key not in store:
-                            raise ProcessorError(f"Missing HDF5 key '{key}' in {self.infile}.")
+                            raise ProcessorError(f"Missing HDF5 key '{key}' in {infile}.")
 
-            except Exception as e:
-                raise ProcessorError(f"Error accessing HDF5 keys: {e}")
+        except Exception as e:
+            raise ProcessorError(f"Error accessing HDF5 keys: {e}")
 
-            # Load data to DataFrames
-            # IDE might complain these aren't DataFrames; they are.
-            # Suppressing very loud HDF5 mismatched header warning
-            with suppress_stderr():
-                features_table = cast(pd.DataFrame, pd.read_hdf(
-                    self.infile,
-                    key=feat_key
-                ))
-                truth_table = cast(pd.DataFrame, pd.read_hdf(
-                    self.infile,
-                    key=truth_key
-                ))
+        # Load data to DataFrames
+        # IDE might complain these aren't DataFrames; they are.
+        # Suppressing very loud HDF5 mismatched header warning
+        with suppress_stderr():
+            features_table = cast(pd.DataFrame, pd.read_hdf(
+                infile,
+                key=feat_key
+            ))
+            truth_table = cast(pd.DataFrame, pd.read_hdf(
+                infile,
+                key=truth_key
+            ))
 
-            # Run reshaping
-            features_table = self._reshape_features_table(features_table)
+        # Run reshaping
+        features_table = self._reshape_features_table(features_table)
 
-            # Apply feature vector mapping
-            vector_map = generate_vector_mapping()
-            self._apply_column_map(features_table, vector_map)
+        # Apply feature vector mapping
+        self._apply_column_map(features_table, self._vector_map)
 
-            # normalize the data, and save the norms for inversion later
-            scaler_params_outfile = outfile.parent / "scaler-params-features.json"
-            features_table = self._normalize(features_table, scaler_params_outfile)
+        # compress features by event
+        features_table = self._compress(features_table)
 
-            Console.out(
-                f"Scaler parameters saved to {scaler_params_outfile}. "
-                f"Use this to normalize/denormalize features in production.",
-                control_prefix="\r"
-            )
-
-            scaler_params_outfile = outfile.parent / "scaler-params-labels.json"
-            truth_table = self._normalize(truth_table, scaler_params_outfile)
-
-            Console.out(
-                f"Scaler parameters saved to {scaler_params_outfile}. "
-                f"Use this to normalize/denormalize labels in production.",
-                control_prefix="\r"
-            )
-
-            # compress features by event
-            features_table = self._compress(features_table)
-
-            # merge the truth and features tables and calculate edge indices
-            table = self._merge_tables(features_table, truth_table)
-            table = self._append_edge_index(table)
-
-        Console.out("Build complete, writing to LMDB...")
+        # merge the truth and features tables and calculate edge indices
+        table = self._merge_tables(features_table, truth_table)
+        table = self._append_edge_index(table)
 
         # export to lmdb
+        outfile = outdir / Path(infile).with_suffix(".lmdb").name
         self._to_lmdb(table, outfile)
 
         return outfile
@@ -168,27 +165,37 @@ class FeatureProcessor:
                           - 'edge_index': List of [2, num_edges] indices.
                           - 'edge_weight': List of distances between connected DOMs.
         """
+        def compute_edges_from_dense(X: np.ndarray):
+            if X is None or X.size == 0:
+                return [], []
+            pos_np = X[:, -3:].astype(np.float32, copy=False)  # last 3 = (x, y, z)
 
-        def compute_edges(row: pd.Series) -> pd.Series:
-            event_id = tuple(row[c] for c in self.event_id_cols)
-            features_dict = row['features']
-            dom_positions = torch.tensor(
-                [[f[c] for c in self.dom_pos_cols] for f in features_dict],
-                dtype=torch.float
-            )
-            n = dom_positions.size(0)
-            k_eff = min(max(n - 1, 0), 10)
-            if k_eff <= 0:
-                return pd.Series({'edge_index': [], 'edge_weight': []})
+            # If any non-finite coords, drop those rows
+            if not np.isfinite(pos_np).all():
+                mask = np.isfinite(pos_np).all(axis=1)
+                pos_np = pos_np[mask]
+                if pos_np.size == 0:
+                    return [], []
 
-            edge_index = knn_graph(dom_positions, k=k_eff, loop=False)
+            pos = torch.from_numpy(pos_np)  # [N, 3]
+            n = pos.size(0)
+            k_eff = min(10, max(n - 1, 0))  # <= N-1 neighbors; 0 if n<=1
+            if k_eff == 0:
+                return [], []
+
+            edge_index = knn_graph(pos, k=k_eff, loop=False)  # [2, E], directed
             src, dst = edge_index
-            distances = torch.norm(dom_positions[src] - dom_positions[dst], dim=1)
-            if not torch.isfinite(distances).all():
-                raise ProcessorError(f"Non-finite distances for event {event_id}")
-            return pd.Series({'edge_index': edge_index.tolist(), 'edge_weight': distances.tolist()})
+            distances = torch.linalg.norm(pos[src] - pos[dst], dim=1)
 
-        table[['edge_index', 'edge_weight']] = table.apply(compute_edges, axis=1)
+            if not torch.isfinite(distances).all():
+                raise ValueError("Non-finite edge distances encountered.")
+
+            return edge_index.tolist(), distances.tolist()
+
+        out = table["features"].apply(
+            lambda X: pd.Series(compute_edges_from_dense(X), index=["edge_index", "edge_weight"])
+        )
+        table[["edge_index", "edge_weight"]] = out
         return table
 
     def _merge_tables(self, features: pd.DataFrame, truth: pd.DataFrame) -> pd.DataFrame:
@@ -215,7 +222,7 @@ class FeatureProcessor:
         if missing:
             raise ProcessorError(f"Event ID mismatch between features and truth: {missing}")
 
-        assert len(features) == len(truth), "ID collision, please rerun feature extraction."
+        assert len(features) == len(truth), "Potential ID collision, please rerun feature extraction."
 
         return pd.merge(
             features,
@@ -298,26 +305,64 @@ class FeatureProcessor:
 
     def _compress(self, table: pd.DataFrame) -> pd.DataFrame:
         """
-        Group DOM-level features into a list for each event and return an event-level table.
+        Group DOM-level features into a dense array for each event and return an event-level table.
 
-        This method converts rows corresponding to individual DOMs into a single list of
-        DOM feature dictionaries per event. The resulting table has one row per event.
+        This method converts rows corresponding to individual DOMs into a single dense NumPy array
+        of DOM features per event. The resulting table has one row per event.
 
         Args:
             table (pd.DataFrame): The DOM-level feature table.
 
         Returns:
-            pd.DataFrame: The event-level feature table with one list of features per event.
+            pd.DataFrame: The event-level feature table with one dense array of features per event.
         """
-        table['features'] = table[self.data_cols(table)].to_dict(orient='records')
+        feature_cols = self.data_cols(table)
 
-        table = (
+        # one dense row-array per DOM hit
+        table = table.copy()
+        table["features"] = list(table[feature_cols].to_numpy(dtype=np.float32))
+
+        out = (
             table
-            .groupby(self.event_id_cols, as_index=False)
-            .agg(features=('features', list))
+            .groupby(self.event_id_cols, as_index=False, sort=False)
+            .agg(features=("features", lambda x: np.vstack(x)))
         )
 
-        return table
+        return out
+
+    def _build_metadata(self, table: pd.DataFrame) -> Dict:
+        """
+        Build the metadata to write to the LMDB file.
+
+        Args:
+            table (pd.DataFrame): Data that will be written to the LMDB.
+        """
+        # get feature and excluded columns
+        feature_cols = list(self._vector_map.values()) + self.dom_pos_cols
+        exclude_cols = ["edge_index", "edge_weight"]
+
+        # drop excluded cols
+        table = table.drop(columns=exclude_cols)
+
+        # collect stats
+        partial_f_stats: List[Statistics] = []
+        for array in table["features"].to_numpy():
+            partial_f_stats.append(Statistics.from_dense_array(array, feature_cols))
+
+        f_stats = Statistics.merge_many(partial_f_stats)
+        t_stats = Statistics.from_dataframe(table.drop(columns=["features"]))
+
+        metadata = {
+            "f_stats": f_stats.to_dict(),
+            "t_stats": t_stats.to_dict(),
+            "stats_policy": {
+                "exclude_cols": exclude_cols
+            },
+            "schema": {
+                "feature_cols": feature_cols
+            }
+        }
+        return metadata
 
     def _to_lmdb(self, table: pd.DataFrame, outfile: Union[str, Path]) -> None:
         """
@@ -325,10 +370,14 @@ class FeatureProcessor:
 
         Args:
             table (pd.DataFrame): Data to write.
-            outfile (str): Output file path. Defaults to "graphs.lmdb" in the source dir.
+            outfile (Union[str, Path]): Output file path.
         """
-        writer = LMDBWriter(outfile)
-        writer.write(table, self.data_cols(table))
+        include_cols = self.data_cols(table)
+        metadata = self._build_metadata(table[include_cols])
+
+        with LMDBWriter(outfile, verbose=False) as file:
+            file.write_metadata(metadata)
+            file.write(table, include_cols)
 
     @staticmethod
     def _apply_column_map(table: pd.DataFrame, mapping: dict) -> None:
@@ -340,142 +389,3 @@ class FeatureProcessor:
             mapping (dict): Mapping from original column names to new names.
         """
         table.rename(columns=mapping, inplace=True)
-
-    def _normalize(self, table: pd.DataFrame, outfile: Union[str, Path]) -> pd.DataFrame:
-        """
-        Normalize the feature columns of a DataFrame and persist the scaling parameters.
-
-        Args:
-            table (pd.DataFrame):
-                Input DataFrame containing raw feature columns.
-            outfile (Union[str, Path]):
-                File path where the JSON of fitted scaler parameters will be saved.
-
-        Returns:
-            pd.DataFrame:
-                A copy of `table` with the specified feature columns normalized.
-        """
-        apply_log = [col for col in self.apply_log_scaling if col in table.columns]
-
-        normalizer = Normalize(table)
-        table = normalizer.transform(outfile, self.data_cols(table), apply_log)
-
-        return table
-
-
-class Normalize:
-    """
-    Utility class for normalizing and un-normalizing DataFrame columns using sklearn scalers.
-    """
-    def __init__(self, table: pd.DataFrame) -> None:
-        self.table = table
-        self._config = IGConfig.get()
-
-    def transform(self, outfile: Union[str, Path], cols: list, log_cols: list) -> pd.DataFrame:
-        """
-        Normalize specified columns with z-score scaling and save parameters to JSON.
-
-        Args:
-            outfile: Path to write the scaler parameters JSON.
-            cols: List of column names to normalize.
-            log_cols: Columns to apply log10(x + 1) to.
-
-        Returns:
-            DataFrame with normalized columns.
-        """
-        outfile = Path(outfile)
-
-        if log_cols and (self.table[log_cols] < -1).any().any():
-            bad = [c for c in log_cols if (self.table[c] < -1).any()]
-            raise ProcessorError(f"Values < -1 in log columns: {bad}")
-
-        # apply log to specified columns
-        self.table[log_cols] = np.log1p(self.table[log_cols])
-
-        scaler = StandardScaler()
-        table_scaled = self.table.copy()
-        table_scaled[cols] = scaler.fit_transform(self.table[cols])
-
-        log_mask = [col in log_cols for col in cols]
-
-        # Guard against zero scale (constant) columns
-        zero_scale = [c for c, s in zip(cols, scaler.scale_) if s == 0]
-        if zero_scale:
-            raise ProcessorError(f"Constant columns detected with zero scale: {zero_scale}")
-
-        params = {
-            "columns": cols,
-            "mean": scaler.mean_.tolist(),
-            "scale": scaler.scale_.tolist(),
-            "log": log_mask
-        }
-
-        with outfile.open("w") as file:
-            json.dump(params, file, indent=2)
-
-        return table_scaled
-
-    def transform_from_saved_model(self, infile: Union[str, Path]) -> pd.DataFrame:
-        """
-        Normalize DataFrame columns using previously saved scaler parameters.
-
-        Args:
-            infile: Path to JSON file with scaler parameters.
-
-        Returns:
-            DataFrame with normalized columns.
-        """
-        infile = Path(infile)
-        PathValidator.is_valid_file(infile)
-
-        with infile.open('r') as f:
-            params = json.load(f)
-
-        for c, s in zip(params['columns'], params['scale']):
-            if s == 0:
-                raise ProcessorError(f"Zero scale for column '{c}' in saved model")
-
-        table_norm = self.table.copy()
-        for col, mu, sigma, log in zip(params['columns'], params['mean'], params['scale'], params['log']):
-            if log:
-                table_norm[col] = np.log1p(table_norm[col])
-            table_norm[col] = (table_norm[col] - mu) / sigma
-
-        return table_norm
-
-    def inverse_transform(self, infile: Union[str, Path]) -> pd.DataFrame:
-        """
-        Revert normalized columns back to their original scale using saved parameters.
-
-        Args:
-            infile: Path to JSON file with scaler parameters.
-
-        Returns:
-            DataFrame with columns in original scale.
-        """
-        infile = Path(infile)
-        PathValidator.is_valid_file(infile)
-
-        with infile.open("r") as file:
-            params = json.load(file)
-
-        filtered = [
-            (c, m, s, l)
-            for c, m, s, l in zip(params["columns"], params["mean"], params["scale"], params["log"])
-            if c in self.table.columns
-        ]
-
-        if filtered:
-            cols, means, scales, logs = zip(*filtered)
-            params = {"columns": list(cols), "mean": list(means), "scale": list(scales), "log": list(logs)}
-        else:
-            params = {"columns": [], "mean": [], "scale": [], "log": []}
-
-        table_denorm = self.table.copy()
-        for col, mu, sigma, log in zip(params["columns"], params["mean"], params["scale"], params["log"]):
-            table_denorm[col] = self.table[col] * sigma + mu
-            if log:
-                table_denorm[col] = np.expm1(table_denorm[col])
-
-        return table_denorm
-

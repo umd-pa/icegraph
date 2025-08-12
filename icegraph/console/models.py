@@ -4,7 +4,10 @@
 from datetime import datetime
 import sys
 import threading
-from typing import Optional
+from typing import Optional, Sequence, Union, List, ClassVar
+from pathlib import Path
+from wcwidth import wcswidth
+import re
 
 from tqdm import tqdm
 
@@ -24,6 +27,8 @@ class Console:
     _spinner: Optional[Spinner] = None  # Shared spinner instance
     _is_internal_write = threading.local()  # Thread-local flag to detect Console-originated output
     _is_internal_write.value = False
+
+    ANSI_RE: ClassVar[re.Pattern] = re.compile(r"\x1b\[[0-9;]*m")
 
     @staticmethod
     def color(text: str, color: str) -> str:
@@ -97,6 +102,30 @@ class Console:
         return cls.color(text, color=mapping[severity])
 
     @classmethod
+    def _visible_len(cls, string: str) -> int:
+        # strip ANSI; then measure display width
+        return wcswidth(cls.ANSI_RE.sub("", string))
+
+    @classmethod
+    def multi_out(
+        cls,
+        lines: List[str],
+        severity: int = 0
+    ):
+        """
+        Print multiple lines out to console at once.
+
+        Args:
+            lines (List[str]): The list of messages to print.
+            severity (int): Severity level, integer from 0 to 3 representing INFO, IMPT, WARN, and CRIT. Defaults to 0.
+        """
+        _first_line = False
+        for text in lines:
+            cls.out(text, severity, replace_tag_with_indent=_first_line)
+            if not _first_line:
+                _first_line = True
+
+    @classmethod
     def out(
         cls,
         text: str,
@@ -104,7 +133,8 @@ class Console:
         control_prefix: str = '',
         flush: bool = False,
         newline: bool = True,
-        include_info: bool = True
+        include_info: bool = True,
+        replace_tag_with_indent: bool = False
     ) -> None:
         """
         Print standardized program output to stdout.
@@ -116,6 +146,7 @@ class Console:
             flush (bool): Whether to flush stdout immediately.
             newline (bool): Whether to append a newline character.
             include_info (bool): Whether to include timestamp/severity in the output.
+            replace_tag_with_indent (bool): Replace the info and tag with an indent of equal size.
         """
         cls._is_internal_write.value = True  # Mark output as Console-generated
         try:
@@ -130,10 +161,17 @@ class Console:
                 parts.append(program_time)
                 parts.append(severity_tag)
 
-            print(
-                f"{control_prefix}{' '.join(parts)}{delimiter}{text}",
-                end="\n" if newline else ""
-            )
+            if not replace_tag_with_indent:
+                print(
+                    f"{control_prefix}{' '.join(parts)}{delimiter}{text}",
+                    end="\n" if newline else ""
+                )
+            else:
+                indent_size = cls._visible_len(' '.join(parts) + delimiter)
+                print(
+                    f"{control_prefix}{' ' * indent_size}{text}",
+                    end="\n" if newline else ""
+                )
 
             if flush:
                 sys.stdout.flush()
@@ -184,3 +222,13 @@ class Console:
         """
         cls.newline()
         print("=" * 15 + " " + "ICEGRAPH --- " + stage + " " + "=" * 15)
+
+    @classmethod
+    def source_repr(cls, source: Union[str, Path, Sequence[Union[str, Path]]]) -> str:
+        """Get a CLI friendly string representation of a data source."""
+        printout: str
+        if isinstance(source, Sequence) and not isinstance(source, (str, Path)):
+            printout = f"[{source[0]!s}, ...]"
+        else:
+            printout = source
+        return printout

@@ -3,10 +3,12 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Optional
+from typing import Union, Optional, Sequence, List
 
 from icegraph.config import IGConfig
 from icegraph.pathutils import PathValidator, PathResolver
+from .exceptions import MissingI3FilesError
+from icegraph.console import Console
 
 __all__ = ["IGExtractor"]
 
@@ -16,24 +18,24 @@ class IGExtractor(ABC):
     Abstract base class for data extraction pipelines.
     """
 
-    def __init__(self, inpath: Union[str, Path]) -> None:
+    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]]) -> None:
         """
         Initialize the base extractor.
 
         Args:
-            inpath (Union[str, Path]): Path to the input directory or file.
+            source (Union[str, Path, Sequence[Union[str, Path]]]): Path or sequence of paths to I3 files or a directory containing I3 files.
         """
         self._config: IGConfig = IGConfig.get()
 
-        # Use provided resource
-        self.inpath = Path(inpath)
+        # save source input
+        self._source = source
+        self._file_paths: Optional[List[Path]] = None
 
-        # validate input paths
-        PathValidator.is_valid_path(self.inpath)
+        # validate input gcd path
         PathValidator.is_valid_file(self._config.gcd_path)
 
         # Derive output directory next to the input
-        resolver = PathResolver(None, origin=inpath, extension=None, stage="extractor")
+        resolver = PathResolver(None, origin=None, extension=None, stage="extractor")
         self.outdir = resolver.resolve(return_dir=True)
 
     def __call__(self, outfile: Optional[Union[str, Path]] = None) -> Path:
