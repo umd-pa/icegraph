@@ -1,5 +1,27 @@
 # Changelog
 
+### Version [0.7.0] --- August 12th, 2025:
+- Fixed a bug with normalization in `FeatureProcessor`. Normalization now happens at runtime on the accelerator.
+- Data is now stored in LMDB under the 'data' sub-database, added a new 'meta' sub-database which stores local sample statistics, schemas, and other info.
+- Each file now stores local statistics, allowing for global statistics generation at runtime. This allows for on-the-fly changing to normalization schemes, and if a file is lost normalization is automatically modified to account for it without having to reprocess files.
+- Added `DatasetRegistry.profile()` which allows measurement of data throughput speeds. This helps with dataloader tuning.
+- Added the base class `icegraph.trainer.callbacks.NormCallback`, which allows for creation of custom normalizers for training.
+- Packaged normalizers can be selected in config.yaml under `training:normalizer:`.
+- Modified example scripts and README to reflect API changes.
+- `LMDBMerger` is marked as disabled until a future fix.
+- Added `icegraph.data.readers.LMDBConfiguredShardReader` which allows for very efficient, high-speed, and multiprocess safe reading of any number of LMDB files. API is the same for any number of files. This makes file merging all but unnecessary, and circumvents memory constraints by only holding a set number of environments open at one time. Must be pre-configured via `LMDBConfiguredShardReader.configure()`.
+- Added `icegraph.data.readers.LMDBReader` for simple LMDB file reads.
+- Suppressed some redundant warnings that cluttered CLI.
+- Renamed `DatasetSplitter` to `SplitMapBuilder` to reflect its change in functionality. Now generates a map file containing split info instead of splitting files on disk.
+- Removed stratified splitting until a future update.
+- `IGData` must now be configured via `IGData.configure()` before instantiation of datasets.
+- `IGData` now inherits from `torch.utils.data.Dataset` instead of `torch_geometric.data.Dataset`.
+- Features are now stored in LMDB as dense arrays, which allows for much faster load speeds and better manipulation. Column names are stored under the metadata sub-database`meta/schema:`.
+- Most processes now accept sources as inputs, which can be a single file, a list of files, or a directory containing files.
+- Added `icegraph.utils.Statistics`, which handles calculation of statistics and stat merging.
+- Began building tests, very minimal at the moment.
+- Some API changes (see README.md) and bug fixes.
+
 #### Version [0.6.2] --- July 31st, 2025
 - Fixed bug where if run outside of Icetray environment, got a cryptic attribute error. Now raises a descriptive import error.
 - Added `CDFPlot`, `PDFPlot`, `ChargeDistPlot`, and a new base class `IGDistributionPlot`.

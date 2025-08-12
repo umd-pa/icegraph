@@ -23,6 +23,17 @@ class Statistics:
     M2: ArrayF
     nan_count: ArrayI = field(repr=False)
 
+    def _strip_numpy(self, obj):
+        """Recursively convert numpy arrays in obj to Python lists."""
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {k: self._strip_numpy(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._strip_numpy(v) for v in obj]
+        else:
+            return obj
+
     @classmethod
     def from_dict(cls, d: dict) -> "Statistics":
         allowed = {f.name for f in fields(cls) if f.init}
@@ -119,8 +130,15 @@ class Statistics:
             nan_count=nan_count,
         )
 
-    def to_dict(self) -> Dict[str, Union[List, np.ndarray]]:
-        return asdict(self)
+    def to_dict(self, strip_np: bool = False) -> Dict[str, Union[List, np.ndarray]]:
+        """
+        Converts the statistics object to a dict.
+
+        Args:
+            strip_np (bool): If True, strips numpy from all internal values and returns a pure Python object. Defaults to False.
+        """
+        out = asdict(self) if not strip_np else self._strip_numpy(asdict(self))
+        return out
 
     def aligned_to(self, target_columns: List[str]) -> 'Statistics':
         """Return a copy re-ordered to match target_columns (same set required)."""

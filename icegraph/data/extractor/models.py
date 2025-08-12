@@ -12,6 +12,15 @@ from icegraph.pathutils import PathResolver, PathValidator
 from .base.exceptions import MissingI3FilesError
 from icegraph.exceptions import IceCubeImportError
 
+import warnings
+
+# Silence Boost.Python converter warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message=r".*to-Python converter for.*already registered.*"
+)
+
 # have to wrap in try/except block so sphinx can properly generate docs
 try:
     from icecube.icetray import I3Tray as _I3Tray, I3Module as _I3Module

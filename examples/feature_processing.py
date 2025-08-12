@@ -1,11 +1,3 @@
-import warnings
-
-warnings.filterwarnings(
-    "ignore",
-    category=RuntimeWarning,
-    message=r".*to-Python converter for.*already registered.*"
-)
-
 import os
 
 # Disable the fatal HDF5 version‐mismatch check

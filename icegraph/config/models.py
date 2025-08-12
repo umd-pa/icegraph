@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
-from typing import Union, Any, Optional, Self
+from typing import Union, Optional, Self
 import tempfile
 import os
 
@@ -34,7 +34,6 @@ class IGConfig:
         Args:
             config_path (Union[str, Path]): Path to the user's main configuration file.
         """
-
         self.user_config_path = Path(config_path)
 
         # paths

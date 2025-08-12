@@ -6,6 +6,8 @@ from typing import Type, Dict, Any
 from .models import GravNet
 from icegraph.trainer.base.exceptions import UnknownModelError
 
+__all__ = ["ModelFactory"]
+
 
 class ModelFactory:
     _registry: Dict[str, Type] = {}

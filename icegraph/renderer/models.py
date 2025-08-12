@@ -12,6 +12,15 @@ from icegraph.data.processor import generate_vector_mapping
 from icegraph.data.pulses import Pulses
 from icegraph.exceptions import IceCubeImportError
 
+import warnings
+
+# Silence Boost.Python converter warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message=r".*to-Python converter for.*already registered.*"
+)
+
 try:
     from icecube.icetray import OMKey as _OMKey
 except ImportError:

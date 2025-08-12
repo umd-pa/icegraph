@@ -5,6 +5,15 @@ import uuid
 
 from icegraph.exceptions import IceCubeImportError
 
+import warnings
+
+# Silence Boost.Python converter warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message=r".*to-Python converter for.*already registered.*"
+)
+
 try:
     from icecube import dataclasses as _dataclasses
     from icecube import icetray as _icetray

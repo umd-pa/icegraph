@@ -11,7 +11,6 @@ from pandas import HDFStore
 import numpy as np
 import torch
 from torch_cluster import knn_graph
-from sklearn.preprocessing import StandardScaler
 
 from icegraph.console import Console
 from icegraph.config import IGConfig

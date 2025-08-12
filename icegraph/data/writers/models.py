@@ -10,14 +10,11 @@ from pathlib import Path
 import msgpack
 import os
 
-import numpy as np
 import pandas as pd
 
 from .base import IGWriter
 from icegraph.console import Console
 from .base.exceptions import WriterError
-from icegraph.utils import Statistics
-from icegraph.data.readers import LMDBReader
 
 # allow msgpack to pack numpy objects
 import msgpack_numpy as m

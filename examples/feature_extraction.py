@@ -1,11 +1,3 @@
-import warnings
-
-warnings.filterwarnings(
-    "ignore",
-    category=RuntimeWarning,
-    message=r".*to-Python converter for.*already registered.*"
-)
-
 import argparse
 from pathlib import Path
 

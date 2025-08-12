@@ -6,7 +6,7 @@ IceGraph is a work-in-progress pipeline for training Graph Neural Networks for r
 
 Documentation: https://umd-pa.github.io/icegraph
 
-## Installation (Ubuntu)
+## Installation (Ubuntu 22.04)
 
 Install the package via git clone:
 
@@ -22,6 +22,8 @@ First step after cloning the repository is to create the virtual environment usi
 source venv/bin/activate
 ```
 
+WARNING: if you are not on Ubuntu 22.04, you will need to modify the above command to match your OS and version.
+
 Next, install dependencies:
 
 ```
@@ -36,13 +38,13 @@ pip install .
 
 This software must be run within the IceTray environment.
 
-Example scripts are located under icegraph/examples. Before running these, tailor the config file at icegraph/config/config.yaml, and update the IGConfig config path to point to this file within each example file you intend to run.
+Example scripts are located under [examples](https://github.com/umd-pa/icegraph/tree/main/examples). Before running these, tailor the config file at [config/config.yaml](https://github.com/umd-pa/icegraph/blob/main/config/config.yaml), and update the IGConfig config path to point to this file within each example file you intend to run.
 
 ## Usage
 
 This program has two primary functions; loading and processing data from I3 files into an ML friendly format (in this case Lightning Memory-Mapped Database, or LMDB), and training GNN's using the PyTorch framework.
 
-To get from I3 --> trained model, the pipeline is as follows:
+To get from a set of I3 files to a trained model, the pipeline is as follows:
 
 Required imports:
 ```
@@ -99,11 +101,11 @@ trainer.run()
 
 Or, you can optionally specify callbacks to use during training. You can also define custom callbacks if necessary.
 ```
-from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormCallback
+from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
 
 # these are the default callbacks used in Trainer
 # if you only need these callbacks, there is no need to pass them manually
-callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback(), MinMaxNormCallback()]
+callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
 
 outfile = Path("path/to/model.pt")
 trainer = Trainer(dataset_registry, outfile=outfile, callbacks=callbacks)

@@ -13,6 +13,15 @@ from icegraph.config import IGConfig
 from icegraph.console import Console
 from icegraph.geometry import Detector
 
+import warnings
+
+# Silence Boost.Python converter warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message=r".*to-Python converter for.*already registered.*"
+)
+
 if TYPE_CHECKING:
     from icegraph.data.pulses import Pulses
     try:

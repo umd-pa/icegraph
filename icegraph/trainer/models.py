@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional
+from typing import Union, Optional, List
 from pathlib import Path
 import math
 from dataclasses import dataclass
@@ -19,9 +19,9 @@ from icegraph.config import IGConfig
 from .config import TrainerConfig
 from .arch import ModelFactory
 from icegraph.pathutils import PathResolver
-from .callbacks.base import Callback
-from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormCallback
-from .base.exceptions import EmptyDataLoaderError
+from .callbacks.base import Callback, NormCallback
+from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormalizer
+from .base.exceptions import EmptyDataLoaderError, TrainerError
 
 __all__ = ["Trainer"]
 
@@ -62,9 +62,10 @@ class Trainer:
         dataset_registry: DatasetRegistry,
         callbacks: Optional[list[Callback]] = None,
         trainer_config: Optional[TrainerConfig] = None,
-        outfile: Optional[Union[str, Path]] = None,
+        outdir: Optional[Union[str, Path]] = None,
         model: str = "gravnet",
-        device: str = "cuda"
+        device: str = "cuda",
+        normalizer: Optional[NormCallback] = None
     ) -> None:
         """
         Initialize the Trainer.
@@ -77,11 +78,14 @@ class Trainer:
             callbacks (Optional[list[Callback]]): List of callbacks to pass to the trainer. If none are passed,
                 defaults to Console, Checkpoint and TensorBoard callbacks.
             trainer_config (TrainerConfig): A TrainerConfig instance with training params.
-            outfile (Optional[Union[str, Path]]): Path to save the trained model.
+            outdir (Optional[Union[str, Path]]): Path to save the trained model and any other generated files.
             model (str): The model to be trained and evaluated, must be one of ['gravnet'].
-            device (str, optional): Preferred device for computation. Defaults to 'cuda'.
+            device (str): Preferred device for computation. Defaults to 'cuda'.
+            normalizer (Optional[normalizer]): Normalizer to use, overrides any normalizer specified in config.
         """
         # grab global config and generate local trainer config
+        Console.banner("Trainer")
+
         self._config = IGConfig.get()
         self.trainer_config = TrainerConfig.from_config(self._config) if trainer_config is None else trainer_config
 
@@ -89,17 +93,19 @@ class Trainer:
         self.apply_log_scaling = self._config.user_config.data.normalization.apply_log_scaling
 
         # resolve the output path
-        resolver = PathResolver(path=outfile, origin=None, extension="pt", stage="trainer")
-        self.outfile = resolver.resolve()
+        resolver = PathResolver(path=outdir, origin=None, extension=None, stage="trainer")
+        self.outdir = resolver.resolve(return_dir=True)
 
         # place log dir next to run files
-        self.log_dir = self.outfile.parent / "logs"
+        self.log_dir = self.outdir / "logs"
 
         # set global seed for reproducibility
         self._set_seed(self.trainer_config.seed)
 
         # load datasets and device
         self.datasets = dataset_registry
+
+        # get the device selection
         self.device: torch.device = (
             torch.device("cuda")
             if torch.cuda.is_available() and device == "cuda"
@@ -109,12 +115,19 @@ class Trainer:
         default_callbacks = [
             ConsoleCallback(),
             CheckpointCallback(),
-            TensorBoardCallback(),
-            MinMaxNormCallback()
+            TensorBoardCallback()
         ]
+
+        # grab normalizer
+        norm_selection = self._config.user_config.training.normalizer
+        normalizer = normalizer or self._resolve_normalizer(norm_selection)
 
         # grab callbacks
         self.callbacks = callbacks or default_callbacks
+        self.callbacks.append(normalizer)
+
+        # make sure the user didnt pass any normalizers in callbacks
+        self._ensure_single_normalizer()
 
         # determine dimensions of input and output
         in_channels = dataset_registry.train_dataset.num_node_features
@@ -146,6 +159,29 @@ class Trainer:
         self._max_epochs = self.trainer_config.max_epochs
 
         self._fire("on_init")
+
+    @staticmethod
+    def _resolve_normalizer(name: str) -> NormCallback:
+        from icegraph.trainer.callbacks import normalizers
+        try:
+            cls = getattr(normalizers, name)
+        except AttributeError:
+            raise ValueError(f"NormCallback class '{name}' not found in {normalizers.__name__}")
+        if not callable(cls):
+            raise TypeError(f"{name} is not callable.")
+        return cls()
+
+    def _ensure_single_normalizer(self) -> None:
+        normalizers: List[NormCallback] = [cb for cb in self.callbacks if isinstance(cb, NormCallback)]
+
+        if len(normalizers) == 0:
+            raise TrainerError(
+                "No normalizer found. Exactly one normalizer is required. "
+                "The normalizer must be an instance of 'NormCallback'."
+            )
+        if len(normalizers) > 1:
+            names = ", ".join(type(cb).__name__ for cb in normalizers)
+            raise TrainerError(f"Multiple normalizers found ({names}). Exactly one normalizer is allowed.")
 
     def _fire(self, hook_name: str, *args, **kwargs):
         """
@@ -364,8 +400,6 @@ class Trainer:
         """
         Execute the full pipeline: training, testing at set intervals, final validation, and teardown.
         """
-        Console.banner("Trainer")
-
         self.train()
         self.validate(self._max_epochs - 1)
 

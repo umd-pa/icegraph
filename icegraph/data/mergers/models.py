@@ -15,6 +15,7 @@ from icegraph.console import Console
 from icegraph.data.writers import LMDBWriter
 from icegraph.pathutils import PathResolver
 from .base.exceptions import MissingLMDBFilesError, MissingHDF5FilesError, MergeError, MergeToolNotFoundError
+from icegraph.utils import disabled_class
 
 __all__ = ["HDF5Merger", "LMDBMerger"]
 
@@ -68,6 +69,7 @@ class HDF5Merger(IGMerger):
         return outfile
 
 
+@disabled_class
 class LMDBMerger(IGMerger):
     """
     Handles merging of multiple LMDB files into a single output file.

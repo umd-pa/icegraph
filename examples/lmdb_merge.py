@@ -1,10 +1,4 @@
-import warnings
-
-warnings.filterwarnings(
-    "ignore",
-    category=RuntimeWarning,
-    message=r".*to-Python converter for.*already registered.*"
-)
+# !!! LMDBMerger IS TEMPORARILY DISABLED, THIS WILL RAISE
 
 import argparse
 

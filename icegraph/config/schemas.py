@@ -73,6 +73,7 @@ class TrainingConfig(BaseModel):
     batch_size: int
     num_workers: int
     trainer_params: TrainerParamsConfig
+    normalizer: str
     optimizer: OptimizerConfig
     tensorboard: TensorBoardConfig
 

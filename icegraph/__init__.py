@@ -8,7 +8,9 @@ from . import (
     geometry,
     renderer,
     trainer,
-    pathutils
+    pathutils,
+    utils,
+    exceptions
 )
 
 __all__ = [
@@ -18,7 +20,9 @@ __all__ = [
     "renderer",
     "trainer",
     "geometry",
-    "pathutils"
+    "pathutils",
+    "utils",
+    "exceptions"
 ]
 
 from ._version import __version__

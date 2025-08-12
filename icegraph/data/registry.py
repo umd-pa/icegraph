@@ -3,13 +3,16 @@
 
 from typing import Self, Type, TYPE_CHECKING, Union, Sequence, Optional
 from pathlib import Path
+import time
 
 import torch_geometric as pyg
 import torch
+import numpy as np
 
 from icegraph.config import IGConfig
 from icegraph.data import TrainingDataset, ValidationDataset, TestDataset
 from icegraph.data.base import IGData
+from icegraph.console import Console
 
 __all__ = ["DatasetRegistry"]
 
@@ -17,10 +20,6 @@ __all__ = ["DatasetRegistry"]
 class DatasetRegistry:
     """
     A container class for managing access to training, validation, and test datasets.
-
-    This class handles loading and conversion of raw input data into feature-ready
-    Parquet format, applies caching, and wraps the resulting dataset objects for
-    convenient access.
 
     Attributes:
         _train_dataset (TrainingDataset): The training dataset instance.
@@ -58,6 +57,7 @@ class DatasetRegistry:
 
         self._datasets = [self._train_dataset, self._validation_dataset, self._test_dataset]
 
+        # register each for later access
         self.source = source
         self.map_file = map_file
 
@@ -93,6 +93,76 @@ class DatasetRegistry:
             int: Number of events.
         """
         return sum(map(len, self._datasets))
+
+    def profile(self, target_samples: int = 50_000, warmup_batches: int = 5) -> None:
+        """
+        Measure DataLoader throughput (samples/s, MB/s) for PyG batches.
+        ONLY the time spent pulling the next batch from the loader is counted.
+        Byte measurement happens off-clock so it doesn't affect the timing.
+
+        Args:
+            target_samples: stop after at least this many samples
+            warmup_batches: discard first N batches to fill worker prefetch
+        """
+
+        def _bytes_of_value(v) -> int:
+            if torch.is_tensor(v):
+                return v.nelement() * v.element_size()
+            if isinstance(v, np.ndarray):
+                return v.nbytes
+            if isinstance(v, (list, tuple)):
+                return sum(_bytes_of_value(x) for x in v)
+            if isinstance(v, dict):
+                return sum(_bytes_of_value(x) for x in v.values())
+            return 0
+
+        def _pyg_bytes(data) -> int:
+            # Works for both Data and Batch; uses attribute keys exposed by PyG
+            total = 0
+            for key in data.keys():
+                try:
+                    val = data[key]
+                except Exception:
+                    continue
+                total += _bytes_of_value(val)
+            return total
+
+        loader = self.train_dataloader
+        it = iter(loader)
+
+        # --- Warmup (optional, not timed) ---
+        for _ in range(warmup_batches):
+            try:
+                _ = next(it)
+            except StopIteration:
+                break
+
+        count = 0
+        total_bytes = 0
+        load_time = 0.0
+
+        while count < target_samples:
+            t0 = time.perf_counter()
+            try:
+                batch = next(it)  # ⬅️ time ONLY the loader fetch/collate/IPC
+            except StopIteration:
+                break
+            t1 = time.perf_counter()
+            load_time += (t1 - t0)
+
+            # Off-clock accounting
+            batch_size = int(getattr(batch, "num_graphs", 1))
+            count += batch_size
+            total_bytes += _pyg_bytes(batch)
+
+        # Guard against divide-by-zero
+        load_time = max(load_time, 1e-9)
+
+        samples_per_sec = count / load_time
+        mb_per_sec = (total_bytes / (1024 ** 2)) / load_time
+
+        Console.out(f"Effective loader throughput: {samples_per_sec:.1f} samples/s")
+        Console.out(f"Effective data throughput: {mb_per_sec:.2f} MB/s (off-clock measurement)")
 
     # --- Static property stubs for type checking and autocompletion ---
     if TYPE_CHECKING:

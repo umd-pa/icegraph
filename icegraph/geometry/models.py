@@ -7,6 +7,15 @@ from icegraph.config import IGConfig
 from .exceptions import GeometryFrameNotFound
 from icegraph.exceptions import IceCubeImportError
 
+import warnings
+
+# Silence Boost.Python converter warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    message=r".*to-Python converter for.*already registered.*"
+)
+
 try:
     from icecube.icetray import OMKey as _OMKey
     from icecube import dataio as _dataio, icetray as _icetray

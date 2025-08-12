@@ -7,8 +7,6 @@ from typing import Union, Optional, Sequence, List
 
 from icegraph.config import IGConfig
 from icegraph.pathutils import PathValidator, PathResolver
-from .exceptions import MissingI3FilesError
-from icegraph.console import Console
 
 __all__ = ["IGExtractor"]
 
