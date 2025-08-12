@@ -1,8 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import DatasetSplitter
+from .models import SplitMapBuilder
 
-DatasetSplitter.__module__ = __name__
+SplitMapBuilder.__module__ = __name__
 
-__all__ = ["DatasetSplitter"]
+__all__ = ["SplitMapBuilder"]

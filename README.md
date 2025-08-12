@@ -54,7 +54,7 @@ from icegraph.data.processor import FeatureProcessor
 from icegraph.data.extractor import FeatureExtractor
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from icegraph.data.splitter import DatasetSplitter
+from icegraph.data.splitter import SplitMapBuilder
 from icegraph.trainer import Trainer
 ```
 

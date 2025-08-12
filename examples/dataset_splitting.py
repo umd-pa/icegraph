@@ -8,7 +8,7 @@ warnings.filterwarnings(
 
 import argparse
 
-from icegraph.data.splitter import DatasetSplitter
+from icegraph.data.splitter import SplitMapBuilder
 from icegraph.config import IGConfig
 
 
@@ -34,7 +34,7 @@ def main() -> None:
     IGConfig.register(config)
 
     # run the dataset splitting
-    splitter = DatasetSplitter(args.input)
+    splitter = SplitMapBuilder(args.input)
     splitter.build_map(args.output)
 
 

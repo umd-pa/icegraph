@@ -18,7 +18,7 @@ from icegraph.data.processor import FeatureProcessor
 from icegraph.data.extractor import FeatureExtractor
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from icegraph.data.splitter import DatasetSplitter
+from icegraph.data.splitter import SplitMapBuilder
 from icegraph.data.mergers import LMDBMerger
 from icegraph.trainer import Trainer
 from icegraph.trainer.callbacks import CheckpointCallback, ConsoleCallback, TensorBoardCallback
@@ -35,7 +35,7 @@ def main():
         processor = stage(source)
         source = processor()
 
-    map_file = DatasetSplitter(source).build_map()
+    map_file = SplitMapBuilder(source).build_map()
 
     # load all data
     dataset_registry = DatasetRegistry.load_from_lmdb(source, map_file)

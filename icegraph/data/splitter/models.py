@@ -12,10 +12,10 @@ from icegraph.data.writers import LMDBWriter
 from icegraph.console import Console
 from icegraph.pathutils import PathResolver
 
-__all__ = ["DatasetSplitter"]
+__all__ = ["SplitMapBuilder"]
 
 
-class DatasetSplitter:
+class SplitMapBuilder:
     """
     Splits a preprocessed LMDB dataset into train, validation, and test sets,
     and writes each split as its own LMDB sample database.
