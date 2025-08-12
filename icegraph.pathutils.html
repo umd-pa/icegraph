@@ -52,7 +52,7 @@
 <li class="toctree-l3"><a class="reference internal" href="icegraph.exceptions.html">icegraph.exceptions package</a></li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.geometry.html">icegraph.geometry package</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">icegraph.pathutils package</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#module-icegraph.pathutils">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="icegraph.renderer.html">icegraph.renderer package</a></li>
@@ -92,108 +92,8 @@
              
   <section id="icegraph-pathutils-package">
 <h1>icegraph.pathutils package<a class="headerlink" href="#icegraph-pathutils-package" title="Link to this heading"></a></h1>
-<section id="module-icegraph.pathutils">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-icegraph.pathutils" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathResolver">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.pathutils.</span></span><span class="sig-name descname"><span class="pre">PathResolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.pathutils.PathResolver" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>A utility for resolving file or directory paths used in data processing pipelines.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathResolver.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.pathutils.PathResolver.__init__" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathResolver.resolve">
-<span class="sig-name descname"><span class="pre">resolve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.pathutils.PathResolver.resolve" title="Link to this definition"></a></dt>
-<dd><p>Resolves the output path based on the provided path, origin, processing stage, and extension.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>return_dir</strong> (<em>bool</em>) – If True, returns a directory path. If False, returns a full file path.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The resolved path.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Path</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathValidator">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">icegraph.pathutils.</span></span><span class="sig-name descname"><span class="pre">PathValidator</span></span><a class="headerlink" href="#icegraph.pathutils.PathValidator" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathValidator.is_valid_dir">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_valid_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.pathutils.PathValidator.is_valid_dir" title="Link to this definition"></a></dt>
-<dd><p>Check that the given path exists, is a directory, and is readable.
-Raises informative exceptions if any check fails.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<em>str</em><em> or </em><em>Path</em>) – The file path to check.</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>FileNotFoundError</strong> – If the path does not exist.</p></li>
-<li><p><strong>NotADirectoryError</strong> – If the path is a file, not a directory.</p></li>
-<li><p><strong>PermissionError</strong> – If the file is not readable.</p></li>
-</ul>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathValidator.is_valid_file">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_valid_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.pathutils.PathValidator.is_valid_file" title="Link to this definition"></a></dt>
-<dd><p>Check that the given path exists, is a file, and is readable.
-Raises informative exceptions if any check fails.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<em>str</em><em> or </em><em>Path</em>) – The file path to check.</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>FileNotFoundError</strong> – If the path does not exist.</p></li>
-<li><p><strong>IsADirectoryError</strong> – If the path is a directory, not a file.</p></li>
-<li><p><strong>PermissionError</strong> – If the file is not readable.</p></li>
-</ul>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="icegraph.pathutils.PathValidator.is_valid_path">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_valid_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#icegraph.pathutils.PathValidator.is_valid_path" title="Link to this definition"></a></dt>
-<dd><p>Check that the given path exists and is readable.
-Raises informative exceptions if any check fails.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<em>str</em><em> or </em><em>Path</em>) – The path to check.</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>FileNotFoundError</strong> – If the path does not exist.</p></li>
-<li><p><strong>PermissionError</strong> – If the file is not readable.</p></li>
-</ul>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
 </section>
 </section>
 
