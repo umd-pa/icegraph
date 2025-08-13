@@ -19,9 +19,10 @@ from icegraph.config import IGConfig
 from .config import TrainerConfig
 from .arch import ModelFactory
 from icegraph.pathutils import PathResolver
-from .callbacks.base import Callback, NormCallback
+from .callbacks.base import Callback, Normalizer
 from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormalizer
 from .base.exceptions import EmptyDataLoaderError, TrainerError
+from .callbacks import normalizers
 
 __all__ = ["Trainer"]
 
@@ -65,7 +66,7 @@ class Trainer:
         outdir: Optional[Union[str, Path]] = None,
         model: str = "gravnet",
         device: str = "cuda",
-        normalizer: Optional[NormCallback] = None
+        normalizer: Optional[Normalizer] = None
     ) -> None:
         """
         Initialize the Trainer.
@@ -120,7 +121,7 @@ class Trainer:
 
         # grab normalizer
         norm_selection = self._config.user_config.training.normalizer
-        normalizer = normalizer or self._resolve_normalizer(norm_selection)
+        normalizer = normalizer or normalizers.resolve_normalizer(norm_selection)
 
         # grab callbacks
         self.callbacks = callbacks or default_callbacks
@@ -160,27 +161,16 @@ class Trainer:
 
         self._fire("on_init")
 
-    @staticmethod
-    def _resolve_normalizer(name: str) -> NormCallback:
-        from icegraph.trainer.callbacks import normalizers
-        try:
-            cls = getattr(normalizers, name)
-        except AttributeError:
-            raise ValueError(f"NormCallback class '{name}' not found in {normalizers.__name__}")
-        if not callable(cls):
-            raise TypeError(f"{name} is not callable.")
-        return cls()
-
     def _ensure_single_normalizer(self) -> None:
-        normalizers: List[NormCallback] = [cb for cb in self.callbacks if isinstance(cb, NormCallback)]
+        _normalizers: List[Normalizer] = [cb for cb in self.callbacks if isinstance(cb, Normalizer)]
 
-        if len(normalizers) == 0:
+        if len(_normalizers) == 0:
             raise TrainerError(
                 "No normalizer found. Exactly one normalizer is required. "
-                "The normalizer must be an instance of 'NormCallback'."
+                "The normalizer must be an instance of 'Normalizer'."
             )
-        if len(normalizers) > 1:
-            names = ", ".join(type(cb).__name__ for cb in normalizers)
+        if len(_normalizers) > 1:
+            names = ", ".join(type(cb).__name__ for cb in _normalizers)
             raise TrainerError(f"Multiple normalizers found ({names}). Exactly one normalizer is allowed.")
 
     def _fire(self, hook_name: str, *args, **kwargs):
