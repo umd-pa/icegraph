@@ -6,7 +6,7 @@ os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
 import argparse
 from pathlib import Path
 
-from icegraph.data.processor import FeatureProcessor
+from icegraph.data.transformer import FeatureProcessor
 from icegraph.config import IGConfig
 
 

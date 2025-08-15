@@ -19,27 +19,24 @@ from icegraph.data.writers import LMDBWriter
 from icegraph.pathutils import PathResolver, PathValidator
 from .base.exceptions import ProcessorError
 from icegraph.utils import Statistics, stable_hash_cbor
+from .base import Transformer
 
 __all__ = ["FeatureProcessor"]
 
 
-class FeatureProcessor:
+class FeatureProcessor(Transformer):
     """
     Transforms an HDF5 file of DOM-level event data into a Lightning Memory-Mapped Database (LMDB)
     of compressed graph samples, with edge indices and features for GNN processing.
-
-    This includes:
-    - Reshaping DOM-level features
-    - Mapping feature vectors
-    - Grouping by event
-    - Col-wise data normalization
-    - Computing graph edge structures
-    - Writing to LMDB for training/evaluation
     """
 
-    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]]) -> None:
+    def __init__(
+            self,
+            source: Union[str, Path, Sequence[Union[str, Path]]],
+            yield_in_memory: bool = False
+    ) -> None:
         """
-        Initialize the data processor with an input file.
+        Initialize the data processor with an input source.
 
         Args:
             source (Union[str, Path, Sequence[Union[str, Path]]]): Path or sequence of paths to HDF5 files or a directory containing HDF5 files.

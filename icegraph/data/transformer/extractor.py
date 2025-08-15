@@ -3,7 +3,7 @@
 
 from pathlib import Path
 import os
-from typing import Optional, Union, List, ClassVar, Generator, cast, Dict
+from typing import Optional, Union, List, ClassVar, Generator, cast, Dict, Sequence
 import tempfile
 import multiprocessing as mp
 import shutil
@@ -12,10 +12,10 @@ import queue as _queue
 import pandas as pd
 
 from icegraph.console import Console
+from icegraph.config import IGConfig
 from icegraph.console.streams import suppress_output, suppress_stderr
-from .base import IGExtractor
-from .base.modules import UniqueID
-from icegraph.pathutils import PathResolver
+from .base import UniqueID, Transformer
+from icegraph.pathutils import PathResolver, PathValidator
 from .base.exceptions import MissingI3FilesError
 from icegraph.exceptions import IceCubeImportError
 
@@ -71,12 +71,35 @@ MuonLabels = _MuonLabels
 __all__ = ["FeatureExtractor"]
 
 
-class FeatureExtractor(IGExtractor):
+class FeatureExtractor(Transformer):
     """
     Extracts features from I3 files using the IceTray module `ml_suite`.
     """
 
     cls_converter: ClassVar[Optional[ClassificationConverter]] = ClassificationConverter and ClassificationConverter()
+
+    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]]) -> None:
+        """
+        Initialize the feature extractor.
+
+        Args:
+            source (Union[str, Path, Sequence[Union[str, Path]]]): Path or sequence of paths to I3 files or a directory containing I3 files.
+        """
+        self._config: IGConfig = IGConfig.get()
+
+        # save source input
+        self._source = source
+        self._file_paths: Optional[List[Path]] = None
+
+        # validate input gcd path
+        PathValidator.is_valid_file(self._config.gcd_path)
+
+        # Derive output directory next to the input
+        resolver = PathResolver(None, origin=None, extension=None, stage="extractor")
+        self.outdir = resolver.resolve(return_dir=True)
+
+    def __call__(self, outfile: Optional[Union[str, Path]] = None) -> Path:
+        return self.extract(outfile)
 
     def extract(
             self,

@@ -8,7 +8,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .base import IGPlot, IGDistributionPlot
-from icegraph.data.processor import generate_vector_mapping
+from icegraph.data.transformer import generate_vector_mapping
 from icegraph.data.pulses import Pulses
 from icegraph.exceptions import IceCubeImportError
 

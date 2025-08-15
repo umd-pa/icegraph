@@ -1,18 +1,20 @@
+
 from pathlib import Path
+import time
 
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from icegraph.data.processor import FeatureProcessor
+from icegraph.data.transformer import FeatureExtractor, FeatureProcessor
 from icegraph.data.splitter import SplitMapBuilder
 from icegraph.trainer import Trainer
 
 
 def main():
     # specify the data input directory, usually the i3 file set
-    source = Path("/data/i3store/users/tstjean/i3_100_test/extractor")
+    source = Path("/data/i3store/users/tstjean/i3_10_test")
 
     # define the processing chain and run each process sequentially left to right
-    for stage in [FeatureProcessor]:
+    for stage in [FeatureExtractor, FeatureProcessor]:
         processor = stage(source)
         source = processor()
 
