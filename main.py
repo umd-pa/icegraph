@@ -9,10 +9,10 @@ from icegraph.trainer import Trainer
 
 def main():
     # specify the data input directory, usually the i3 file set
-    source = Path("/data/i3store/users/tstjean/i3_100_test/processor")
+    source = Path("/data/i3store/users/tstjean/i3_100_test/extractor")
 
     # define the processing chain and run each process sequentially left to right
-    for stage in []:
+    for stage in [FeatureProcessor]:
         processor = stage(source)
         source = processor()
 

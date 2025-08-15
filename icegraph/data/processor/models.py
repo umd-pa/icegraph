@@ -53,7 +53,9 @@ class FeatureProcessor:
                 f"No input files found matching extension '.hdf5' under {Console.source_repr(source)}"
             )
 
+        # grab config and detector
         self._config: IGConfig = IGConfig.get()
+        self._detector = Detector()
 
         # get relevant columns from config
         self.dom_id_cols = self._config.internal_config.column_names.dom_id_columns
@@ -115,14 +117,19 @@ class FeatureProcessor:
         # Load data to DataFrames
         # IDE might complain these aren't DataFrames; they are.
         # Suppressing very loud HDF5 mismatched header warning
+        # NOTE: Read only required columns when possible to reduce I/O; for 'fixed' HDF this may be ignored by pandas (still safe).
+        feat_needed = list(set(self.dom_id_cols + self.event_id_cols + ["vector_index", "item"]))
+        truth_needed = self.event_id_cols + list(getattr(self._config.user_config.data, "target_labels", []))
         with suppress_stderr():
             features_table = cast(pd.DataFrame, pd.read_hdf(
                 infile,
-                key=feat_key
+                key=feat_key,
+                columns=feat_needed
             ))
             truth_table = cast(pd.DataFrame, pd.read_hdf(
                 infile,
-                key=truth_key
+                key=truth_key,
+                columns=truth_needed
             ))
 
         # Run reshaping
@@ -144,7 +151,8 @@ class FeatureProcessor:
 
         return outfile
 
-    def _append_edge_index(self, table: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _append_edge_index(table: pd.DataFrame) -> pd.DataFrame:
         """
         Compute k-nearest neighbor graph edges and distances for each event's DOM features
         using PyTorch's `knn_graph`.
@@ -162,37 +170,49 @@ class FeatureProcessor:
                           - 'edge_index': List of [2, num_edges] indices.
                           - 'edge_weight': List of distances between connected DOMs.
         """
-        def compute_edges_from_dense(X: np.ndarray):
+        feats_col = table["features"].values
+        edge_index_list: List[list] = []
+        edge_weight_list: List[list] = []
+
+        for X in feats_col:
             if X is None or X.size == 0:
-                return [], []
+                edge_index_list.append([])
+                edge_weight_list.append([])
+                continue
+
             pos_np = X[:, -3:].astype(np.float32, copy=False)  # last 3 = (x, y, z)
 
             # If any non-finite coords, drop those rows
-            if not np.isfinite(pos_np).all():
-                mask = np.isfinite(pos_np).all(axis=1)
-                pos_np = pos_np[mask]
+            finite = np.isfinite(pos_np).all(axis=1)
+            if not finite.all():
+                pos_np = pos_np[finite]
                 if pos_np.size == 0:
-                    return [], []
+                    edge_index_list.append([])
+                    edge_weight_list.append([])
+                    continue
 
-            pos = torch.from_numpy(pos_np)  # [N, 3]
-            n = pos.size(0)
+            n = pos_np.shape[0]
             k_eff = min(10, max(n - 1, 0))  # <= N-1 neighbors; 0 if n<=1
             if k_eff == 0:
-                return [], []
+                edge_index_list.append([])
+                edge_weight_list.append([])
+                continue
 
-            edge_index = knn_graph(pos, k=k_eff, loop=False)  # [2, E], directed
-            src, dst = edge_index
-            distances = torch.linalg.norm(pos[src] - pos[dst], dim=1)
+            with torch.no_grad():
+                pos = torch.from_numpy(pos_np)  # [N, 3]
+                edge_index = knn_graph(pos, k=k_eff, loop=False)  # [2, E], directed
+                src, dst = edge_index
+                distances = torch.linalg.norm(pos[src] - pos[dst], dim=1)
 
             if not torch.isfinite(distances).all():
                 raise ValueError("Non-finite edge distances encountered.")
 
-            return edge_index.tolist(), distances.tolist()
+            edge_index_list.append(edge_index.tolist())
+            edge_weight_list.append(distances.tolist())
 
-        out = table["features"].apply(
-            lambda X: pd.Series(compute_edges_from_dense(X), index=["edge_index", "edge_weight"])
-        )
-        table[["edge_index", "edge_weight"]] = out
+        table = table.copy()
+        table["edge_index"] = edge_index_list
+        table["edge_weight"] = edge_weight_list
         return table
 
     def _merge_tables(self, features: pd.DataFrame, truth: pd.DataFrame) -> pd.DataFrame:
@@ -241,22 +261,6 @@ class FeatureProcessor:
         if table is None or table.empty:
             raise ProcessorError("Input features table is empty or None")
 
-        detector = Detector()
-
-        # func for safely computing dom coords (avoiding any silent nans)
-        def __safe_coords(row: pd.Series) -> pd.Series:
-            dom_ids = tuple(row[c] for c in self.dom_id_cols)
-            try:
-                coords = detector.get_dom_coords(*dom_ids)
-
-            except Exception as e:
-                raise ProcessorError(f"Failed to get coords for DOM {dom_ids}: {e}")
-
-            if (coords is None) or (len(coords) != len(self.dom_pos_cols)):
-                raise ProcessorError(f"Invalid coords for DOM {dom_ids}: {coords}")
-
-            return pd.Series(coords, index=self.dom_pos_cols)
-
         # Pivot the table
         pivot_col = "vector_index"
         value_col = "item"
@@ -270,12 +274,18 @@ class FeatureProcessor:
         if not any(c in index_cols for c in self.dom_id_cols + self.event_id_cols):
             raise ProcessorError("No DOM or event ID columns found for pivot index")
 
-        reshaped = table.pivot_table(
-            index=index_cols,
-            columns=pivot_col,
-            values=value_col,
-            aggfunc="first"
-        ).reset_index()
+        # Equivalent to pivot_table but faster
+        dedup = (
+            table
+            .sort_values(index_cols + [pivot_col], kind="mergesort")
+            .drop_duplicates(subset=index_cols + [pivot_col], keep="first")
+        )
+        reshaped = (
+            dedup
+            .set_index(index_cols + [pivot_col])[value_col]
+            .unstack(pivot_col)
+            .reset_index()
+        )
         if reshaped.empty:
             raise ProcessorError("Reshaped features table is empty after pivot")
 
@@ -285,12 +295,27 @@ class FeatureProcessor:
         if vector_indices != expected:
             raise ProcessorError(f"Non-contiguous vector indices: found {vector_indices}, expected {expected}")
 
-        coords_df = reshaped.apply(__safe_coords, axis=1)
+        # Vectorized coordinates join instead of per-row apply
+        dom_ids_df = reshaped[self.dom_id_cols].drop_duplicates()
+        coords = []
+        for row in dom_ids_df.itertuples(index=False, name=None):
+            try:
+                xyz = self._detector.get_dom_coords(*row)
+            except Exception as e:
+                raise ProcessorError(f"Failed to get coords for DOM {row}: {e}")
+            if (xyz is None) or (len(xyz) != len(self.dom_pos_cols)):
+                raise ProcessorError(f"Invalid coords for DOM {row}: {xyz}")
+            coords.append(xyz)
+
+        coords_df = dom_ids_df.copy()
+        for i, col in enumerate(self.dom_pos_cols):
+            coords_df[col] = [c[i] for c in coords]
+
+        final = reshaped.merge(coords_df, on=self.dom_id_cols, how="left")
         # Check for NaN or infinite in coordinates
-        if coords_df.isnull().any().any() or not np.isfinite(coords_df.values).all():
+        if final[self.dom_pos_cols].isnull().any().any() or not np.isfinite(final[self.dom_pos_cols].to_numpy()).all():
             raise ProcessorError("Detected NaN or infinite values in DOM coordinates")
 
-        final = pd.concat([reshaped, coords_df], axis=1)
         final.drop(columns=self.dom_id_cols, inplace=True)
 
         # confirm DOM position columns present
@@ -306,24 +331,33 @@ class FeatureProcessor:
 
         This method converts rows corresponding to individual DOMs into a single dense NumPy array
         of DOM features per event. The resulting table has one row per event.
-
-        Args:
-            table (pd.DataFrame): The DOM-level feature table.
-
-        Returns:
-            pd.DataFrame: The event-level feature table with one dense array of features per event.
         """
         feature_cols = self.data_cols(table)
 
         # one dense row-array per DOM hit
-        table = table.copy()
-        table["features"] = list(table[feature_cols].to_numpy(dtype=np.float32))
+        feats = table[feature_cols].to_numpy(dtype=np.float32, copy=False)
 
-        out = (
-            table
-            .groupby(self.event_id_cols, as_index=False, sort=False)
-            .agg(features=("features", lambda x: np.vstack(x)))
-        )
+        # Build event key codes
+        key_arrays = [table[c].to_numpy(copy=False) for c in self.event_id_cols]
+        mi = pd.MultiIndex.from_arrays(key_arrays, names=self.event_id_cols)
+        codes, uniques = pd.factorize(mi, sort=False)
+
+        order = np.argsort(codes, kind="mergesort")
+        codes_sorted = codes[order]
+        feats_sorted = feats[order]
+
+        # Find group boundaries
+        change = np.empty(len(codes_sorted), dtype=bool)
+        change[0] = True
+        change[1:] = codes_sorted[1:] != codes_sorted[:-1]
+        start_idx = np.flatnonzero(change)
+        end_idx = np.r_[start_idx[1:], len(codes_sorted)]
+
+        arrays = [feats_sorted[s:e] for s, e in zip(start_idx, end_idx)]
+
+        # Materialize event id columns (one row per group) in first-appearance order
+        out = pd.DataFrame({name: np.asarray(uniques.get_level_values(i)) for i, name in enumerate(self.event_id_cols)})
+        out["features"] = arrays
 
         return out
 
@@ -342,12 +376,14 @@ class FeatureProcessor:
         table = table.drop(columns=exclude_cols)
 
         # collect stats
-        partial_f_stats: List[Statistics] = []
+        f_stats: Optional[Statistics] = None
         for array in table["features"].to_numpy():
-            partial_f_stats.append(Statistics.from_dense_array(array, feature_cols))
+            s = Statistics.from_dense_array(array, feature_cols)
+            f_stats = s if f_stats is None else f_stats.merge(s)
+        if f_stats is None:
+            f_stats = Statistics.from_dense_array(np.zeros((0, len(feature_cols)), dtype=np.float32), feature_cols)
 
         # grab statistics
-        f_stats = Statistics.merge_many(partial_f_stats)
         t_stats = Statistics.from_dataframe(table.drop(columns=["features"]))
 
         # load the ml suite config
