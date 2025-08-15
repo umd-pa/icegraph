@@ -117,20 +117,20 @@ class FeatureProcessor:
         # Load data to DataFrames
         # IDE might complain these aren't DataFrames; they are.
         # Suppressing very loud HDF5 mismatched header warning
-        # NOTE: Read only required columns when possible to reduce I/O; for 'fixed' HDF this may be ignored by pandas (still safe).
-        feat_needed = list(set(self.dom_id_cols + self.event_id_cols + ["vector_index", "item"]))
-        truth_needed = self.event_id_cols + list(getattr(self._config.user_config.data, "target_labels", []))
+        truth_needed = self.event_id_cols + list(self._config.user_config.data.target_labels)
         with suppress_stderr():
             features_table = cast(pd.DataFrame, pd.read_hdf(
                 infile,
                 key=feat_key,
-                columns=feat_needed
             ))
             truth_table = cast(pd.DataFrame, pd.read_hdf(
                 infile,
                 key=truth_key,
                 columns=truth_needed
             ))
+
+        # clean table if source hdf5 is fixed format and all cols were loaded
+        truth_table = truth_table[truth_needed]
 
         # Run reshaping
         features_table = self._reshape_features_table(features_table)
