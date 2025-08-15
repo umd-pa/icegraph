@@ -1,15 +1,19 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from datetime import datetime
 from typing import Optional
 
 import torch
 
 from .base import Callback
 from icegraph.console import Console
+from icegraph.data.base import IGData
+from icegraph.inference import CoreModel
 from icegraph.trainer.tensorboard import TensorBoard
+from icegraph._version import __version__
 
-__all__ = ["TensorBoardCallback", "CheckpointCallback", "ConsoleCallback"]
+__all__ = ["TensorBoardCallback", "ExportCallback", "ConsoleCallback"]
 
 
 class TensorBoardCallback(Callback):
@@ -63,30 +67,34 @@ class ConsoleCallback(Callback):
     on_validation_end = on_test_end = on_epoch_end = display_loss
 
 
-class CheckpointCallback(Callback):
-
+class ExportCallback(Callback):
     def __init__(self) -> None:
         self._best_rmse: float = float("inf")
 
     def on_save(self, trainer, epoch, metrics) -> None:
-        # get paths for latest and best
         latest_path = trainer.outdir / "model_latest.pt"
         best_path = trainer.outdir / "model_best.pt"
 
-        # save latest model
+        # Build CoreModel for export
+        export_model = CoreModel(
+            net=trainer.model,
+            normalizer=trainer.normalizer,
+            metadata={
+                **IGData.metadata,
+                "version": __version__,
+                "timestamp": datetime.now().timestamp()
+            }
+        )
+
         label = f"[Epoch {epoch + 1}]" if epoch is not None else ""
         Console.out(f"{label} Saving latest model to {latest_path}...")
-        payload = {
-            "epoch": epoch,
-            "model_state": trainer.model.state_dict(),
-            "optim_state": trainer.optimizer.state_dict(),
-        }
-        try:
-            torch.save(payload, latest_path)
-        except Exception as e:
-            Console.out(f"Failed to save latest model: {e}", severity=3)
 
-        # save best if metrics are favorable
+        try:
+            torch.save(export_model, latest_path)
+        except Exception as e:
+            Console.out(f"Failed to save model: {e}", severity=3)
+
+        # Save best model if improved
         if metrics is not None:
             current_rmse = metrics.rmse
             if current_rmse < self._best_rmse:
@@ -97,6 +105,6 @@ class CheckpointCallback(Callback):
                 )
                 self._best_rmse = current_rmse
                 try:
-                    torch.save(payload, best_path)
+                    torch.save(export_model, best_path)
                 except Exception as e:
-                    Console.out(f"Failed to save best model: {e}", severity=3)
+                    Console.out(f"Failed to save model: {e}", severity=3)

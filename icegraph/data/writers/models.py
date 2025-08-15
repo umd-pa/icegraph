@@ -1,7 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from dataclasses import dataclass
 from datetime import datetime
 import lmdb
 from typing import Union, Optional, List, Dict, Self
@@ -15,6 +14,7 @@ import pandas as pd
 from .base import IGWriter
 from icegraph.console import Console
 from .base.exceptions import WriterError
+from icegraph._version import __version__
 
 # allow msgpack to pack numpy objects
 import msgpack_numpy as m
@@ -31,12 +31,6 @@ class LMDBWriter(IGWriter):
     using a consistent 8-byte key scheme to ensure deterministic and sortable entries.
     """
 
-    @dataclass
-    class StatisticPolicy:
-        feature_cols: List[str]
-        truth_cols: List[str]
-        excluded_cols: List[str]
-
     def __init__(self, outfile: Optional[Union[str, Path]], mode: str = "w", map_size: int = 10 * 1024 ** 3, verbose: bool = True):
         """
         Initialize the writer with a DataFrame to serialize to LMDB.
@@ -49,8 +43,6 @@ class LMDBWriter(IGWriter):
         self._verbose = verbose
         if self._verbose:
             Console.out(f"Initializing LMDB writer with map_size = {map_size} bytes.")
-
-        self.__version__ = 1
 
         # call to super
         super().__init__(outfile, mode)
@@ -107,7 +99,7 @@ class LMDBWriter(IGWriter):
         with self._env.begin(write=True, db=self._meta_db) as txn:
             # info
             txn.put(b"info:timestamp", _mp(datetime.now().timestamp()))
-            txn.put(b"info:version", _mp(int(self.__version__)))
+            txn.put(b"info:version", _mp(__version__))
 
             if metadata:
                 for category, entries in metadata.items():

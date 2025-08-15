@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional, Literal, Sequence, ClassVar
+from typing import Union, Optional, Literal, Sequence, ClassVar, Dict, Any, List
 from pathlib import Path
 from abc import ABC
 import functools
@@ -14,11 +14,11 @@ import torch
 import numpy as np
 import pandas as pd
 
-from icegraph.data.processor import generate_vector_mapping
 from icegraph.config import IGConfig
 from icegraph.data.splitter import SplitMapBuilder
 from icegraph.data.base.exceptions import EmptyDatasetError, DataError, MissingFieldError
 from icegraph.data.readers import LMDBConfiguredShardReader, LMDBReader
+from icegraph.utils import stable_hash_cbor
 
 __all__ = ["IGData"]
 
@@ -33,15 +33,18 @@ class IGData(Dataset, ABC):
     """
 
     # subset defined in each subclass
-    subset:         ClassVar[Optional[Literal["train","validation","test"]]]            = None
+    subset:             ClassVar[Optional[Literal["train","validation","test"]]]            = None
 
     # shared class vars
-    _reader:        ClassVar[Optional[LMDBConfiguredShardReader]]                       = None
-    _source:        ClassVar[Optional[Union[str, Path, Sequence[Union[str, Path]]]]]    = None
-    _map_dataframe: ClassVar[Optional[pd.DataFrame]]                                    = None
+    _reader:            ClassVar[Optional[LMDBConfiguredShardReader]]                       = None
+    _source:            ClassVar[Optional[Union[str, Path, Sequence[Union[str, Path]]]]]    = None
+    _map_dataframe:     ClassVar[Optional[pd.DataFrame]]                                    = None
 
     # reader process id for forks
-    _reader_pid:    ClassVar[Optional[int]]                                             = None
+    _reader_pid:        ClassVar[Optional[int]]                                             = None
+
+    # dataset metadata
+    metadata:           ClassVar[Optional[Dict[str, Any]]]                                  = None
 
     dataloader = property(
         lambda self: functools.partial(pyg.loader.DataLoader, self),
@@ -72,11 +75,6 @@ class IGData(Dataset, ABC):
         split_int = SplitMapBuilder.SPLIT_INT_MAP[self.subset]
         map_df = cls._map_dataframe
         self.keys = map_df[map_df["split"] == split_int]["index"].tolist()
-
-        # load target labels once on instantiation
-        self.target_labels = self._config.user_config.data.target_labels
-
-        self.features_columns = list(generate_vector_mapping().values())
 
     def __init_subclass__(cls, **kwargs) -> None:
         """
@@ -139,7 +137,7 @@ class IGData(Dataset, ABC):
         if cls._source is None:
             cls._source = source
         if cls._map_dataframe is None:
-            cls._map_dataframe = LMDBReader(map_file).to_pandas()
+            cls._map_dataframe = LMDBReader(map_file).to_pandas().sort_values(by="index").reset_index(drop=True)
 
         # configure the reader class
         LMDBConfiguredShardReader.configure(
@@ -148,6 +146,16 @@ class IGData(Dataset, ABC):
             max_open_envs=4,
             clean=True
         )
+
+        # load metadata
+        cls.metadata = LMDBConfiguredShardReader.metadata()
+
+        # verify config hash
+        config = cls.metadata["config"]
+        config_hash = cls.metadata["CBOR_canonical_blake2b"]
+
+        if config_hash != stable_hash_cbor(config):
+            raise RuntimeError("Source config hash does not match expected hash. One or more files may be corrupted.")
 
     @property
     def num_output_features(self) -> int:
@@ -216,7 +224,7 @@ class IGData(Dataset, ABC):
 
         # --- labels ---
         labels_vals = []
-        for name in self.target_labels:
+        for name in self.metadata["target_labels"]:
             if name not in data:
                 raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])

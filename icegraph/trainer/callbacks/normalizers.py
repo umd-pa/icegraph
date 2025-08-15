@@ -8,6 +8,7 @@ import torch
 
 from icegraph.console import Console
 from .base import Normalizer
+from icegraph.data.base import IGData
 
 __all__ = ["MinMaxNormalizer", "resolve_normalizer"]
 
@@ -38,7 +39,7 @@ class MinMaxNormalizer(Normalizer):
         # call to super
         super().__init__(_param_list, **kwargs)
 
-    def _normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
+    def normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
         """
         Apply min-max normalization to a tensor.
 
@@ -87,8 +88,8 @@ class MinMaxNormalizer(Normalizer):
         """
         Configure min/max-based normalization parameters from dataset statistics.
         """
-        target_labels = list(trainer.target_labels or [])
-        log_labels = set(trainer.apply_log_scaling or [])
+        target_labels = IGData.metadata["target_labels"]
+        log_labels = IGData.metadata["apply_log_scaling"]
 
         # Features
         f_min = torch.as_tensor(self.f_stats.min, dtype=torch.float32)

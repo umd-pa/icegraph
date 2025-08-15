@@ -101,11 +101,11 @@ trainer.run()
 
 Or, you can optionally specify callbacks to use during training. You can also define custom callbacks if necessary.
 ```
-from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
+from icegraph.trainer.callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback
 
 # these are the default callbacks used in Trainer
 # if you only need these callbacks, there is no need to pass them manually
-callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
+callbacks = [ConsoleCallback(), TensorBoardCallback(), ExportCallback()]
 
 outfile = Path("path/to/model.pt")
 trainer = Trainer(dataset_registry, outfile=outfile, callbacks=callbacks)

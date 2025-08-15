@@ -20,14 +20,14 @@ from .config import TrainerConfig
 from .arch import ModelFactory
 from icegraph.pathutils import PathResolver
 from .callbacks.base import Callback, Normalizer
-from .callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback, MinMaxNormalizer
+from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, normalizers
 from .base.exceptions import EmptyDataLoaderError, TrainerError
-from .callbacks import normalizers
+from icegraph.inference import CoreModel
 
 __all__ = ["Trainer"]
 
 
-class Trainer:
+class Trainer(torch.nn.Module):
     """
     Trainer class for managing the training, validation, and testing of a PyTorch model
     using datasets registered in a `DatasetRegistry`.
@@ -84,14 +84,13 @@ class Trainer:
             device (str): Preferred device for computation. Defaults to 'cuda'.
             normalizer (Optional[normalizer]): Normalizer to use, overrides any normalizer specified in config.
         """
+        super().__init__()
+
         # grab global config and generate local trainer config
         Console.banner("Trainer")
 
         self._config = IGConfig.get()
         self.trainer_config = TrainerConfig.from_config(self._config) if trainer_config is None else trainer_config
-
-        self.target_labels = self._config.user_config.data.target_labels
-        self.apply_log_scaling = self._config.user_config.data.normalization.apply_log_scaling
 
         # resolve the output path
         resolver = PathResolver(path=outdir, origin=None, extension=None, stage="trainer")
@@ -115,17 +114,16 @@ class Trainer:
 
         default_callbacks = [
             ConsoleCallback(),
-            CheckpointCallback(),
+            ExportCallback(),
             TensorBoardCallback()
         ]
 
         # grab normalizer
         norm_selection = self._config.user_config.training.normalizer
-        normalizer = normalizer or normalizers.resolve_normalizer(norm_selection)
+        self.normalizer = normalizer or normalizers.resolve_normalizer(norm_selection)
 
         # grab callbacks
         self.callbacks = callbacks or default_callbacks
-        self.callbacks.append(normalizer)
 
         # make sure the user didnt pass any normalizers in callbacks
         self._ensure_single_normalizer()
@@ -162,12 +160,11 @@ class Trainer:
         self._fire("on_init")
 
     def _ensure_single_normalizer(self) -> None:
-        _normalizers: List[Normalizer] = [cb for cb in self.callbacks if isinstance(cb, Normalizer)]
+        _normalizers: List[Normalizer] = [cb for cb in self.callbacks + [self.normalizer] if isinstance(cb, Normalizer)]
 
         if len(_normalizers) == 0:
             raise TrainerError(
-                "No normalizer found. Exactly one normalizer is required. "
-                "The normalizer must be an instance of 'Normalizer'."
+                "No normalizer found. Exactly one normalizer is required, which must be an instance of 'Normalizer'."
             )
         if len(_normalizers) > 1:
             names = ", ".join(type(cb).__name__ for cb in _normalizers)
@@ -182,7 +179,7 @@ class Trainer:
             *args: Positional arguments to forward into the callback.
             **kwargs: Keyword arguments to forward into the callback.
         """
-        for cb in self.callbacks:
+        for cb in self.callbacks + [self.normalizer]:
             fn = getattr(cb, hook_name)
             fn(self, *args, **kwargs)
 
@@ -314,7 +311,7 @@ class Trainer:
         """Getter for testing metrics."""
         return self._test_metrics
 
-    def train(self) -> None:
+    def _train(self, **kwargs) -> None:
         """
         Train the model for the configured number of epochs.
 
@@ -342,11 +339,11 @@ class Trainer:
             # only run on specified intervals
             test_interval = self.trainer_config.test_interval
             if test_interval > 0 and (epoch + 1) % test_interval == 0:
-                self.test(epoch=epoch)
+                self._test(epoch=epoch)
 
         self._fire("on_train_end")
 
-    def validate(self, epoch: int) -> None:
+    def _validate(self, epoch: int) -> None:
         """
         Compute validation metrics without altering model weights.
 
@@ -363,7 +360,7 @@ class Trainer:
 
         self._fire("on_validation_end", epoch, metrics)
 
-    def test(self, epoch: int) -> None:
+    def _test(self, epoch: int) -> None:
         """
         Compute test metrics using the final model (no weight updates).
 
@@ -390,7 +387,7 @@ class Trainer:
         """
         Execute the full pipeline: training, testing at set intervals, final validation, and teardown.
         """
-        self.train()
-        self.validate(self._max_epochs - 1)
+        self._train()
+        self._validate(self._max_epochs - 1)
 
         self._fire("on_teardown")

@@ -203,7 +203,7 @@ class Normalizer(Callback, torch.nn.Module):
 
     def on_init(self, trainer: Trainer) -> None:
         # Build global stats once on trainer init
-        map_df = LMDBReader(trainer.datasets.map_file).to_pandas()
+        map_df = LMDBReader(trainer.datasets.map_file).to_pandas().sort_values(by="index").reset_index(drop=True)
         LMDBConfiguredShardReader.configure(trainer.datasets.source, max_open_envs=4, map_df=map_df)
         with LMDBConfiguredShardReader() as reader:
             self.f_stats, self.t_stats = reader.stats  # tuple[Statistics, Statistics]
@@ -236,7 +236,7 @@ class Normalizer(Callback, torch.nn.Module):
 
         elif isinstance(data, torch.Tensor):
             self._ensure_on_device(data.device)
-            return self._normalize(data, field='y')
+            return self.normalize(data, field='y')
 
         else:
             raise TypeError(f"Unsupported input type {type(data)}")
@@ -271,10 +271,10 @@ class Normalizer(Callback, torch.nn.Module):
     def _batch_dispatch(self, batch: Batch) -> None:
         """Normalize a Batch object in-place."""
         if hasattr(batch, "x"):
-            batch.x = self._normalize(batch.x, field='x')
+            batch.x = self.normalize(batch.x, field='x')
 
         if hasattr(batch, "y"):
-            batch.y = self._normalize(batch.y, field="y")
+            batch.y = self.normalize(batch.y, field="y")
 
     @abstractmethod
     def _configure(self, trainer: Trainer) -> None:
@@ -282,7 +282,7 @@ class Normalizer(Callback, torch.nn.Module):
         ...
 
     @abstractmethod
-    def _normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
+    def normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
         """
         Apply normalization to a tensor.
 

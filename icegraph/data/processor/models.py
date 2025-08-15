@@ -3,9 +3,7 @@
 
 from typing import cast, Optional, Union, Sequence, List, Dict
 from pathlib import Path
-import json
 
-import pandas
 import pandas as pd
 from pandas import HDFStore
 import numpy as np
@@ -20,7 +18,7 @@ from icegraph.geometry import Detector
 from icegraph.data.writers import LMDBWriter
 from icegraph.pathutils import PathResolver, PathValidator
 from .base.exceptions import ProcessorError
-from icegraph.utils import Statistics
+from icegraph.utils import Statistics, stable_hash_cbor
 
 __all__ = ["FeatureProcessor"]
 
@@ -348,17 +346,26 @@ class FeatureProcessor:
         for array in table["features"].to_numpy():
             partial_f_stats.append(Statistics.from_dense_array(array, feature_cols))
 
+        # grab statistics
         f_stats = Statistics.merge_many(partial_f_stats)
         t_stats = Statistics.from_dataframe(table.drop(columns=["features"]))
+
+        # load the ml suite config
+        ml_suite_config = self._config.ml_suite_config
+
+        # grab the target labels and log scaling mask from config
+        target_labels = self._config.user_config.data.target_labels
+        apply_log_scaling = self._config.user_config.data.normalization.apply_log_scaling
 
         metadata = {
             "f_stats": f_stats.to_dict(),
             "t_stats": t_stats.to_dict(),
-            "stats_policy": {
-                "exclude_cols": exclude_cols
-            },
-            "schema": {
-                "feature_cols": feature_cols
+            "metadata": {
+                "feature_names": feature_cols,
+                "target_labels": target_labels,
+                "apply_log_scaling": apply_log_scaling,
+                "config": ml_suite_config,
+                "CBOR_canonical_blake2b": stable_hash_cbor(ml_suite_config)
             }
         }
         return metadata

@@ -256,10 +256,59 @@ class LMDBConfiguredShardReader:
         out["key"] = key_arr
         return out
 
+    @classmethod
+    def _load_global_metadata(cls, category: str):
+        """
+        Retrieve and verify that metadata for a given category is consistent
+        across all LMDB shards.
+
+        Args:
+            category (str): Metadata category name.
+
+        Returns:
+            Any: The metadata value for the given category.
+
+        Raises:
+            RuntimeError: If metadata is missing or inconsistent across shards.
+        """
+        if cls._lmdb_paths is None:
+            raise RuntimeError("Reader not configured; call configure() first.")
+
+        expected_value = None
+
+        for path in cls._lmdb_paths:
+            try:
+                with LMDBReader(path) as lmdb_file:
+                    value = lmdb_file.metadata(category)
+
+                    if expected_value is None:
+                        expected_value = value
+                        continue
+
+                    if value != expected_value:
+                        raise RuntimeError(
+                            f"Inconsistent data for category '{category}' in shard:\n"
+                            f"\tFile:     {path}\n"
+                            f"\tExpected: {expected_value}\n"
+                            f"\tFound:    {value}"
+                        )
+
+            except KeyError:
+                raise RuntimeError(
+                    f"Missing required metadata category '{category}' in shard: {path}"
+                )
+
+        return expected_value
+
+    @classmethod
+    def metadata(cls) -> Dict[str, Any]:
+        """Grab the metadata for the dataset, validates to ensure consistency across shards."""
+        return cls._load_global_metadata("metadata")
+
     @property
     def stats(self) -> Tuple[Statistics, Statistics]:
         """
-        Return global dataset statistics merged across all LMDB shards.
+        Helper property that returns global dataset statistics merged across all LMDB shards.
 
         Returns:
             Tuple[Statistics, Statistics]: Returns a tuple with feature stats and truth stats, in that order.
@@ -433,7 +482,6 @@ class LMDBReader:
         Returns:
             A pandas DataFrame of all records, or an empty DataFrame if none.
         """
-        # this whole method is stupid, will fix later
         records = []
         with self._env.begin(db=self._data_db) as txn, txn.cursor() as cursor:
             for _, data_packed in cursor:
@@ -443,7 +491,7 @@ class LMDBReader:
 
             # build a DataFrame from all the records
             if records:
-                return pd.DataFrame.from_records(records).sort_values(by="index").reset_index(drop=True)
+                return pd.DataFrame.from_records(records)
             else:
                 # empty LMDB
                 return pd.DataFrame()

@@ -1,7 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from typing import List, Tuple, Dict
 
 from icegraph.config import IGConfig
 
@@ -14,7 +15,7 @@ class TrainerConfig:
     hidden_layers: int
     seed: int
     lr: float
-    betas: tuple[float, float]
+    betas: Tuple[float, float]
     eps: float
     weight_decay: float
     amsgrad: bool
@@ -35,3 +36,6 @@ class TrainerConfig:
             weight_decay=float(opt["weight_decay"]),
             amsgrad=bool(opt["amsgrad"])
         )
+
+    def to_dict(self) -> Dict:
+        return asdict(self)

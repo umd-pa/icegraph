@@ -36,7 +36,7 @@ def main() -> None:
 
     # use dataset_registry to pass data to training system
     # optionally define specific callbacks to pass to trainer:
-    # callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
+    # callbacks = [ConsoleCallback(), TensorBoardCallback(), ExportCallback()]
     # trainer = Trainer(dataset_registry, outfile=args.output, callbacks=callbacks)
 
     trainer = Trainer(dataset_registry, outdir=args.output)
