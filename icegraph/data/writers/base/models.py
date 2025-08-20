@@ -2,16 +2,16 @@
 # Developed by Taylor St Jean
 
 from abc import abstractmethod, ABC
-from typing import Union, Optional
+from typing import Union, Optional, Dict
 from pathlib import Path
 import uuid
 
 import pandas as pd
 
-__all__ = ["IGWriter"]
+__all__ = ["Writer"]
 
 
-class IGWriter(ABC):
+class Writer(ABC):
     """
     Abstract base class for writing IceGraph data tables to various formats.
 
@@ -19,37 +19,42 @@ class IGWriter(ABC):
     the internal DataFrame (`self.table`) to a specific output format (e.g., LMDB, Parquet).
     """
 
-    def __init__(self, outfile: Optional[Union[str, Path]], mode: str = "w"):
+    suffix: Optional[str] = None
+
+    def __init__(self, outfile: Optional[Union[str, Path]]):
         """
         Initialize the writer with a DataFrame to serialize.
 
         Args:
             outfile (Optional[Union[str, Path]]): The destination path for the output file.
-            mode (str): Write mode to use; "w" for write and "a" for append.
         """
         self.outfile = outfile
-        self.mode = mode
 
         # create a temp file to write atomically
         self.tmp_path = self.outfile.parent / f".{self.outfile.name}.{uuid.uuid4().hex}.tmp"
         if self.tmp_path.exists():
             self.tmp_path.unlink()
 
-        # don't delete any files if appending
-        if mode == "w" and self.outfile.exists():
+        if self.outfile.exists():
             self.outfile.unlink()
 
+    def __init_subclass__(cls, **kwargs):
+        if cls.suffix is None:
+            raise NotImplementedError("All subclasses of Writer must implement the class attribute 'suffix'.")
+
     @abstractmethod
-    def write(self, table: pd.DataFrame, include_cols: Optional[list] = None):
+    def write(self, df: pd.DataFrame):
         """
         Abstract method to write the data to a file.
 
         Args:
-            table (pd.DataFrame): A pandas DataFrame object to write.
-            include_cols (Optional[list], optional): A list of column names to include
-                in the written output. If None, all columns should be written.
+            df (pd.DataFrame): A pandas DataFrame object to write.
 
         Raises:
             NotImplementedError: If the method is not overridden in a subclass.
         """
+        ...
+
+    @abstractmethod
+    def write_attrs(self, groups: Dict[str, Dict[str, str]], include_defaults: bool = True) -> None:
         ...

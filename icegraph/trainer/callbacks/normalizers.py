@@ -89,7 +89,7 @@ class MinMaxNormalizer(Normalizer):
         Configure min/max-based normalization parameters from dataset statistics.
         """
         target_labels = IGData.metadata["target_labels"]
-        log_labels = IGData.metadata["apply_log_scaling"]
+        log_labels = IGData.metadata["apply_log_scaling_y"]
 
         # Features
         f_min = torch.as_tensor(self.f_stats.min, dtype=torch.float32)

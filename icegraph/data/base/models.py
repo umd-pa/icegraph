@@ -148,11 +148,11 @@ class IGData(Dataset, ABC):
         )
 
         # load metadata
-        cls.metadata = LMDBConfiguredShardReader.metadata()
+        cls.metadata = LMDBConfiguredShardReader.global_attrs()
 
         # verify config hash
         config = cls.metadata["config"]
-        config_hash = cls.metadata["CBOR_canonical_blake2b"]
+        config_hash = cls.metadata["config_hash"]
 
         if config_hash != stable_hash_cbor(config):
             raise RuntimeError("Source config hash does not match expected hash. One or more files may be corrupted.")
@@ -232,16 +232,13 @@ class IGData(Dataset, ABC):
 
         # --- edges ---
         try:
-            ei_list = data["edge_index"]
+            ei_np = np.array(data["edge_index"], dtype=np.int64, copy=True)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'edge_index' field")
         try:
-            ew_list = data["edge_weight"]
+            ew_np = np.array(data["edge_weight"], dtype=np.float32, copy=True)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'edge_weight' field")
-
-        ei_np = np.asarray(ei_list, dtype=np.int64)
-        ew_np = np.asarray(ew_list, dtype=np.float32)
 
         # sanity checks
         if ei_np.ndim != 2 or ei_np.shape[0] != 2:

@@ -1,6 +1,6 @@
 # file and dir paths
 io:
-  default_dir: "/data/i3store/users/tstjean/i3_100_test"
+  default_dir: "/data/i3store/users/tstjean/output"
   gcd_path: ""
 
 # frame keys (for feature extraction)
@@ -22,12 +22,14 @@ data:
     - PrimaryNeutrinoEnergy
 
   splits:
-    # !!! currently does nothing
-    stratify: false
+    weights: {train: 60, val: 20, test: 20}
 
   normalization:
-    apply_log_scaling:
-        # !!! must be columns present under data.target_labels or features
+    apply_log_scaling_x:
+      # !!! must be columns present as features (see feature_extraction.feature_config.features
+      []
+    apply_log_scaling_y:
+        # !!! must be columns present under data.target_labels
       - PrimaryNeutrinoEnergy
 
 training:

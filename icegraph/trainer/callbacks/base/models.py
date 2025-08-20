@@ -212,9 +212,6 @@ class Normalizer(Callback, torch.nn.Module):
         self._configure(trainer)
         self._on_device = False
 
-        # save params for inference
-        self.save(trainer)
-
     def on_batch_transfer(self, trainer: Trainer, batch: Batch) -> None:
         # normalization will always be called on batch transfer so processing can be done on the accelerator
         self._ensure_on_device(trainer.device)
@@ -240,16 +237,6 @@ class Normalizer(Callback, torch.nn.Module):
 
         else:
             raise TypeError(f"Unsupported input type {type(data)}")
-
-    def save(self, trainer: Trainer):
-        """Save the normalizer params to disk for renormalization in production."""
-        outfile = trainer.outdir / f"norm_params_{self.__class__.__name__.lower()}.pth"
-        torch.save(self.state_dict(), outfile)
-        Console.out(f"Saved global stats to {outfile}")
-
-    def load(self, path: str, map_location=None):
-        """Load the normalizer params from disk for renormalization in production."""
-        self.load_state_dict(torch.load(path, map_location=map_location))
 
     def _ensure_on_device(self, device: torch.device) -> None:
         """

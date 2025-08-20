@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional, Sequence, Iterator, ClassVar, Dict
+from typing import Union, Optional, Sequence, Iterator, ClassVar, Dict, Iterable
 from pathlib import Path
 
 import pandas as pd
@@ -19,7 +19,7 @@ __all__ = ["SplitMapBuilder"]
 class SplitMapBuilder:
     """
     Splits a preprocessed LMDB dataset into train, validation, and test sets,
-    and writes each split as its own LMDB sample database.
+    and writes split assignments to a map file.
 
     Supports standard split strategy. Will include stratified class balancing in the future.
     """
@@ -38,33 +38,19 @@ class SplitMapBuilder:
             source(Union[str, Path, Sequence[Union[str, Path]]]): Path to the input file(s) (LMDB).
         """
         Console.banner("Dataset Splitter")
-        self.source = source
 
-        self._config: IGConfig = IGConfig.get()
-        self.target_labels = self._config.user_config.data.target_labels
-        self._table: Optional[pd.DataFrame] = None
+        self.source = source
         self.batch_size = batch_size
 
-        # initialize writer
-        self._writer: Optional[LMDBWriter] = None
-        self._write_index = 0
+        # grab global config
+        self._config: IGConfig = IGConfig.get()
 
         # initialize reader
         LMDBConfiguredShardReader.configure(source, max_open_envs=4, clean=True)
-        self._reader = LMDBConfiguredShardReader()
+        self._reader = LMDBConfiguredShardReader
 
-    def __call__(self, outdir: Optional[Union[str, Path]] = None) -> Path:
-        """
-        Callable interface to trigger the split and write output LMDBs.
-
-        Args:
-            outdir (Optional[Union[str, Path]]): Where to save the split map LMDB.
-                Defaults to a `splits/` subdirectory of the input file location.
-
-        Returns:
-            Path: Path to the split map LMDB.
-        """
-        return self.build_map(outdir)
+        # grab target labels from metadata
+        self.target_labels = self._reader.global_attrs()["target_labels"]
 
     def _iter_lmdb_batches(self) ->  Iterator[pd.DataFrame]:
         """
@@ -73,23 +59,24 @@ class SplitMapBuilder:
         Returns:
             Iterator[pd.DataFrame]: The deserialized table of all samples in the given chunk.
         """
-        total = len(self._reader)
-        for start in range(0, total, self.batch_size):
-            end = min(start + self.batch_size, total)
-            batch = self._reader[start:end]
+        with self._reader() as reader:
+            total = len(reader)
+            for start in range(0, total, self.batch_size):
+                end = min(start + self.batch_size, total)
+                batch = reader[start:end]
 
-            # unpack samples
-            _, file_idxs, keys = zip(*batch)
+                # unpack samples
+                _, file_idxs, keys = zip(*batch)
 
-            # build df
-            df = pd.DataFrame({
-                "index": list(range(start, end)),
-                "file_index": file_idxs,
-                "key": keys,
-            })
-            yield df
+                # build df
+                df = pd.DataFrame({
+                    "index": list(range(start, end)),
+                    "file_index": file_idxs,
+                    "key": keys,
+                })
+                yield df
 
-    def _standard_split(self, seed: Optional[int] = None) -> pd.DataFrame:
+    def _standard_split(self, df: pd.DataFrame, seed: Optional[int] = None) -> pd.DataFrame:
         """
         Perform a non-stratified 60/20/20 split.
 
@@ -101,9 +88,6 @@ class SplitMapBuilder:
         """
         # get the seed
         seed = seed or self._config.user_config.training.seed
-
-        # grab the local dataframe
-        df = self._table.copy()
 
         idx_all = df.index
         train_idx, temp_idx = train_test_split(
@@ -122,15 +106,6 @@ class SplitMapBuilder:
 
         return df[['index', 'file_index', 'key', 'split']]
 
-    def _to_lmdb(self, table: pd.DataFrame) -> None:
-        """
-        Write a sample map to LMDB.
-
-        Args:
-            table (pd.DataFrame): Data to write.
-        """
-        self._write_index += self._writer.append(table, self._write_index)
-
     def build_map(self, outdir: Optional[Union[str, Path]] = None) -> Path:
         """
         Generate train/validation/test splits and save them as LMDBs.
@@ -147,15 +122,19 @@ class SplitMapBuilder:
         resolver = PathResolver(path=outdir, origin=None, extension="lmdb", stage="splits")
         outfile = resolver.resolve(prefix="split_map")
 
-        self._writer = LMDBWriter(outfile, mode="a")
-        self._writer.write_metadata()
-
         Console.out("Running standard train/test/val split...")
         strategy = self._standard_split
 
-        for self._table in Console.progress_bar(self._iter_lmdb_batches()):
-            df_map = strategy()
-            self._to_lmdb(df_map)
+        def _iter_out() -> Iterable[pd.DataFrame]:
+            for df in Console.progress_bar(self._iter_lmdb_batches()):
+                yield strategy(df)
+
+        with LMDBWriter(outfile) as writer:
+            # write info
+            writer.write_attrs(groups={})
+
+            # write batches
+            writer.write_iterable(_iter_out())
 
         Console.out(f"Split generation complete. Mapping saved to {outfile}")
 

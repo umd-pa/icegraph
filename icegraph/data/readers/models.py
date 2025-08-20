@@ -257,19 +257,15 @@ class LMDBConfiguredShardReader:
         return out
 
     @classmethod
-    def _load_global_metadata(cls, category: str):
+    def _load_global_attrs(cls) -> Dict[str, Any]:
         """
-        Retrieve and verify that metadata for a given category is consistent
-        across all LMDB shards.
-
-        Args:
-            category (str): Metadata category name.
+        Retrieve global attributes and verify that attributes across all LMDB shards are consistent.
 
         Returns:
-            Any: The metadata value for the given category.
+            Dict: The metadata value for the given category.
 
         Raises:
-            RuntimeError: If metadata is missing or inconsistent across shards.
+            RuntimeError: If global attrs are missing or inconsistent across shards.
         """
         if cls._lmdb_paths is None:
             raise RuntimeError("Reader not configured; call configure() first.")
@@ -279,31 +275,31 @@ class LMDBConfiguredShardReader:
         for path in cls._lmdb_paths:
             try:
                 with LMDBReader(path) as lmdb_file:
-                    value = lmdb_file.metadata(category)
+                    global_attrs = lmdb_file.attrs("global")
 
                     if expected_value is None:
-                        expected_value = value
+                        expected_value = global_attrs
                         continue
 
-                    if value != expected_value:
+                    if global_attrs != expected_value:
                         raise RuntimeError(
-                            f"Inconsistent data for category '{category}' in shard:\n"
+                            f"Inconsistent global attribute in shard:\n"
                             f"\tFile:     {path}\n"
                             f"\tExpected: {expected_value}\n"
-                            f"\tFound:    {value}"
+                            f"\tFound:    {global_attrs}"
                         )
 
             except KeyError:
                 raise RuntimeError(
-                    f"Missing required metadata category '{category}' in shard: {path}"
+                    f"Missing global attributes in shard: {path}"
                 )
 
         return expected_value
 
     @classmethod
-    def metadata(cls) -> Dict[str, Any]:
+    def global_attrs(cls) -> Dict[str, Any]:
         """Grab the metadata for the dataset, validates to ensure consistency across shards."""
-        return cls._load_global_metadata("metadata")
+        return cls._load_global_attrs()
 
     @property
     def stats(self) -> Tuple[Statistics, Statistics]:
@@ -321,25 +317,25 @@ class LMDBConfiguredShardReader:
             for p in Console.progress_bar(paths, total=len(paths)):
                 try:
                     with LMDBReader(p) as lmdb_file:
-                        f_stats_dict = lmdb_file.metadata("f_stats")
-                        t_stats_dict = lmdb_file.metadata("t_stats")
-                        yield Statistics.from_dict(f_stats_dict), Statistics.from_dict(t_stats_dict)
+                        stats = lmdb_file.attrs("stat")
+                        f_stats_dict, l_stats_dict = stats["feature_stats"], stats["label_stats"]
+                        yield Statistics.from_dict(f_stats_dict), Statistics.from_dict(l_stats_dict)
                 except (lmdb.NotFoundError, FileNotFoundError, KeyError) as e:
                     Console.out(f"Skipping {p}: no stats found ({e}).", severity=2)
 
-        Console.out("Collecting dataset metadata and computing global statistics...")
+        Console.out("Collecting dataset global attributes and computing global statistics...")
 
         global_f: Optional[Statistics] = None
-        global_t: Optional[Statistics] = None
+        global_l: Optional[Statistics] = None
 
-        for f_stat, t_stat in iter_shard_stats():
+        for f_stat, l_stat in iter_shard_stats():
             global_f = f_stat if global_f is None else global_f.merge(f_stat)
-            global_t = t_stat if global_t is None else global_t.merge(t_stat)
+            global_l = l_stat if global_l is None else global_l.merge(l_stat)
 
-        if global_f is None or global_t is None:
+        if global_f is None or global_l is None:
             raise RuntimeError("No shard statistics found; cannot compute globals.")
 
-        return global_f, global_t
+        return global_f, global_l
 
     @classmethod
     def configure(
@@ -457,20 +453,29 @@ class LMDBReader:
         except Exception:
             pass
 
-    def metadata(self, category: str) -> Dict:
-        prefix = f"{category}:".encode("utf-8")
-        data: Dict[str, Any] = {}
+    def attrs(self, prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Return entries whose keys start with `prefix`. If `prefix` is None,
+        return all entries. Keys are returned stripped.
+        """
+        out: Dict[str, Any] = {}
+
         with self._env.begin(db=self._meta_db) as txn, txn.cursor() as cursor:
-            for key_bytes, value_packed in cursor:
-                if not key_bytes.startswith(prefix):
-                    continue
+            if not prefix:
+                for k_b, v_b in cursor:
+                    out[k_b.decode("utf-8", "replace")] = msgpack.unpackb(v_b, raw=False)
+                return out
 
-                key = key_bytes[len(prefix):].decode("utf-8", "replace")
+            pfx = prefix.encode("utf-8")
+            if not cursor.set_range(pfx):
+                return out  # nothing >= prefix
 
-                # append to rows
-                data[key] = msgpack.unpackb(value_packed, raw=False)
+            for k_b, v_b in cursor:
+                if not k_b.startswith(pfx):
+                    break
+                out[k_b[(len(pfx) + 1):].decode("utf-8", "replace")] = msgpack.unpackb(v_b, raw=False)
 
-        return data
+        return out
 
     def to_pandas(self) -> pd.DataFrame:
         """

@@ -4,24 +4,33 @@ import time
 
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from icegraph.data.transformer import FeatureExtractor, FeatureProcessor
+from icegraph.data.extractor import FeatureExtractor
+from icegraph.data.processor import FeatureProcessor, TruthProcessor, EdgeProcessor
+from icegraph.data.pipeline import Pipeline
+from icegraph.data.readers import LMDBConfiguredShardReader
 from icegraph.data.splitter import SplitMapBuilder
+from icegraph.data.writers import LMDBWriter
 from icegraph.trainer import Trainer
 
 
 def main():
-    # specify the data input directory, usually the i3 file set
     source = Path("/data/i3store/users/tstjean/i3_10_test")
+    outdir = Path("/data/i3store/users/tstjean/temp")
 
-    # define the processing chain and run each process sequentially left to right
-    for stage in [FeatureExtractor, FeatureProcessor]:
-        processor = stage(source)
-        source = processor()
+    # define the processing pipeline
+    #with Pipeline() as pipeline:
+    #    pipeline.build(
+    #        extractor=FeatureExtractor,
+    #        processors=[FeatureProcessor, TruthProcessor, EdgeProcessor],
+    #        writer=LMDBWriter
+    #    )
+    #    pipeline.configure(source, outdir=outdir)
+    #    pipeline.execute()
 
-    map_file = SplitMapBuilder(source).build_map()
+    map_file = SplitMapBuilder(outdir).build_map()
 
     # load all data
-    dataset_registry = DatasetRegistry.load_from_lmdb(source, map_file)
+    dataset_registry = DatasetRegistry.load_from_lmdb(outdir, map_file)
 
     trainer = Trainer(dataset_registry)
     trainer.run()

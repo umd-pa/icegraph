@@ -3,7 +3,7 @@
 
 from datetime import datetime
 import lmdb
-from typing import Union, Optional, List, Dict, Self
+from typing import Union, Optional, Dict, Self, Iterable, NamedTuple
 import struct
 from pathlib import Path
 import msgpack
@@ -11,7 +11,7 @@ import os
 
 import pandas as pd
 
-from .base import IGWriter
+from .base import Writer
 from icegraph.console import Console
 from .base.exceptions import WriterError
 from icegraph._version import __version__
@@ -23,33 +23,31 @@ m.patch()
 __all__ = ["LMDBWriter"]
 
 
-class LMDBWriter(IGWriter):
+class LMDBWriter(Writer):
     """
-    Serializes a pandas DataFrame to LMDB format for efficient key-value storage.
+    Serializes one or more pandas DataFrame(s) to LMDB format for efficient key-value storage.
 
     This class writes each row of the DataFrame as a serialized MessagePack object,
     using a consistent 8-byte key scheme to ensure deterministic and sortable entries.
     """
 
-    def __init__(self, outfile: Optional[Union[str, Path]], mode: str = "w", map_size: int = 10 * 1024 ** 3, verbose: bool = True):
+    suffix: str = ".lmdb"
+
+    def __init__(self, outfile: Optional[Union[str, Path]], map_size: int = 10 * 1024 ** 3):
         """
         Initialize the writer with a DataFrame to serialize to LMDB.
 
         Args:
             outfile (Optional[Union[str, Path]]): The destination path for the output file.
-            mode (str): Write mode to use; "w" for write and "a" for append.
-            verbose (bool): Whether to print to CLI. Defaults to True. Will not filter warnings if set to False.
+            map_size (int): The map size in bytes. Expand if necessary.
         """
-        self._verbose = verbose
-        if self._verbose:
-            Console.out(f"Initializing LMDB writer with map_size = {map_size} bytes.")
 
         # call to super
-        super().__init__(outfile, mode)
+        super().__init__(outfile)
 
         # start the LMDB env
         self._env = lmdb.open(
-            str(self.tmp_path) if mode == "w" else str(self.outfile),
+            str(self.tmp_path),
             map_size=map_size,
             subdir=False,
             lock=True,
@@ -85,100 +83,88 @@ class LMDBWriter(IGWriter):
         self.finish()
         self.save()
 
-    def write_metadata(self, metadata: Optional[Dict] = None) -> None:
+    def write_attrs(self, groups: Dict[str, Dict[str, str]], include_defaults: bool = True) -> None:
         """
-        Write statistics to the db file. WARNING: does not close the env automatically.
+        Write attributes to the db file.
 
         Args:
-            metadata (bool): Metadata to write to file.
+            groups (bool): Attribute groups to write to file.
+            include_defaults (bool): Whether to write default metadata to the file, like timestamp and software version.
         """
 
         def _mp(obj) -> bytes:
             return msgpack.packb(obj, use_bin_type=True)
 
+        def _write_defaults(_txn: lmdb.Transaction) -> None:
+            """Write default info to the file."""
+            _txn.put("info:timestamp".encode("utf-8"), _mp(datetime.now().timestamp()))
+            _txn.put("info:version".encode("utf-8"), _mp(__version__))
+
         with self._env.begin(write=True, db=self._meta_db) as txn:
             # info
-            txn.put(b"info:timestamp", _mp(datetime.now().timestamp()))
-            txn.put(b"info:version", _mp(__version__))
+            if include_defaults:
+                _write_defaults(txn)
 
-            if metadata:
-                for category, entries in metadata.items():
-                    if not isinstance(category, str):
-                        raise WriterError(f"Metadata category must be a string, got {type(category)}")
-                    for name, data in entries.items():
-                        key = f"{category}:{name}".encode("utf-8")
-                        # store the entire object (scalar/list/dict/ndarray) as one msgpack blob
-                        txn.put(key, _mp(data))
+            for group, kvs in groups.items():
+                for key, data in kvs.items():
+                    # store the entire object (scalar/list/dict/ndarray) as one msgpack blob
+                    txn.put(f"{group}:{key}".encode("utf-8"), _mp(data))
 
-    def write(self, table: pd.DataFrame, include_cols: Optional[list] = None) -> int:
+    def write(self, df: pd.DataFrame) -> None:
         """
         Write the DataFrame to an LMDB file.
 
         Args:
-            table (pd.DataFrame): A pandas DataFrame object to write.
-            include_cols (Optional[list], optional): List of column names to include
-                in the LMDB entries. If None, all columns in the table are included.
-
-        Returns:
-            int: Number of entries written.
+            df (pd.DataFrame): A pandas DataFrame object to write.
 
         Raises:
             Any exceptions from LMDB or msgpack during I/O are propagated.
         """
-        # use all columns if none are specified
-        include_cols = include_cols or table.columns.tolist()
+        # type hinting for linters
+        row: NamedTuple
 
         with self._env.begin(write=True, db=self._data_db) as txn:
-            _iter = enumerate(table.itertuples(index=False))
-            if self._verbose:
-                _iter = Console.progress_bar(_iter, total=table.shape[0])
-
-            for idx, row in _iter:
+            for idx, row in  enumerate(df.itertuples(index=False)):
                 # use 8 byte big-endian integer as the LMDB key for numeric ordering
                 key = struct.pack('>Q', idx)
-                feats = {col: getattr(row, col) for col in include_cols}
 
                 # serialize
-                value = msgpack.packb(feats, use_bin_type=True)
+                value = msgpack.packb(row._asdict(), use_bin_type=True)
                 txn = self._safe_put(txn, key, value)
 
-        return len(table)
-
-    def append(self, table: pd.DataFrame, start_idx: int, include_cols: Optional[list] = None) -> int:
+    def write_iterable(self, iter_dfs: Iterable[pd.DataFrame]) -> None:
         """
-        Append the DataFrame to an existing LMDB file, starting keys from `start_idx`. Must call save() to save the
-        file after finishing appends.
+        Write multiple DataFrames to an LMDB file.
 
         Args:
-            table (pd.DataFrame): A pandas DataFrame object to write.
-            start_idx (int): The starting index for new entries.
-            include_cols (Optional[list]): Columns to include. If None, use all.
+            iter_dfs (Iterable[pd.DataFrame]): An iterable of pandas DataFrame objects to write.
 
-        Returns:
-            int: Number of entries written.
+        Raises:
+            Any exceptions from LMDB or msgpack during I/O are propagated.
         """
-        include_cols = include_cols or table.columns.tolist()
+        # init write index
+        idx = 0
+
+        # type hinting for linters
+        row: NamedTuple
 
         with self._env.begin(write=True, db=self._data_db) as txn:
-            for idx, row in enumerate(table.itertuples(index=False)):
-                # use 8 byte big-endian integer as the LMDB key for numeric ordering
-                key = struct.pack('>Q', start_idx + idx)
-                feats = {col: getattr(row, col) for col in include_cols}
+            for df in iter_dfs:
+                for row in df.itertuples(index=False):
+                    # use 8 byte big-endian integer as the LMDB key for numeric ordering
+                    key = struct.pack('>Q', idx)
 
-                # serialize
-                value = msgpack.packb(feats, use_bin_type=True)
-                txn = self._safe_put(txn, key, value)
+                    # serialize
+                    value = msgpack.packb(row._asdict(), use_bin_type=True)
+                    txn = self._safe_put(txn, key, value)
 
-        return len(table)
+                    # increment idx
+                    idx += 1
 
     def save(self) -> None:
         """
-        Manually save the file.
+        Save the file.
         """
-        if self.mode == "a":
-            # no op on append
-            return
-
         if not self.tmp_path.exists():
             raise WriterError(
                 f"Temporary LMDB file not found at {self.tmp_path!r}; write may have failed."
@@ -186,12 +172,10 @@ class LMDBWriter(IGWriter):
 
         # write atomically to prevent multithread race conditions
         os.replace(str(self.tmp_path), str(self.outfile))
-        if self._verbose:
-            Console.out(f"LMDB written to {self.outfile}")
 
     def finish(self) -> None:
         """
-        Finish the write/append op by ensuring the environment has been closed.
+        Finish the write op by ensuring the environment has been closed.
         """
         self._env.sync()
         self._env.close()

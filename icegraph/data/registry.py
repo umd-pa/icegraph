@@ -72,7 +72,7 @@ class DatasetRegistry:
             "shuffle": True,
             "num_workers": num_workers,
             "multiprocessing_context": torch.multiprocessing.get_context("fork"),
-            "pin_memory": True,
+            "pin_memory": torch.cuda.is_available(),
             "persistent_workers": True,
             "prefetch_factor": 4
         }

@@ -14,3 +14,7 @@ class EmptyDatasetError(DataError):
 
 class MissingFieldError(DataError):
     """Exception raised when there is a missing field."""
+
+
+class PipelineBuildError(IceGraphError):
+    """Exception raised when there is an error during pipeline build and configuration."""
