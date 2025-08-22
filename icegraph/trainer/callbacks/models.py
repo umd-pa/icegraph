@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import torch
 
@@ -11,9 +11,17 @@ from icegraph.console import Console
 from icegraph.data.base import IGData
 from icegraph.inference import CoreModel
 from icegraph.trainer.tensorboard import TensorBoard
+from icegraph.renderer import PredVsTruePlot
 from icegraph._version import __version__
 
-__all__ = ["TensorBoardCallback", "ExportCallback", "ConsoleCallback"]
+__all__ = ["TensorBoardCallback", "ExportCallback", "ConsoleCallback", "RegressionMetricsCallback"]
+
+if TYPE_CHECKING:
+    from .. import Trainer
+else:
+    class Trainer:
+        class Metrics:
+            pass
 
 
 class TensorBoardCallback(Callback):
@@ -80,9 +88,11 @@ class ExportCallback(Callback):
             net=trainer.model,
             normalizer=trainer.normalizer,
             metadata={
-                **IGData.metadata,
-                "version": __version__,
-                "timestamp": datetime.now().timestamp()
+                **IGData.attrs,
+                "model": {
+                    "version": __version__,
+                    "timestamp": datetime.now().timestamp()
+                }
             }
         )
 
@@ -108,3 +118,18 @@ class ExportCallback(Callback):
                     torch.save(export_model, best_path)
                 except Exception as e:
                     Console.out(f"Failed to save model: {e}", severity=3)
+
+
+class RegressionMetricsCallback(Callback):
+
+    def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+        yhat = trainer.test_predictions[:, 0]  # shape: [N_graphs, out_channels]
+        y = trainer.test_targets[:, 0]
+
+        plot = PredVsTruePlot()
+        plot.plot(
+            x=y,
+            y=yhat,
+            title=f"Predicted vs True [Epoch {epoch + 1}]",
+            save_path=f"/data/i3store/users/tstjean/pred_vs_true.{epoch + 1}.html"
+        )

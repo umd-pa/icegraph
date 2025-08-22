@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, TYPE_CHECKING, Tuple
+from dataclasses import dataclass, field
+from typing import Optional, List, TYPE_CHECKING, Tuple, Dict
 
 import pandas as pd
 import numpy as np
@@ -20,7 +21,7 @@ from icegraph.utils import Statistics
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline
 
-__all__ = ["FeatureProcessor", "TruthProcessor", "EdgeProcessor"]
+__all__ = ["FeatureProcessor", "TruthProcessor", "EdgeProcessor", "StandardSplitAllocator", "StratifiedSplitAllocator"]
 
 
 
@@ -331,36 +332,108 @@ class EdgeProcessor(Processor, HelperMixin):
 
 class StandardSplitAllocator(Processor, HelperMixin):
 
-    PRE_REQS = [FeatureProcessor, TruthProcessor]
+    PRE_REQS = [TruthProcessor]
 
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
-        # grab weights
+        # grab weights and seed
         weights_dict = self._config.user_config.data.splits.weights
-        weights_arr = np.array([weights_dict[key] for key in ["train", "val", "test"]], dtype=np.float32)
         seed = self._config.user_config.training.seed
 
-        df = pd.DataFrame()
+        # get normalized weights for each split
+        weights_arr = np.array([weights_dict[key] for key in ["train", "val", "test"]])
         weights_norm = weights_arr / weights_arr.sum()
-
+        
+        # randomly assign splits weighted by provided weights
         rng = np.random.default_rng(seed)  # seed for reproducibility
-        df["split"] = rng.choice(3, size=len(env.df), p=weights_norm)
+        env.attrs["allocation"]["splitmap"] = rng.choice(3, size=len(env.df), p=weights_norm)
 
-        self.merge_to_env(env, df)
         return env
 
 
 class StratifiedSplitAllocator(Processor, HelperMixin):
 
+    """
+    Implementation of deficit round-robin for online stratification.
+
+    See: https://courses.cs.duke.edu/fall24/compsci514/readings/drr.pdf
+    """
+
     PRE_REQS = [FeatureProcessor, TruthProcessor]
 
+    @dataclass
+    class _SplitTracker:
+        split: int  # which split this tracker represents
+        w: float  # normalized weight for this split
+        K: int
+        # per-class deficit for this split
+        delta: Dict[object, float] = field(default_factory=dict)
+
+        def ensure_class(self, c: object) -> None:
+            if c not in self.delta:
+                self.delta[c] = 0.0
+
+        def update_for_class(self, assigned_split: int, c: object) -> None:
+            self.ensure_class(c)
+            self.delta[c] += self.w
+            if assigned_split == self.split:
+                self.delta[c] -= 1.0
+
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
-        # grab weights
-        weights = self._config.user_config.data.splits.weights
+        # grab target labels and weights from config
+        target_labels = self._config.user_config.data.target_labels
+        weights_dict = self._config.user_config.data.splits.weights
 
+        # get normalized weights for each split
+        split_order = ["train", "val", "test"]
+        w = np.array([weights_dict[k] for k in split_order], dtype=float)
+        w = w / w.sum()
+
+        # get total split count K
+        K = len(w)
+
+        # count number of samples n
+        labels = env.df[target_labels].to_numpy()
+        n = labels.size[0]
+
+        # per-split trackers and per-class round-robin pointers
+        trackers = [self._SplitTracker(split=i, w=float(w[i]), K=K) for i in range(K)]
+        rr_ptr_by_class: Dict[object, int] = {}
+
+        # online assignment
+        out = np.empty(n, dtype=np.int8)
+
+        for i, c in enumerate(labels):
+            # ensure class state exists
+            if c not in rr_ptr_by_class:
+                rr_ptr_by_class[c] = 0
+                for t in trackers:
+                    t.ensure_class(c)
+
+            # deficits for this class across splits
+            deficits = np.array([t.delta[c] for t in trackers], dtype=float)
+            # choose argmax(deficit) with round-robin tie-break
+            mx = deficits.max()
+            cand = np.flatnonzero(deficits >= mx - 1e-12)
+            rr = rr_ptr_by_class[c]
+
+            chosen = None
+            for step in range(K):
+                s = (rr + step) % K
+                if s in cand:
+                    chosen = s
+                    break
+            if chosen is None:  # very unlikely, fallback
+                chosen = int(cand[0])
+
+            out[i] = chosen
+
+            # update deficits for all splits for this class
+            for t in trackers:
+                t.update_for_class(chosen, c)
+
+            # advance RR pointer for this class
+            rr_ptr_by_class[c] = (chosen + 1) % K
+
+        # store result and return
+        env.attrs["allocation"]["splitmap"] = out
         return env
-
-
-    @staticmethod
-    def _compute_deficits(totals: List[int], weights: List[float], total: int) -> Tuple[float, ...]:
-        return tuple(t - w * total for t, w in zip(totals, weights))
-

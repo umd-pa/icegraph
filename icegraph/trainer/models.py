@@ -1,10 +1,11 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional, List
+from typing import Union, Optional, List, Self, Type
 from pathlib import Path
 import math
 from dataclasses import dataclass
+import logging
 
 import torch
 from torch.optim import Adam
@@ -12,6 +13,7 @@ from torch_geometric.seed import seed_everything
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
 import torch_scatter
+import tqdm
 
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
@@ -157,7 +159,44 @@ class Trainer(torch.nn.Module):
         # get config values
         self._max_epochs = self.trainer_config.max_epochs
 
+        self._last_eval = {
+            "val": {"preds": None, "targets": None},
+            "test": {"preds": None, "targets": None},
+        }
+
         self._fire("on_init")
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self._fire("on_teardown")
+
+    def register_callback(self, callback: Type[Callback]) -> None:
+        """Register a callback."""
+        if not issubclass(callback, Callback):
+            raise TypeError("callback must be a subclass of 'Callback'")
+        self.callbacks.append(callback())
+
+        # make sure user didnt pass a normalizer
+        self._ensure_single_normalizer()
+
+
+    @property
+    def val_predictions(self) -> Optional[torch.Tensor]:
+        return self._last_eval["val"]["preds"]
+
+    @property
+    def val_targets(self) -> Optional[torch.Tensor]:
+        return self._last_eval["val"]["targets"]
+
+    @property
+    def test_predictions(self) -> Optional[torch.Tensor]:
+        return self._last_eval["test"]["preds"]
+
+    @property
+    def test_targets(self) -> Optional[torch.Tensor]:
+        return self._last_eval["test"]["targets"]
 
     def _ensure_single_normalizer(self) -> None:
         _normalizers: List[Normalizer] = [cb for cb in self.callbacks + [self.normalizer] if isinstance(cb, Normalizer)]
@@ -256,16 +295,17 @@ class Trainer(torch.nn.Module):
             metrics.sse_sum += loss.item() * batch_size
             metrics.samples += batch_size
 
-            self._fire("on_batch_end", batch, loss.item(), metrics)
+            self._fire("on_batch_end", batch, out, target, loss.item(), metrics)
 
         return metrics
 
-    def _evaluate_batchwise(self, dataloader: DataLoader) -> Metrics:
+    def _evaluate_batchwise(self, dataloader: DataLoader, *, stash: Optional[str] = None) -> Metrics:
         """
         Run one pass of evaluation (no gradient) over `dataloader`.
 
         Args:
             dataloader (DataLoader): Yields batches for validation or testing.
+            stash (Optional[str]): Whether to stash results.
 
         Returns:
             Metrics: Contains total samples and sum of squared errors for the run.
@@ -274,6 +314,11 @@ class Trainer(torch.nn.Module):
 
         # make sure correct mode is active
         self.model.eval()
+
+        # stashing
+        collect = stash in {"val", "test"}
+        outs: list[torch.Tensor] = []
+        targets: list[torch.Tensor] = []
 
         # use no_grad on eval loops
         with torch.no_grad():
@@ -292,7 +337,15 @@ class Trainer(torch.nn.Module):
                 metrics.sse_sum += loss.item() * batch_size
                 metrics.samples += batch_size
 
-                self._fire("on_batch_end", batch, loss.item(), metrics)
+                self._fire("on_batch_end", batch, out, target, loss.item(), metrics)
+
+                if collect:
+                    outs.append(out.detach().cpu().clone())
+                    targets.append(target.detach().cpu().clone())
+
+            if collect:
+                self._last_eval[stash]["preds"] = torch.cat(outs, dim=0) if outs else None
+                self._last_eval[stash]["targets"] = torch.cat(targets, dim=0) if targets else None
 
         return metrics
 
@@ -351,7 +404,7 @@ class Trainer(torch.nn.Module):
             epoch (int): The epoch index for logging/scalar steps.
         """
         self._fire("on_validation_begin", epoch)
-        metrics = self._evaluate_batchwise(self.datasets.val_dataloader)
+        metrics = self._evaluate_batchwise(self.datasets.val_dataloader, stash="val")
 
         if metrics.samples == 0:
             raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
@@ -368,7 +421,7 @@ class Trainer(torch.nn.Module):
             epoch (int): The epoch index for logging/scalar steps.
         """
         self._fire("on_test_begin", epoch)
-        metrics = self._evaluate_batchwise(self.datasets.test_dataloader)
+        metrics = self._evaluate_batchwise(self.datasets.test_dataloader, stash="test")
 
         if metrics.samples == 0:
             raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
@@ -383,11 +436,9 @@ class Trainer(torch.nn.Module):
         """
         self._fire("on_save", epoch, metrics)
 
-    def run(self) -> None:
+    def execute(self) -> None:
         """
         Execute the full pipeline: training, testing at set intervals, final validation, and teardown.
         """
         self._train()
         self._validate(self._max_epochs - 1)
-
-        self._fire("on_teardown")

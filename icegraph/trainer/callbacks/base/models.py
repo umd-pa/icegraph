@@ -2,12 +2,12 @@
 # Developed by Taylor St Jean
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Union, Optional, List, Literal, Dict
+from typing import TYPE_CHECKING, Union, Optional, List, Literal, Dict, Generator, Tuple, Any, Callable, Self
 
 from torch_geometric.data import Batch
 import torch
 
-from icegraph.data.readers import LMDBConfiguredShardReader, LMDBReader
+from icegraph.data.readers import LMDBDatasetShardReader, LMDBReader
 from icegraph.utils import Statistics
 from icegraph.console import Console
 
@@ -97,13 +97,15 @@ class Callback(ABC):
             batch: The current PyG Batch instance about to be forwarded.
         """
 
-    def on_batch_end(self, trainer: Trainer, batch: Batch, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
+    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
         """
         Called immediately after each batch is processed.
 
         Args:
             trainer (Trainer): The trainer object.
             batch: The PyG Batch that was just processed.
+            out: Tensor of predicted values.
+            target: Tensor of target values.
             loss: The scalar loss for that batch (detached).
             metrics: Running Metrics object updated with this batch.
         """
@@ -174,14 +176,44 @@ class Callback(ABC):
         pass
 
 
-class Normalizer(Callback, torch.nn.Module):
+class StatMixin:
+
+    @staticmethod
+    def _get_global_stats(trainer: Trainer) -> Tuple[Statistics, Statistics]:
+        def iter_shard_stats() -> Generator[Tuple[Statistics, Statistics], Any, None]:
+            with LMDBDatasetShardReader() as reader:
+                attrs = reader.attrs()
+                try:
+                    for file_idx, stat_dict in attrs.items():
+                        stats = stat_dict["stat"]
+                        f_stats_dict, l_stats_dict = stats["feature_stats"], stats["label_stats"]
+                        yield Statistics.from_dict(f_stats_dict), Statistics.from_dict(l_stats_dict)
+                except KeyError as e:
+                    Console.out(f"Skipping file_idx {file_idx}: no stats found ({e}).", severity=2)
+
+        Console.out("Collecting dataset global attributes and computing global statistics...")
+
+        global_f: Optional[Statistics] = None
+        global_l: Optional[Statistics] = None
+
+        for f_stat, l_stat in iter_shard_stats():
+            global_f = f_stat if global_f is None else global_f.merge(f_stat)
+            global_l = l_stat if global_l is None else global_l.merge(l_stat)
+
+        if global_f is None or global_l is None:
+            raise RuntimeError("No shard statistics found; cannot compute globals.")
+
+        return global_f, global_l
+
+
+class Normalizer(Callback, torch.nn.Module, StatMixin):
 
     def __init__(self, param_list: List[str], **kwargs) -> None:
         """Initialize the normalizer."""
         super().__init__()
 
         self.f_stats: Optional[Statistics] = None
-        self.t_stats: Optional[Statistics] = None
+        self.l_stats: Optional[Statistics] = None
 
         # on device flag
         self._on_device: bool = False
@@ -203,10 +235,7 @@ class Normalizer(Callback, torch.nn.Module):
 
     def on_init(self, trainer: Trainer) -> None:
         # Build global stats once on trainer init
-        map_df = LMDBReader(trainer.datasets.map_file).to_pandas().sort_values(by="index").reset_index(drop=True)
-        LMDBConfiguredShardReader.configure(trainer.datasets.source, max_open_envs=4, map_df=map_df)
-        with LMDBConfiguredShardReader() as reader:
-            self.f_stats, self.t_stats = reader.stats  # tuple[Statistics, Statistics]
+        self.f_stats, self.l_stats = self._get_global_stats(trainer)  # tuple[Statistics, Statistics]
 
         # build params
         self._configure(trainer)
@@ -217,7 +246,13 @@ class Normalizer(Callback, torch.nn.Module):
         self._ensure_on_device(trainer.device)
         self.dispatch(batch, trainer)
 
-    def dispatch(self, data: Union[torch.Tensor, Batch], trainer: Optional[Trainer] = None) -> Optional[torch.Tensor]:
+    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
+        if not trainer.model.training:
+            self._ensure_on_device(trainer.device)
+            self.dispatch(out, trainer, inverse=True)
+            self.dispatch(target, trainer, inverse=True)
+
+    def dispatch(self, data: Union[torch.Tensor, Batch], trainer: Optional[Trainer] = None, inverse: bool = False) -> Optional[torch.Tensor]:
         """
         Executes the calculation. Detects if in training or inference mode and dispatches to the evaluator.
 
@@ -225,15 +260,22 @@ class Normalizer(Callback, torch.nn.Module):
             - torch.Tensor if on inference
             - None if on training
         """
+        # determine which transform to perform
+        operate: Callable[[torch.Tensor, Literal['x', 'y']], torch.Tensor] = self.normalize if not inverse else self.inverse_normalize
+
         if isinstance(data, Batch):
             if trainer is None:
                 raise ValueError("Trainer must be provided when normalizing a Batch in training mode.")
             self._ensure_on_device(trainer.device)
-            self._batch_dispatch(data)
+            if hasattr(data, "x"):
+                data.x = operate(data.x, field='x')
+
+            if hasattr(data, "y"):
+                data.y = operate(data.y, field="y")
 
         elif isinstance(data, torch.Tensor):
             self._ensure_on_device(data.device)
-            return self.normalize(data, field='y')
+            return operate(data, field='y')
 
         else:
             raise TypeError(f"Unsupported input type {type(data)}")
@@ -255,14 +297,6 @@ class Normalizer(Callback, torch.nn.Module):
 
         self._on_device = True
 
-    def _batch_dispatch(self, batch: Batch) -> None:
-        """Normalize a Batch object in-place."""
-        if hasattr(batch, "x"):
-            batch.x = self.normalize(batch.x, field='x')
-
-        if hasattr(batch, "y"):
-            batch.y = self.normalize(batch.y, field="y")
-
     @abstractmethod
     def _configure(self, trainer: Trainer) -> None:
         """Configure the params for use in normalization."""
@@ -279,5 +313,19 @@ class Normalizer(Callback, torch.nn.Module):
 
         Returns:
             Tensor: Normalized tensor (same shape).
+        """
+        ...
+
+    @abstractmethod
+    def inverse_normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
+        """
+        Apply inverse normalization to a tensor.
+
+        Args:
+            tensor (Tensor): Feature or label tensor.
+            field (Literal['x', 'y']): Whether this tensor represents features or labels.
+
+        Returns:
+            Tensor: De-normalized tensor (same shape).
         """
         ...

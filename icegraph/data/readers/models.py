@@ -21,40 +21,41 @@ from icegraph.utils import Statistics
 import msgpack_numpy as m
 m.patch()  # allow msgpack to work with numpy objects
 
-__all__ = ["LMDBConfiguredShardReader", "LMDBReader"]
+__all__ = ["LMDBDatasetShardReader", "LMDBReader"]
 
 
-class LMDBConfiguredShardReader:
+class LMDBDatasetShardReader:
     """
     Provides access to one or more LMDB files from the same dataset written using 8-byte big endian integer keys.
     Source LMDB files are pre-set on configuration and are used on all instances of this class.
     """
 
     _lmdb_paths:        ClassVar[Optional[Tuple[Path, ...]]]    = None
-    _index_path:        ClassVar[Optional[Path]]                = None
     _index_arr:         ClassVar[Optional[np.ndarray]]          = None
     _max_open_envs:     ClassVar[Optional[int]]                 = None
-    _index_lock:        ClassVar[threading.Lock]                = threading.Lock()
 
-    # one structured dtype for compact storage
+    # one structured dtype
     _INDEX_DTYPE: ClassVar[np.dtype] = np.dtype([("file_index", np.int32), ("key", ">u8")])
 
     @dataclass
     class _Handle:
         env: lmdb.Environment
         dtxn: lmdb.Transaction
-        mtxn: Optional[lmdb.Transaction]
+        atxn: lmdb.Transaction
 
     def __init__(self) -> None:
         """
         Initialize the shard reader.
         """
         # cache for open env/txn
-        self._cache: "OrderedDict[Path, LMDBConfiguredShardReader._Handle]" = OrderedDict()
+        self._cache: "OrderedDict[Path, LMDBDatasetShardReader._Handle]" = OrderedDict()
 
         # only allow instantiation after configure
         if type(self)._lmdb_paths is None:
             raise RuntimeError("Reader not configured; call configure() first.")
+
+        # attributes cache
+        self._attributes: Optional[Dict[int, Dict[str, Dict[str, Any]]]] = None
 
     @overload
     def __getitem__(self, idx: int) -> Tuple[Dict, int, bytes]: ...
@@ -73,7 +74,6 @@ class LMDBConfiguredShardReader:
             If idx is slice: A list of such tuples.
         """
         cls = type(self)
-        cls._load_index_memmap()
 
         if isinstance(idx, slice):
             start, stop, step = idx.indices(len(self))
@@ -103,7 +103,6 @@ class LMDBConfiguredShardReader:
 
     def __len__(self) -> int:
         """Return the total number of records across all shards."""
-        type(self)._load_index_memmap()
         return int(type(self)._index_arr.shape[0])
 
     def __iter__(self) -> Iterator[Tuple[Dict, int, bytes]]:
@@ -126,20 +125,6 @@ class LMDBConfiguredShardReader:
             self.close()
         except Exception:
             pass
-
-    @classmethod
-    def _load_index_memmap(cls) -> None:
-        if cls._index_arr is None:
-            with cls._index_lock:
-                if cls._index_arr is None:
-                    if cls._index_path is None:
-                        raise RuntimeError("Index memmap path is not set. Call configure() first.")
-
-                    arr = np.load(cls._index_path, mmap_mode="r")
-                    if arr.dtype != cls._INDEX_DTYPE:
-                        raise TypeError(f"Unexpected index dtype: {arr.dtype}")
-
-                    cls._index_arr = arr
 
     @staticmethod
     def _open_env(path: Path) -> lmdb.Environment:
@@ -178,24 +163,18 @@ class LMDBConfiguredShardReader:
 
         env = self._open_env(path)
 
-        # open the data txn
+        # open transactions
         dtxn = env.begin(write=False, db=env.open_db(b"data"))
+        atxn = env.begin(write=False, db=env.open_db(b"attr"))
 
-        # open the metadata txn
-        try:
-            meta_db = env.open_db(b"meta")
-            mtxn = env.begin(write=False, db=meta_db)
-        except lmdb.NotFoundError:
-            mtxn = None
-
-        handle = self._Handle(env, dtxn, mtxn)
+        handle = self._Handle(env, dtxn, atxn)
 
         self._cache[path] = handle
         self._cache.move_to_end(path)
 
         if len(self._cache) > cls._max_open_envs:
             old_path, old_handle = self._cache.popitem(last=False)
-            for t in (old_handle.mtxn, old_handle.dtxn):
+            for t in (old_handle.atxn, old_handle.dtxn):
                 try:
                     t.abort()
                 except Exception:
@@ -207,7 +186,7 @@ class LMDBConfiguredShardReader:
         return handle
 
     @classmethod
-    def _build_index_struct_from_scan(cls) -> np.ndarray:
+    def _build_index_struct(cls) -> np.ndarray:
         if not cls._lmdb_paths:
             raise FileNotFoundError("No LMDB files found.")
         Console.out("Indexing LMDB files (building key map)...")
@@ -218,11 +197,10 @@ class LMDBConfiguredShardReader:
         for fi, path in Console.progress_bar(list(enumerate(cls._lmdb_paths))):
             env = cls._open_env(path)
             with env.begin(db=env.open_db(b"data")) as txn:
-                cur = txn.cursor()
-                for k, _ in cur:
-                    # keys are 8 bytes big-endian signed; store as int64 big-endian
+                entries = txn.stat()["entries"]
+                for i in range(entries):
                     rows_fi.append(fi)
-                    rows_key.append(int.from_bytes(k, "big", signed=False))
+                    rows_key.append(i)
             env.close()
 
         n = len(rows_fi)
@@ -232,119 +210,27 @@ class LMDBConfiguredShardReader:
             out["key"] = np.asarray(rows_key, dtype=">i8")
         return out
 
-    @classmethod
-    def _build_index_struct_from_df(
-            cls,
-            map_df: pd.DataFrame,
-            file_index_column: str = "file_index",
-            key_column: str = "key",
-            **_
-    ) -> np.ndarray:
-        # file_index convert to int32
-        file_index = map_df[file_index_column].to_numpy(dtype=np.int32, copy=False)
+    def _get_attrs(self) -> Dict[int, Dict[str, Dict[str, Any]]]:
+        attrs: Dict[int, Dict[str, Dict[str, Any]]] = {}
 
-        # keys
-        keys_list = map_df[key_column].values.tolist()
-        if any(len(b) != 8 for b in keys_list):
-            raise ValueError("All keys must be 8 bytes.")
+        # grab all attributes
+        for fi, path in enumerate(type(self)._lmdb_paths):
+            with LMDBReader(path) as reader:
+                attrs[fi] = reader.attrs()
 
-        keys = np.asarray(map_df[key_column].values, dtype="S8")  # fixed-size 8 bytes
-        key_arr = np.frombuffer(keys.data, dtype=">i8", count=len(keys))
+        return attrs
 
-        out = np.empty(len(keys), dtype=cls._INDEX_DTYPE)
-        out["file_index"] = file_index
-        out["key"] = key_arr
-        return out
-
-    @classmethod
-    def _load_global_attrs(cls) -> Dict[str, Any]:
-        """
-        Retrieve global attributes and verify that attributes across all LMDB shards are consistent.
-
-        Returns:
-            Dict: The metadata value for the given category.
-
-        Raises:
-            RuntimeError: If global attrs are missing or inconsistent across shards.
-        """
-        if cls._lmdb_paths is None:
-            raise RuntimeError("Reader not configured; call configure() first.")
-
-        expected_value = None
-
-        for path in cls._lmdb_paths:
-            try:
-                with LMDBReader(path) as lmdb_file:
-                    global_attrs = lmdb_file.attrs("global")
-
-                    if expected_value is None:
-                        expected_value = global_attrs
-                        continue
-
-                    if global_attrs != expected_value:
-                        raise RuntimeError(
-                            f"Inconsistent global attribute in shard:\n"
-                            f"\tFile:     {path}\n"
-                            f"\tExpected: {expected_value}\n"
-                            f"\tFound:    {global_attrs}"
-                        )
-
-            except KeyError:
-                raise RuntimeError(
-                    f"Missing global attributes in shard: {path}"
-                )
-
-        return expected_value
-
-    @classmethod
-    def global_attrs(cls) -> Dict[str, Any]:
-        """Grab the metadata for the dataset, validates to ensure consistency across shards."""
-        return cls._load_global_attrs()
-
-    @property
-    def stats(self) -> Tuple[Statistics, Statistics]:
-        """
-        Helper property that returns global dataset statistics merged across all LMDB shards.
-
-        Returns:
-            Tuple[Statistics, Statistics]: Returns a tuple with feature stats and truth stats, in that order.
-        """
-        paths = type(self)._lmdb_paths
-        if not paths:
-            raise RuntimeError("Reader not configured or no LMDB files found. Call configure() first.")
-
-        def iter_shard_stats() -> Generator[Tuple[Statistics, Statistics], Any, None]:
-            for p in Console.progress_bar(paths, total=len(paths)):
-                try:
-                    with LMDBReader(p) as lmdb_file:
-                        stats = lmdb_file.attrs("stat")
-                        f_stats_dict, l_stats_dict = stats["feature_stats"], stats["label_stats"]
-                        yield Statistics.from_dict(f_stats_dict), Statistics.from_dict(l_stats_dict)
-                except (lmdb.NotFoundError, FileNotFoundError, KeyError) as e:
-                    Console.out(f"Skipping {p}: no stats found ({e}).", severity=2)
-
-        Console.out("Collecting dataset global attributes and computing global statistics...")
-
-        global_f: Optional[Statistics] = None
-        global_l: Optional[Statistics] = None
-
-        for f_stat, l_stat in iter_shard_stats():
-            global_f = f_stat if global_f is None else global_f.merge(f_stat)
-            global_l = l_stat if global_l is None else global_l.merge(l_stat)
-
-        if global_f is None or global_l is None:
-            raise RuntimeError("No shard statistics found; cannot compute globals.")
-
-        return global_f, global_l
+    def attrs(self) -> Dict[int, Dict[str, Dict[str, Any]]]:
+        if self._attributes is None:
+            self._attributes = self._get_attrs()
+        return self._attributes
 
     @classmethod
     def configure(
         cls,
         source: Union[str, Path, Sequence[Union[str, Path]]],
         max_open_envs: int = 4,
-        map_df: Optional[pd.DataFrame] = None,
-        clean: bool = False,
-        **kwargs
+        clean: bool = False
     ) -> None:
         """
         Pre-configure the shard reader.
@@ -352,20 +238,13 @@ class LMDBConfiguredShardReader:
         Args:
             source: Path or sequence of paths to LMDB files or a directory containing LMDB files.
             max_open_envs: Maximum number of LMDB environments to keep open concurrently.
-            map_df: Optional prebuilt mapping DataFrame with columns ('file_index', 'key') to use for indexing.
             clean (bool): Whether to reset the configuration with new values.
-            **kwargs: Additional arguments for index initialization when using map_df.
         """
-        cache_dir = IGConfig.get_xdg_cache_dir()
-
         # clean old configs if required
         if clean:
             cls._max_open_envs = None
             cls._lmdb_paths = None
-            cls._index_path = None
-            cls._index_arr = None
 
-        # store max open env
         if cls._max_open_envs is None:
             cls._max_open_envs = max_open_envs
 
@@ -376,30 +255,7 @@ class LMDBConfiguredShardReader:
         elif cls._lmdb_paths != new_paths:
             raise RuntimeError("Reader already configured for a different source.")
 
-        # build index map and store
-        if cls._index_path is None:
-            h = hashlib.sha1(("|".join(map(str, cls._lmdb_paths))).encode()).hexdigest()[:12]
-            index_path = cache_dir / f"lmdb_index_{h}.npy"
-
-            cls._index_path = Path(index_path).resolve()
-            cls._index_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # build the index map
-            if map_df is None:
-                arr = cls._build_index_struct_from_scan()
-            else:
-                arr = cls._build_index_struct_from_df(map_df, **kwargs)
-
-            # atomically write the array to disk
-            tmp = cls._index_path.with_suffix(".npy.tmp")
-
-            with open(tmp, "wb") as f:
-                np.save(f, arr, allow_pickle=False)
-
-            tmp.replace(cls._index_path)
-
-            # force reload via memmap in each process
-            cls._index_arr = None
+        cls._index_arr = cls._build_index_struct()
 
     def close(self) -> None:
         """
@@ -407,7 +263,7 @@ class LMDBConfiguredShardReader:
         """
         while self._cache:
             _, handle = self._cache.popitem(last=False)
-            for t in (handle.mtxn, handle.dtxn):
+            for t in (handle.atxn, handle.dtxn):
                 try:
                     t.abort()
                 except Exception:
@@ -442,7 +298,7 @@ class LMDBReader:
 
         # create db handles
         self._data_db = self._env.open_db(b"data")
-        self._meta_db = self._env.open_db(b"meta")
+        self._attr_db = self._env.open_db(b"attr")
 
     def __enter__(self) -> Self:
         return self
@@ -453,36 +309,28 @@ class LMDBReader:
         except Exception:
             pass
 
-    def attrs(self, prefix: Optional[str] = None) -> Dict[str, Any]:
+    def attrs(self, group: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """
-        Return entries whose keys start with `prefix`. If `prefix` is None,
-        return all entries. Keys are returned stripped.
+        Return attribute entries for a given group.
         """
-        out: Dict[str, Any] = {}
+        out: Dict[str, Dict[str, Any]] = {}
 
-        with self._env.begin(db=self._meta_db) as txn, txn.cursor() as cursor:
-            if not prefix:
+        with self._env.begin(db=self._attr_db) as txn, txn.cursor() as cursor:
+            if not group:
                 for k_b, v_b in cursor:
                     out[k_b.decode("utf-8", "replace")] = msgpack.unpackb(v_b, raw=False)
-                return out
 
-            pfx = prefix.encode("utf-8")
-            if not cursor.set_range(pfx):
-                return out  # nothing >= prefix
-
-            for k_b, v_b in cursor:
-                if not k_b.startswith(pfx):
-                    break
-                out[k_b[(len(pfx) + 1):].decode("utf-8", "replace")] = msgpack.unpackb(v_b, raw=False)
+            else:
+                v_b = txn.get(group.encode("utf-8"))
+                if v_b is None:
+                    raise KeyError(f"Key '{group}' not found in LMDB file {self.infile}")
+                out[group] = msgpack.unpackb(v_b, raw=False)
 
         return out
 
     def to_pandas(self) -> pd.DataFrame:
         """
         Load all data records from the LMDB into a pandas DataFrame.
-
-        Assumes each value is a msgpack-packed dict with at least an 'index' key.
-        Rows are sorted by the 'index' column.
 
         Returns:
             A pandas DataFrame of all records, or an empty DataFrame if none.

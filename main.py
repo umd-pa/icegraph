@@ -5,35 +5,40 @@ import time
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 from icegraph.data.extractor import FeatureExtractor
-from icegraph.data.processor import FeatureProcessor, TruthProcessor, EdgeProcessor
+from icegraph.data.processor import FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator
 from icegraph.data.pipeline import Pipeline
-from icegraph.data.readers import LMDBConfiguredShardReader
-from icegraph.data.splitter import SplitMapBuilder
+from icegraph.data.readers import LMDBDatasetShardReader
 from icegraph.data.writers import LMDBWriter
+from icegraph.renderer import PredVsTruePlot
 from icegraph.trainer import Trainer
+from icegraph.trainer.callbacks import RegressionMetricsCallback
 
 
 def main():
-    source = Path("/data/i3store/users/tstjean/i3_10_test")
-    outdir = Path("/data/i3store/users/tstjean/temp")
+    source = Path("/data/i3store/users/tstjean/i3_100_test")
+    outdir = Path("/data/i3store/users/tstjean/output")
 
     # define the processing pipeline
     #with Pipeline() as pipeline:
     #    pipeline.build(
     #        extractor=FeatureExtractor,
-    #        processors=[FeatureProcessor, TruthProcessor, EdgeProcessor],
+    #        processors=[FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator],
     #        writer=LMDBWriter
     #    )
     #    pipeline.configure(source, outdir=outdir)
     #    pipeline.execute()
 
-    map_file = SplitMapBuilder(outdir).build_map()
-
     # load all data
-    dataset_registry = DatasetRegistry.load_from_lmdb(outdir, map_file)
+    dataset_registry = DatasetRegistry.load_from_lmdb(outdir)
 
-    trainer = Trainer(dataset_registry)
-    trainer.run()
+    with Trainer(dataset_registry) as trainer:
+        trainer.register_callback(RegressionMetricsCallback)
+        trainer.execute()
+
+
+def test_plotter():
+    plotter = PredVsTruePlot()
+    plotter.plot([0, 1, 2], [1, 4, 3], "bruh", "/data/i3store/users/tstjean")
 
 
 if __name__ == "__main__":

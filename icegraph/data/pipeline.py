@@ -163,8 +163,12 @@ class Pipeline:
             prefix="icegraph_", dir="/dev/shm" if os.path.isdir("/dev/shm") else None
         )
 
-        self._working_dir = tmp
-        self.working_dir_path = Path(tmp.name)
+        self._local_working_dir = tmp
+        self.local_working_dir_path = Path(tmp.name)
+
+        # set the multiprocess-safe working directory
+        home = Path(os.path.expanduser("~"))
+        self._global_working_dir = home / ".cache"
 
         # grab global config
         self._config: IGConfig = IGConfig.get()
@@ -194,9 +198,9 @@ class Pipeline:
 
         # clean the working directory
         try:
-            self._working_dir.cleanup()
+            self._local_working_dir.cleanup()
         except Exception:
-            shutil.rmtree(self.working_dir_path, ignore_errors=True)
+            shutil.rmtree(self.local_working_dir_path, ignore_errors=True)
 
     ### PORTS
 

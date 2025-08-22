@@ -54,10 +54,6 @@ class MinMaxNormalizer(Normalizer):
             tensor = tensor.float()
 
         if field == "y":
-            # ensure float
-            if not torch.is_floating_point(tensor):
-                tensor = tensor.float()
-
             # always work in [B, L] then squeeze back if needed
             squeezed = False
             if tensor.ndim == 1:
@@ -82,14 +78,63 @@ class MinMaxNormalizer(Normalizer):
         elif field == 'x':
             tensor = tensor.add_(-self._params["_x_off"]).mul_(self._params["_x_scale"])
 
+        else:
+            raise ValueError("field must be 'x' or 'y'")
+
+        return tensor
+
+    def inverse_normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
+        """
+        Apply inverse of min-max normalization to a tensor.
+
+        Args:
+            tensor (Tensor): Feature or label tensor.
+            field (Literal['x', 'y']): Whether this tensor represents features or labels.
+
+        Returns:
+            Tensor: De-normalized tensor (same shape).
+        """
+        # ensure float dtype and params on the same device
+        if not torch.is_floating_point(tensor):
+            tensor = tensor.float()
+        self._ensure_on_device(tensor.device)
+
+        if field == 'y':
+            # always work in [B, L] then squeeze back if needed
+            squeezed = False
+            if tensor.ndim == 1:
+                tensor = tensor.unsqueeze(1)
+                squeezed = True
+
+            y_logmask = self._params["_y_logmask"]
+
+            # undo min-max: y = y / scale + off   (scale was stored as 1/(max-min))
+            tensor = tensor.div_(self._params["_y_scale"]).add_(self._params["_y_off"])
+
+            # undo optional log1p on selected columns
+            if y_logmask is not None and torch.any(y_logmask):
+                cols = torch.nonzero(y_logmask, as_tuple=False).squeeze(1)
+                if cols.numel() > 0:
+                    tensor[:, cols] = torch.expm1(tensor[:, cols])
+
+            if squeezed or tensor.shape[1] == 1:
+                tensor = tensor.squeeze(1)
+
+        elif field == 'x':
+            # undo min-max for features
+            tensor = tensor.div_(self._params["_x_scale"]).add_(self._params["_x_off"])
+
+        else:
+            raise ValueError("field must be 'x' or 'y'")
+
         return tensor
 
     def _configure(self, trainer) -> None:
         """
         Configure min/max-based normalization parameters from dataset statistics.
         """
-        target_labels = IGData.metadata["target_labels"]
-        log_labels = IGData.metadata["apply_log_scaling_y"]
+        target_labels = IGData.attrs[0]["global"]["target_labels"]
+        log_labels = IGData.attrs[0]["global"]["apply_log_scaling_y"]
 
         # Features
         f_min = torch.as_tensor(self.f_stats.min, dtype=torch.float32)
@@ -102,9 +147,9 @@ class MinMaxNormalizer(Normalizer):
             return
 
         # Labels (ordered to match trainer.target_labels)
-        idx = [self.t_stats.columns.index(n) for n in target_labels]
-        t_min = torch.as_tensor(self.t_stats.min, dtype=torch.float32)[idx]
-        t_max = torch.as_tensor(self.t_stats.max, dtype=torch.float32)[idx]
+        idx = [self.l_stats.columns.index(n) for n in target_labels]
+        t_min = torch.as_tensor(self.l_stats.min, dtype=torch.float32)[idx]
+        t_max = torch.as_tensor(self.l_stats.max, dtype=torch.float32)[idx]
 
         logmask = torch.tensor([n in log_labels for n in target_labels], dtype=torch.bool)
 

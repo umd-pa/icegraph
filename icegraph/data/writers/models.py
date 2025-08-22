@@ -3,7 +3,7 @@
 
 from datetime import datetime
 import lmdb
-from typing import Union, Optional, Dict, Self, Iterable, NamedTuple
+from typing import Union, Optional, Dict, Self, Iterable, NamedTuple, Any
 import struct
 from pathlib import Path
 import msgpack
@@ -57,7 +57,7 @@ class LMDBWriter(Writer):
 
         # create handles
         self._data_db = self._env.open_db(b"data", create=True)
-        self._meta_db = self._env.open_db(b"meta", create=True)
+        self._attr_db = self._env.open_db(b"attr", create=True)
 
     def _safe_put(self, txn, key, value) -> lmdb.Transaction:
         """
@@ -83,7 +83,7 @@ class LMDBWriter(Writer):
         self.finish()
         self.save()
 
-    def write_attrs(self, groups: Dict[str, Dict[str, str]], include_defaults: bool = True) -> None:
+    def write_attrs(self, groups: Dict[str, Dict[str, Any]], include_defaults: bool = True) -> None:
         """
         Write attributes to the db file.
 
@@ -97,18 +97,22 @@ class LMDBWriter(Writer):
 
         def _write_defaults(_txn: lmdb.Transaction) -> None:
             """Write default info to the file."""
-            _txn.put("info:timestamp".encode("utf-8"), _mp(datetime.now().timestamp()))
-            _txn.put("info:version".encode("utf-8"), _mp(__version__))
+            _txn.put(
+                "info".encode("utf-8"),
+                _mp({
+                    "timestamp": datetime.now().timestamp(),
+                    "version": __version__
+                })
+            )
 
-        with self._env.begin(write=True, db=self._meta_db) as txn:
+        with self._env.begin(write=True, db=self._attr_db) as txn:
             # info
             if include_defaults:
                 _write_defaults(txn)
 
-            for group, kvs in groups.items():
-                for key, data in kvs.items():
-                    # store the entire object (scalar/list/dict/ndarray) as one msgpack blob
-                    txn.put(f"{group}:{key}".encode("utf-8"), _mp(data))
+            for group, data in groups.items():
+                # store the entire object (scalar/list/dict/ndarray) as one msgpack blob
+                txn.put(f"{group}".encode("utf-8"), _mp(data))
 
     def write(self, df: pd.DataFrame) -> None:
         """
