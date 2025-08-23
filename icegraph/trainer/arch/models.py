@@ -30,6 +30,7 @@ class GravNet(nn.Module):
         k = self._config.user_config.training.trainer_params.num_nbrs
 
         self.blocks = nn.ModuleList()
+        self.activation = nn.LeakyReLU(negative_slope=0.01)
 
         for i in range(layers):
             conv = GravNetConv(
@@ -48,6 +49,9 @@ class GravNet(nn.Module):
 
         self.out = nn.Linear(hidden_channels, out_channels)
 
+        # remove upward bias
+        nn.init.zeros_(self.out.bias)
+
     def forward(self, x: torch.Tensor, batch: torch.LongTensor):
         """
         Forward pass through the GravNet architecture.
@@ -61,7 +65,7 @@ class GravNet(nn.Module):
         """
         for block in self.blocks:
             x = block["gravnetconv"](x, batch)
-            x = torch.relu(block["linear"](x))
+            x = self.activation(block["linear"](x))
 
         x = global_mean_pool(x, batch)
         return self.out(x)

@@ -40,13 +40,13 @@ training:
   num_workers: 16
 
   trainer_params:
-    max_epochs: 100
+    max_epochs: 1000
     num_nbrs: 16
-    hidden_layers: 2
-    hidden_channels: 64
-    test_interval_epochs: 10
+    hidden_layers: 3
+    hidden_channels: 256
+    test_interval_epochs: 1
 
-  normalizer: MinMaxNormalizer
+  normalizer: ZScoreNormalizer
 
   optimizer:
     learning_rate: 5e-4

@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List
 
 import torch
 
@@ -11,7 +11,7 @@ from icegraph.console import Console
 from icegraph.data.base import IGData
 from icegraph.inference import CoreModel
 from icegraph.trainer.tensorboard import TensorBoard
-from icegraph.renderer import PredVsTruePlot
+from icegraph.renderer import ParityPlot
 from icegraph._version import __version__
 
 __all__ = ["TensorBoardCallback", "ExportCallback", "ConsoleCallback", "RegressionMetricsCallback"]
@@ -122,14 +122,40 @@ class ExportCallback(Callback):
 
 class RegressionMetricsCallback(Callback):
 
-    def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
-        yhat = trainer.test_predictions[:, 0]  # shape: [N_graphs, out_channels]
-        y = trainer.test_targets[:, 0]
+    def __init__(self) -> None:
+        self._y_asinh_mask: Optional[List[str]] = None
+        self._target_labels: Optional[List[str]] = None
 
-        plot = PredVsTruePlot()
-        plot.plot(
-            x=y,
-            y=yhat,
-            title=f"Predicted vs True [Epoch {epoch + 1}]",
-            save_path=f"/data/i3store/users/tstjean/pred_vs_true.{epoch + 1}.html"
-        )
+    def on_init(self, trainer: Trainer) -> None:
+        self._y_asinh_mask = IGData.attrs[0]["global"]["apply_log_scaling_y"]
+        self._target_labels = IGData.attrs[0]["global"]["target_labels"]
+
+    def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+        test_pred = trainer.test_predictions
+        test_targ = trainer.test_targets
+
+        n_cols = test_pred.shape[1]
+
+        for i in range(n_cols):
+            label = self._target_labels[i]
+
+            pred = test_pred[:, i]
+            targ = test_targ[:, i]
+
+            axis_title = label
+
+            if self._target_labels[i] in self._y_asinh_mask:
+                pred = torch.log10(pred)
+                targ = torch.log10(targ)
+
+                axis_title = r"log_{10}(\text{%s})$" % axis_title
+
+            plot = ParityPlot()
+            plot.plot(
+                x=targ,
+                y=pred,
+                title=f"{label} Parity [Epoch {epoch + 1}]",
+                save_path=f"/data/i3store/users/tstjean/{label}.parity.{epoch + 1}.html",
+                yaxis_title=r"$\text{Predicted }" + axis_title,
+                xaxis_title=r"$\text{True }" + axis_title,
+            )

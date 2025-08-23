@@ -5,7 +5,6 @@ from typing import Optional, Sequence, Union
 
 import numpy as np
 import plotly.graph_objects as go
-from plotly.express.colors import sequential
 
 from .base import IGBasicPlot, IGDistributionPlot
 from icegraph.data.pulses import Pulses
@@ -27,7 +26,7 @@ except ImportError:
 
 OMKey = _OMKey
 
-__all__ = ["CDFPlot", "PDFPlot", "ChargeDistributionPlot"]
+__all__ = ["CDFPlot", "PDFPlot", "ChargeDistributionPlot", "ParityPlot"]
 
 
 class CDFPlot(IGDistributionPlot):
@@ -94,15 +93,13 @@ class ChargeDistributionPlot(IGDistributionPlot):
         return metadata
 
 
-class PredVsTruePlot(IGBasicPlot):
+class ParityPlot(IGBasicPlot):
 
     def _populate_plot(self, x: Sequence[Union[int, float]], y: Sequence[Union[int, float]]) -> None:
         _range = [min(x), max(x)]
         self._fig.update_layout(
             xaxis_range=_range,
             yaxis_range=_range,
-            xaxis_title="True",
-            yaxis_title="Predicted",
         )
         self._fig.add_trace(go.Histogram2d(
             x=x, y=y,
@@ -111,6 +108,6 @@ class PredVsTruePlot(IGBasicPlot):
             ybins=dict(start=_range[0], end=_range[1], size=(_range[1] - _range[0]) / 100),
             colorscale=[[0.0, "black"], [0.0001, "red"], [0.5, "yellow"], [1, "white"]],
             zmin=0,
-            colorbar=dict(title="count")
+            colorbar=dict(title="Count")
         ))
-        self._fig.add_trace(go.Scatter(x=_range, y=_range, mode="lines", line=dict(color='green', dash='dash', width=3)))
+        self._fig.add_trace(go.Scatter(x=_range, y=_range, mode="lines", line=dict(color='green', dash='dash', width=5)))

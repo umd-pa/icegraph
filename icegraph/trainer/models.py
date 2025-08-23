@@ -5,7 +5,6 @@ from typing import Union, Optional, List, Self, Type
 from pathlib import Path
 import math
 from dataclasses import dataclass
-import logging
 
 import torch
 from torch.optim import Adam
@@ -13,7 +12,6 @@ from torch_geometric.seed import seed_everything
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
 import torch_scatter
-import tqdm
 
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
@@ -24,7 +22,6 @@ from icegraph.pathutils import PathResolver
 from .callbacks.base import Callback, Normalizer
 from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, normalizers
 from .base.exceptions import EmptyDataLoaderError, TrainerError
-from icegraph.inference import CoreModel
 
 __all__ = ["Trainer"]
 
@@ -181,6 +178,8 @@ class Trainer(torch.nn.Module):
         # make sure user didnt pass a normalizer
         self._ensure_single_normalizer()
 
+        # need to initialize this new callback as it wasn't caught in trainer's __init__
+        self.callbacks[-1].on_init(self)
 
     @property
     def val_predictions(self) -> Optional[torch.Tensor]:

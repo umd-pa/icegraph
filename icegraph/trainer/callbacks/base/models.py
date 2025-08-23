@@ -229,16 +229,17 @@ class Normalizer(Callback, torch.nn.Module, StatMixin):
         if not all(param_mask) and any(param_mask):
             raise ValueError(f"Must pass no parameters or all parameters to {self.__class__.__name__}.")
 
-        # register these params
-        for param, tensor in self._params.items():
-            self.register_buffer(param, tensor, persistent=True)
-
     def on_init(self, trainer: Trainer) -> None:
         # Build global stats once on trainer init
         self.f_stats, self.l_stats = self._get_global_stats(trainer)  # tuple[Statistics, Statistics]
 
         # build params
         self._configure(trainer)
+
+        # register these params
+        for param, tensor in self._params.items():
+            self.register_buffer(param, tensor, persistent=True)
+
         self._on_device = False
 
     def on_batch_transfer(self, trainer: Trainer, batch: Batch) -> None:

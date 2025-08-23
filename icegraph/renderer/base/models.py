@@ -102,11 +102,17 @@ class IGBasicPlot(ABC):
             save_path (Path): The path where the HTML plot file will be saved.
         """
         Console.out(f"Saving plot: {save_path!s}")
-        self._fig.write_html(save_path, config={
-            "toImageButtonOptions": {
-                "filename": save_path.with_suffix("").name
-            }
-        })
+        self._fig.write_html(
+            save_path,
+            config={
+                "toImageButtonOptions": {
+                    "filename": save_path.with_suffix("").name
+                }
+            },
+            full_html=True,
+            include_plotlyjs="cdn",
+            include_mathjax="cdn"
+        )
 
 
 

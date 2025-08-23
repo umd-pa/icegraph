@@ -9,7 +9,7 @@ from icegraph.data.processor import FeatureProcessor, TruthProcessor, EdgeProces
 from icegraph.data.pipeline import Pipeline
 from icegraph.data.readers import LMDBDatasetShardReader
 from icegraph.data.writers import LMDBWriter
-from icegraph.renderer import PredVsTruePlot
+from icegraph.renderer import ParityPlot
 from icegraph.trainer import Trainer
 from icegraph.trainer.callbacks import RegressionMetricsCallback
 
@@ -37,7 +37,7 @@ def main():
 
 
 def test_plotter():
-    plotter = PredVsTruePlot()
+    plotter = ParityPlot()
     plotter.plot([0, 1, 2], [1, 4, 3], "bruh", "/data/i3store/users/tstjean")
 
 
