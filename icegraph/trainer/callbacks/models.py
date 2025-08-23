@@ -155,7 +155,7 @@ class RegressionMetricsCallback(Callback):
                 x=targ,
                 y=pred,
                 title=f"{label} Parity [Epoch {epoch + 1}]",
-                save_path=f"/data/i3store/users/tstjean/{label}.parity.{epoch + 1}.html",
+                save_path=trainer.outdir / f"{label}.parity.{epoch + 1}.html",
                 yaxis_title=r"$\text{Predicted }" + axis_title,
                 xaxis_title=r"$\text{True }" + axis_title,
             )

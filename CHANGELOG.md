@@ -1,5 +1,13 @@
 # Changelog
 
+### Version [0.8.0] --- August 23rd, 2025:
+- Complete rewrite of processing pipeline, added `icegraph.data.pipeline.Pipeline` object for single pass data processing. All data processing is now handled by the `Pipeline` object which accepts an extractor, any number of processors, and a writer (collectively called "operators"). The `Pipeline` will wire each stage together and stream data through. Custom operators are supported.
+- Added regression parity plots and associated callback.
+- Moved from ReLU to LeakyReLU for activation function.
+- Moved from log scaling to asinh scaling for future proofing and built-in compatibility with negative values.
+- Normalization now occurs at runtime on GPU, and is not hard-coded into data so it can be modified on the fly without any reprocessing required.
+- Updated example scripts and README.md.
+
 ### Version [0.7.0] --- August 12th, 2025:
 - Fixed a bug with normalization in `FeatureProcessor`. Normalization now happens at runtime on the accelerator.
 - Data is now stored in LMDB under the 'data' sub-database, added a new 'meta' sub-database which stores local sample statistics, schemas, and other info.
