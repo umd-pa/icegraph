@@ -15,26 +15,14 @@ git clone git@github.com:umd-pa/icegraph.git
 cd icegraph
 ```
 
-First step after cloning the repository is to create the virtual environment using the version of python packaged with CVMFS and sourcing from it:
+Make the install script executable and run it:
 
 ```
-/cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/Ubuntu_22.04_x86_64/bin/python -m venv venv
-source venv/bin/activate
+chmod +x install.sh
+./install.sh
 ```
 
-WARNING: if you are not on Ubuntu 22.04, you will need to modify the above command to match your OS and version.
-
-Next, install dependencies:
-
-```
-pip install -r requirements.txt
-```
-
-Finally, install IceGraph:
-
-```
-pip install .
-```
+WARNING: You may have to modify the OS version and architecture within the install.sh script depending on your configuration.
 
 This software must be run within the IceTray environment.
 
@@ -50,11 +38,12 @@ Required imports:
 ```
 from pathlib import Path
 
-from icegraph.data.processor import FeatureProcessor
+from icegraph.data.processor import FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator
 from icegraph.data.extractor import FeatureExtractor
+from icegraph.data.writers import LMDBWriter
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from icegraph.data.splitter import SplitMapBuilder
+from icegraph.data.pipeline import Pipeline
 from icegraph.trainer import Trainer
 ```
 
@@ -75,39 +64,44 @@ source = Path("path/to/i3_file(s)")
 
 Extract data from I3 files and process it. This is done by first running the `FeatureExtractor` module, then running:
 ```
-for stage in [FeatureExtractor, FeatureProcessor]:
-    processor = stage(source)
-    source = processor()
+with Pipeline() as pipeline:
+    pipeline.build(
+        extractor=FeatureExtractor,
+        processors=[FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator],
+        writer=LMDBWriter
+    )
+    pipeline.configure(args.input, outdir=args.output)
+    pipeline.execute()
 ```
-Feature extraction and processing can both individually be run in parallel as jobs. These are the most computationally intensive portions of the data preparation pipeline, thus for larger datasets it is highly recommended to parallelize.
+The pipeline can be run in parallel as jobs. This is computationally intensive, thus for larger datasets it is highly recommended to parallelize.
 
-Generate the split mapping file using the `SplitMapBuilder`. This must be done as one process and cannot be parallelized at the moment.
 
+Load the data to a registry. The `DatasetRegistry` class acts as an interface between the training system and the formatted data.
 ```
-map_file = SplitMapBuilder(source).build_map()
-```
-
-Load the data and split file to a registry. The `DatasetRegistry` class acts as an interface between the training system and the formatted data.
-```
-dataset_registry = DatasetRegistry.load_from_lmdb(source, map_file)
+dataset_registry = DatasetRegistry.load_from_lmdb(source)
 ```
 
 Pass the dataset registry instance to a `Trainer`, then run the training. Training configuration and hyperparameter selection is all done via config.yaml.
 ```
-outfile = Path("path/to/model.pt")
-trainer = Trainer(dataset_registry, outfile=outfile)
-trainer.run()
+outdir = Path("path/to/trainer/outdir")
+with Trainer(dataset_registry, outdir=outdir) as trainer:
+    trainer.run()
 ```
 
-Or, you can optionally specify callbacks to use during training. You can also define custom callbacks if necessary.
+You can pass in custom callbacks if desired:
+
 ```
-from icegraph.trainer.callbacks import ConsoleCallback, CheckpointCallback, TensorBoardCallback
+outdir = Path("path/to/trainer/outdir")
+with Trainer(dataset_registry, outdir=outdir) as trainer:
+    trainer.register_callback(CustomCallback)
+    trainer.run()
+```
 
-# these are the default callbacks used in Trainer
-# if you only need these callbacks, there is no need to pass them manually
-callbacks = [ConsoleCallback(), TensorBoardCallback(), CheckpointCallback()]
+Or override defaults:
 
-outfile = Path("path/to/model.pt")
-trainer = Trainer(dataset_registry, outfile=outfile, callbacks=callbacks)
-trainer.run()
+```
+outdir = Path("path/to/trainer/outdir")
+callbacks = [List(), Of(), Callbacks()]
+with Trainer(dataset_registry, outdir=outdir, callbacks=callbacks) as trainer:
+    trainer.run()
 ```

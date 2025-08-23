@@ -1,8 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import List, Optional, Dict, Union
-from pydantic import BaseModel, Field, validator
+from typing import List, Optional, Dict, Self, Literal
+from pydantic import BaseModel, Field, validator, model_validator
 
 
 # === io ===
@@ -28,11 +28,22 @@ class TableNamesConfig(BaseModel):
 
 # === data ===
 class DataSplitsConfig(BaseModel):
-    stratify: bool
+    weights: Dict[Literal['train', 'val', 'test'], int]
+
+    @model_validator(mode="after")
+    def validate_weights(self) -> Self:
+        if not self.weights:
+            raise ValueError("Weights must not be empty.")
+        if any(v < 0 for v in self.weights.values()):
+            raise ValueError("Weights values must be non-negative.")
+        if sum(self.weights.values()) <= 0:
+            raise ValueError("Sum of weights must be > 0.")
+        return self
 
 
 class DataNormalizationConfig(BaseModel):
-    apply_log_scaling: List[str] = Field(default_factory=list)
+    apply_log_scaling_x: List[str] = Field(default_factory=list)
+    apply_log_scaling_y: List[str] = Field(default_factory=list)
 
 
 class DataConfig(BaseModel):
@@ -57,11 +68,11 @@ class OptimizerConfig(BaseModel):
     weight_decay: float
     amsgrad: bool
 
-    @validator("betas")
-    def betas_must_have_two_elements(cls, v):
-        if len(v) != 2:
+    @model_validator(mode="after")
+    def validate_betas(self) -> Self:
+        if len(self.betas) != 2:
             raise ValueError("Optimizer 'betas' must be a list of two floats.")
-        return v
+        return self
 
 
 class TensorBoardConfig(BaseModel):

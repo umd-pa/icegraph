@@ -107,6 +107,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+venv_*/
 
 # System files
 .DS_Store

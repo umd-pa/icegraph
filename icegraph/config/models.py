@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
-from typing import Union, Optional, Self
+from typing import Union, Optional, Self, Dict
 import tempfile
 import os
 
@@ -96,12 +96,17 @@ class IGConfig:
         Returns:
             Path: Path to the temporary YAML config file.
         """
-        feature_extraction_config: dict = self.user_config.feature_extraction.toDict()
+        feature_extraction_config: dict = self.ml_suite_config
 
         # ml_suite wants a config file, so we have to save a temp file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tmp_file:
             yaml.safe_dump(feature_extraction_config, tmp_file)
             return Path(tmp_file.name)
+
+    @property
+    def ml_suite_config(self) -> Dict:
+        """Load the configuration for ML suite."""
+        return self.user_config.feature_extraction.toDict()
 
     def validate(self) -> None:
         """

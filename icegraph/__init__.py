@@ -10,7 +10,8 @@ from . import (
     trainer,
     pathutils,
     utils,
-    exceptions
+    exceptions,
+    inference
 )
 
 __all__ = [
@@ -22,7 +23,8 @@ __all__ = [
     "geometry",
     "pathutils",
     "utils",
-    "exceptions"
+    "exceptions",
+    "inference"
 ]
 
 from ._version import __version__

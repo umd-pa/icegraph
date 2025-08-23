@@ -1,8 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import IGExtractor
+from .base import Extractor
 
-IGExtractor.__module__ = __name__
+Extractor.__module__ = __name__
 
-__all__ = ["IGExtractor"]
+__all__ = ["Extractor"]

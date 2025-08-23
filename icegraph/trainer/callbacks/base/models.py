@@ -2,12 +2,12 @@
 # Developed by Taylor St Jean
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Union, Optional
-import json
+from typing import TYPE_CHECKING, Union, Optional, List, Literal, Dict, Generator, Tuple, Any, Callable, Self
 
 from torch_geometric.data import Batch
+import torch
 
-from icegraph.data.readers import LMDBConfiguredShardReader, LMDBReader
+from icegraph.data.readers import LMDBDatasetShardReader, LMDBReader
 from icegraph.utils import Statistics
 from icegraph.console import Console
 
@@ -18,7 +18,7 @@ else:
         class Metrics:
             ...
 
-__all__ = ["Callback", "NormCallback"]
+__all__ = ["Callback", "Normalizer"]
 
 
 class Callback(ABC):
@@ -97,13 +97,15 @@ class Callback(ABC):
             batch: The current PyG Batch instance about to be forwarded.
         """
 
-    def on_batch_end(self, trainer: Trainer, batch: Batch, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
+    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
         """
         Called immediately after each batch is processed.
 
         Args:
             trainer (Trainer): The trainer object.
             batch: The PyG Batch that was just processed.
+            out: Tensor of predicted values.
+            target: Tensor of target values.
             loss: The scalar loss for that batch (detached).
             metrics: Running Metrics object updated with this batch.
         """
@@ -174,40 +176,157 @@ class Callback(ABC):
         pass
 
 
-class NormCallback(Callback):
+class StatMixin:
 
-    def __init__(self) -> None:
+    @staticmethod
+    def _get_global_stats(trainer: Trainer) -> Tuple[Statistics, Statistics]:
+        def iter_shard_stats() -> Generator[Tuple[Statistics, Statistics], Any, None]:
+            with LMDBDatasetShardReader() as reader:
+                attrs = reader.attrs()
+                try:
+                    for file_idx, stat_dict in attrs.items():
+                        stats = stat_dict["stat"]
+                        f_stats_dict, l_stats_dict = stats["feature_stats"], stats["label_stats"]
+                        yield Statistics.from_dict(f_stats_dict), Statistics.from_dict(l_stats_dict)
+                except KeyError as e:
+                    Console.out(f"Skipping file_idx {file_idx}: no stats found ({e}).", severity=2)
+
+        Console.out("Collecting dataset global attributes and computing global statistics...")
+
+        global_f: Optional[Statistics] = None
+        global_l: Optional[Statistics] = None
+
+        for f_stat, l_stat in iter_shard_stats():
+            global_f = f_stat if global_f is None else global_f.merge(f_stat)
+            global_l = l_stat if global_l is None else global_l.merge(l_stat)
+
+        if global_f is None or global_l is None:
+            raise RuntimeError("No shard statistics found; cannot compute globals.")
+
+        return global_f, global_l
+
+
+class Normalizer(Callback, torch.nn.Module, StatMixin):
+
+    def __init__(self, param_list: List[str], **kwargs) -> None:
         """Initialize the normalizer."""
+        super().__init__()
+
         self.f_stats: Optional[Statistics] = None
-        self.t_stats: Optional[Statistics] = None
+        self.l_stats: Optional[Statistics] = None
+
+        # on device flag
+        self._on_device: bool = False
+
+        # eps for use in div by zero cases
+        self._eps: float = 1e-8
+
+        # build the params dict
+        self._params: Dict[str, Optional[torch.Tensor]] = {param: kwargs.get(param, None) for param in param_list}
+
+        # ensure that if one param is passed, all are passed
+        param_mask = [param is not None for param in self._params.values()]
+        if not all(param_mask) and any(param_mask):
+            raise ValueError(f"Must pass no parameters or all parameters to {self.__class__.__name__}.")
 
     def on_init(self, trainer: Trainer) -> None:
-        # Build global stats once
-        map_df = LMDBReader(trainer.datasets.map_file).to_pandas()
-        LMDBConfiguredShardReader.configure(trainer.datasets.source, max_open_envs=4, map_df=map_df)
-        with LMDBConfiguredShardReader() as reader:
-            self.f_stats, self.t_stats = reader.stats  # tuple[Statistics, Statistics]
+        # Build global stats once on trainer init
+        self.f_stats, self.l_stats = self._get_global_stats(trainer)  # tuple[Statistics, Statistics]
 
-        # save the params for future use
-        self._save_global_stats(trainer)
+        # build params
+        self._configure(trainer)
+
+        # register these params
+        for param, tensor in self._params.items():
+            self.register_buffer(param, tensor, persistent=True)
+
+        self._on_device = False
 
     def on_batch_transfer(self, trainer: Trainer, batch: Batch) -> None:
         # normalization will always be called on batch transfer so processing can be done on the accelerator
-        self._normalize_inplace(trainer, batch)
+        self._ensure_on_device(trainer.device)
+        self.dispatch(batch, trainer)
 
-    def _save_global_stats(self, trainer: Trainer) -> None:
-        """Save the normalizer params to disk for renormalization in production."""
-        outfile = trainer.outdir / "global_stats.json"
-        payload = {
-            "f_stats": self.f_stats.to_dict(strip_np=True),
-            "t_stats": self.t_stats.to_dict(strip_np=True)
-        }
-        with outfile.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
+        if not trainer.model.training:
+            self._ensure_on_device(trainer.device)
+            self.dispatch(out, trainer, inverse=True)
+            self.dispatch(target, trainer, inverse=True)
 
-        Console.out(f"Saved global stats to {outfile}")
+    def dispatch(self, data: Union[torch.Tensor, Batch], trainer: Optional[Trainer] = None, inverse: bool = False) -> Optional[torch.Tensor]:
+        """
+        Executes the calculation. Detects if in training or inference mode and dispatches to the evaluator.
+
+        Returns:
+            - torch.Tensor if on inference
+            - None if on training
+        """
+        # determine which transform to perform
+        operate: Callable[[torch.Tensor, Literal['x', 'y']], torch.Tensor] = self.normalize if not inverse else self.inverse_normalize
+
+        if isinstance(data, Batch):
+            if trainer is None:
+                raise ValueError("Trainer must be provided when normalizing a Batch in training mode.")
+            self._ensure_on_device(trainer.device)
+            if hasattr(data, "x"):
+                data.x = operate(data.x, field='x')
+
+            if hasattr(data, "y"):
+                data.y = operate(data.y, field="y")
+
+        elif isinstance(data, torch.Tensor):
+            self._ensure_on_device(data.device)
+            return operate(data, field='y')
+
+        else:
+            raise TypeError(f"Unsupported input type {type(data)}")
+
+    def _ensure_on_device(self, device: torch.device) -> None:
+        """
+        Lazily move normalization parameters to the specified device.
+
+        Args:
+            device (device): The target device (CPU or GPU) to move normalization parameters onto.
+        """
+        if self._on_device:
+            return
+
+        # move all params to device
+        for param, tensor in self._params.items():
+            if tensor is not None:
+                self._params[param] = tensor.to(device, non_blocking=True)
+
+        self._on_device = True
 
     @abstractmethod
-    def _normalize_inplace(self, trainer: Trainer, batch: Batch) -> None:
-        """Place appropriate normalization code here."""
+    def _configure(self, trainer: Trainer) -> None:
+        """Configure the params for use in normalization."""
+        ...
+
+    @abstractmethod
+    def normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
+        """
+        Apply normalization to a tensor.
+
+        Args:
+            tensor (Tensor): Feature or label tensor.
+            field (Literal['x', 'y']): Whether this tensor represents features or labels.
+
+        Returns:
+            Tensor: Normalized tensor (same shape).
+        """
+        ...
+
+    @abstractmethod
+    def inverse_normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
+        """
+        Apply inverse normalization to a tensor.
+
+        Args:
+            tensor (Tensor): Feature or label tensor.
+            field (Literal['x', 'y']): Whether this tensor represents features or labels.
+
+        Returns:
+            Tensor: De-normalized tensor (same shape).
+        """
         ...

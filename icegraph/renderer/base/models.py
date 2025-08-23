@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, Sequence
 
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -30,43 +30,91 @@ if TYPE_CHECKING:
         from icegraph.exceptions import IceCubeImportError
         OMKey = IceCubeImportError.IceCubeMissingBase
 
-__all__ = ["IGPlot", "IGDistributionPlot"]
+__all__ = ["IGDistributionPlot", "IGBasicPlot"]
 
 
-class IGPlot(ABC):
+class IGBasicPlot(ABC):
+    """
+    Base class for basic plots.
+    """
 
-    subplots: tuple[int, int] = (1, 1)
-
-    def __init__(self, registry: DatasetRegistry) -> None:
-        self._registry: DatasetRegistry = registry
-        self._config: IGConfig = IGConfig.get()
-
-        # init detector object to convert om keys to coords
-        self._detector = Detector()
-
-        # initialize figure
-        self._fig, self._ax = plt.subplots(
-            self.subplots[0], self.subplots[1],
-            figsize=(4 * self.subplots[1], 4 * self.subplots[0]),
-            constrained_layout=True,
-            squeeze=False
-        )
-        self._ax = list(self._ax.flatten())
-
-        # type hint for usability
-        self._ax: list[plt.Axes, ...]
-        self._fig: plt.Figure
-
-        for ax in self._ax:
-            ax.set_facecolor('#eeeeee')
+    def __init__(self) -> None:
+        self._config = IGConfig.get()
+        self._fig = go.Figure()
 
     @abstractmethod
-    def plot(self, feature: str, save_path: Path | None=None) -> None:
+    def _populate_plot(self, x: Sequence[Union[int, float]], y: Sequence[Union[int, float]]) -> None:
+        """
+        Abstract method to populate the plot with subclass-specific logic.
+
+        This method should modify `self._fig` using data from the specified DOM,
+        and return the associated DOM metadata.
+
+        Args:
+            x (Sequence[Union[int, float]): X values.
+            y (Sequence[Union[int, float]): Y values.
+
+        Returns:
+            (Pulses.DOMMetadata): Metadata associated with the plotted DOM.
+        """
         ...
 
-    def save(self, path: Path):
-        Console.out(f"Saving feature plot: {path}")
-        self._fig.savefig(path)
+    def plot(self, x: Sequence[Union[int, float]], y: Sequence[Union[int, float]], title: str, save_path: Optional[Union[str, Path]] = None, **kwargs) -> None:
+        """
+        Generate and save a plot for the specified DOM.
+
+        This method calls `_populate_plot` to fill in plot data and saves the figure as an HTML file.
+
+        Args:
+            x (Sequence[Union[int, float]): X values.
+            y (Sequence[Union[int, float]): Y values.
+            title (str): Plot title.
+            save_path (Optional[Union[str, Path]]): The path where the HTML plot file will be saved.
+        """
+        self._populate_plot(x, y)
+
+        save_path = Path(
+            save_path or
+            Path(self._config.user_config.io.default_dir) /
+            f"{title}.html"
+        )
+
+        if save_path.is_dir():
+            save_path = save_path / f"{title}.html"
+
+        self._fig.update_layout(
+            **kwargs,
+            font=dict(
+                size=16
+            ),
+            title=(
+                title
+            )
+        )
+
+        self.save(save_path)
+
+    def save(self, save_path: Path):
+        """
+        Save the current figure as an HTML file.
+
+        Args:
+            save_path (Path): The path where the HTML plot file will be saved.
+        """
+        Console.out(f"Saving plot: {save_path!s}")
+        self._fig.write_html(
+            save_path,
+            config={
+                "toImageButtonOptions": {
+                    "filename": save_path.with_suffix("").name
+                }
+            },
+            full_html=True,
+            include_plotlyjs="cdn",
+            include_mathjax="cdn"
+        )
+
+
 
 
 class IGDistributionPlot(ABC):
