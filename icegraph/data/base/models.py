@@ -100,8 +100,8 @@ class IGData(Dataset, ABC):
         Returns:
             pyg.data.Data: Torch-Geometric Data object containing data for the selected event.
         """
-        features, labels, edge_index, edge_weight = self.get(idx)
-        return PyGData(x=features, y=labels, edge_index=edge_index, edge_attr=edge_weight)
+        x, y, edge_index, edge_weight = self.get(idx)
+        return PyGData(x=x, y=y, edge_index=edge_index, edge_attr=edge_weight)
 
     def __len__(self) -> int:
         """
@@ -188,13 +188,16 @@ class IGData(Dataset, ABC):
                  or the number of classes/targets for vector labels).
         """
         y = self[0].y
+        print(y)
         if y.ndim == 0:
             return 1
         elif y.ndim == 1:
             return y.shape[0]
+        elif y.ndim == 2:
+            return len(y[0])
         else:
             raise DataError(
-                f"Expected label tensor to be 0D or 1D, got {y.ndim}D (shape={tuple(y.shape)})"
+                f"Expected label tensor to be 0D, 1D, or 2D, got {y.ndim}D (shape={tuple(y.shape)})"
             )
 
     @property
@@ -217,7 +220,7 @@ class IGData(Dataset, ABC):
         Returns:
             tuple[torch.Tensor, ...]: Tuple containing:
                 - features (torch.Tensor): Node features of shape [num_nodes, num_features].
-                - labels (torch.Tensor): Target labels of shape [num_labels].
+                - labels (torch.Tensor): Target labels of shape [1, num_labels].
                 - edge_index (torch.Tensor): Edge indices of shape [2, num_edges].
                 - edge_weight (torch.Tensor): Edge weights of shape [num_edges].
 
@@ -237,13 +240,14 @@ class IGData(Dataset, ABC):
         except (IndexError, KeyError) as e:
             raise DataError(f"Failed to retrieve record at index {idx}: {e}")
 
-        # normalize
-
         # --- features ---
         try:
-            features_np = np.array(data["features"], dtype=np.float32, copy=True)
+            features_np = np.asarray(data["features"], dtype=np.float32)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'features' field")
+        if features_np.ndim == 1:
+            # ensure 2D
+            features_np = features_np[np.newaxis, :]
 
         # --- labels ---
         labels_vals = []
@@ -251,23 +255,33 @@ class IGData(Dataset, ABC):
             if name not in data:
                 raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])
-        labels_np = np.asarray(labels_vals, dtype=np.float32)
+        labels_np = np.asarray(labels_vals, dtype=np.float32).reshape(1, -1)
 
         # --- edges ---
         try:
-            ei_np = np.array(data["edge_index"], dtype=np.int64, copy=True)
+            ei_np = np.asarray(data["edge_index"], dtype=np.int64)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'edge_index' field")
         try:
-            ew_np = np.array(data["edge_weight"], dtype=np.float32, copy=True)
+            ew_np = np.asarray(data["edge_weight"], dtype=np.int64)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'edge_weight' field")
 
         # sanity checks
-        if ei_np.ndim != 2 or ei_np.shape[0] != 2:
-            raise DataError(f"'edge_index' must be shape [2, E], got {ei_np.shape} at index {idx}")
+        # normalize edge shapes
+        if ei_np.ndim != 2:
+            raise DataError(f"'edge_index' must be 2-D, got {ei_np.shape} at index {idx}")
+        if ei_np.shape[0] == 2:
+            pass  # already [2, E]
+        elif ei_np.shape[1] == 2:
+            ei_np = ei_np.T  # [E, 2] -> [2, E]
+        else:
+            raise DataError(f"'edge_index' must be [2, E] or [E, 2], got {ei_np.shape} at index {idx}")
+        if ew_np.ndim == 2 and ew_np.shape[1] == 1:
+            ew_np = ew_np.reshape(-1)  # [E, 1] -> [E]
         if ew_np.ndim != 1:
-            raise DataError(f"'edge_weight' must be 1-D, got {ew_np.shape} at index {idx}")
+            raise DataError(f"'edge_weight' must be 1-D (or [E, 1]), got {ew_np.shape} at index {idx}")
+
         if ei_np.shape[1] != ew_np.shape[0]:
             raise DataError(
                 f"edge count mismatch: edge_index has {ei_np.shape[1]} edges "
@@ -278,6 +292,6 @@ class IGData(Dataset, ABC):
         features = torch.from_numpy(features_np)
         labels = torch.from_numpy(labels_np)
         edge_index = torch.from_numpy(ei_np).long()
-        edge_weight = torch.from_numpy(ew_np)
+        edge_weight = torch.from_numpy(ew_np).float()
 
         return features, labels, edge_index, edge_weight

@@ -1,5 +1,8 @@
 # Changelog
 
+#### Version [0.8.1] --- August 25th, 2025:
+- Fix multilabel training.
+
 ### Version [0.8.0] --- August 23rd, 2025:
 - Complete rewrite of processing pipeline, added `icegraph.data.pipeline.Pipeline` object for single pass data processing. All data processing is now handled by the `Pipeline` object which accepts an extractor, any number of processors, and a writer (collectively called "operators"). The `Pipeline` will wire each stage together and stream data through. Custom operators are supported.
 - Added regression parity plots and associated callback.

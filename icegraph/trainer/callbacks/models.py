@@ -142,13 +142,13 @@ class RegressionMetricsCallback(Callback):
             pred = test_pred[:, i]
             targ = test_targ[:, i]
 
-            axis_title = label
+            axis_title = r"\text{%s}$" % label
 
             if self._target_labels[i] in self._y_asinh_mask:
                 pred = torch.log10(pred)
                 targ = torch.log10(targ)
 
-                axis_title = r"log_{10}(\text{%s})$" % axis_title
+                axis_title = r"log_{10}%s" % axis_title
 
             plot = ParityPlot()
             plot.plot(

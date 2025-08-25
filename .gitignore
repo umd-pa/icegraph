@@ -129,3 +129,7 @@ Thumbs.db
 secrets.env
 *.key
 *.pem
+
+main.py
+*.old
+runpytest.sh
