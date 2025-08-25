@@ -20,6 +20,7 @@ data:
   # truth labels to use for training
   target_labels:
     - PrimaryNeutrinoEnergy
+    - PrimaryNeutrinoAzimuth
 
   splits:
     weights: {train: 60, val: 20, test: 20}
@@ -44,7 +45,7 @@ training:
     num_nbrs: 16
     hidden_layers: 3
     hidden_channels: 256
-    test_interval_epochs: 50
+    test_interval_epochs: 5
 
   normalizer: ZScoreNormalizer
 
