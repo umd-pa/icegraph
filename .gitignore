@@ -133,3 +133,4 @@ secrets.env
 main.py
 *.old
 runpytest.sh
+initicetray.sh
