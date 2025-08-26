@@ -41,7 +41,7 @@ cat <<EOF > initicetray.sh
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-venv = $venv
+venv=$venv
 
 eval $(/cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/setup.sh)
 source "\$venv/bin/activate"
