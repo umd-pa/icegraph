@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from icegraph.console import Console
 from icegraph.config import IGConfig
-from icegraph.console.streams import suppress_stderr
+from icegraph.console._streams import suppress_stderr
 from icegraph.utils import is_port_available
 from .base.exceptions import PortUnavailableError
 

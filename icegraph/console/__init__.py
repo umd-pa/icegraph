@@ -2,7 +2,9 @@
 # Developed by Taylor St Jean
 
 from .console import Console
+from .objects import Spinner
 
 Console.__module__ = __name__
+Spinner.__module__ = __name__
 
-__all__ = ["Console"]
+__all__ = ["Console", "Spinner"]

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from icegraph.data.base.operator import Operator
+from icegraph.data.base import Operator
 
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline

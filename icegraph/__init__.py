@@ -8,7 +8,6 @@ from . import (
     geometry,
     renderer,
     trainer,
-    pathutils,
     utils,
     exceptions,
     inference
@@ -21,7 +20,6 @@ __all__ = [
     "renderer",
     "trainer",
     "geometry",
-    "pathutils",
     "utils",
     "exceptions",
     "inference"

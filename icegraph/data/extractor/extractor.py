@@ -37,7 +37,7 @@ class FeatureExtractor(Extractor):
         if self._worker_proc and self._worker_proc.is_alive():
             return
 
-        from .workers import worker_main  # import only when needed
+        from ._workers import worker_main  # import only when needed
 
         self._task_q = mp.Queue(maxsize=32)
         self._status_q = mp.Queue(maxsize=128)

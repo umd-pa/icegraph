@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from multiprocessing import Queue
 
-from icegraph.console.streams import suppress_output
+from icegraph.console._streams import suppress_output
 
 
 def _run_icetray_pipeline(
@@ -75,7 +75,7 @@ def _run_icetray_pipeline(
 
 def worker_main(task_q: Queue, status_q: Queue) -> None:
     """
-    Simple loop: receive tasks, run the tray, report status.
+    Receive tasks, run the tray, report status.
     Expected task: dict with keys:
       - infile: str (path)
       - gcd_path: str (path)

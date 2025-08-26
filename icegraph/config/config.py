@@ -10,7 +10,7 @@ from dotmap import DotMap
 import yaml
 from pydantic import ValidationError
 
-from .schemas import FullConfig
+from ._schemas import FullConfig
 
 __all__ = ["IGConfig"]
 
