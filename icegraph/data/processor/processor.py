@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, List, TYPE_CHECKING, Tuple, Dict
+from typing import Optional, List, TYPE_CHECKING, Dict
 
 import pandas as pd
 import numpy as np

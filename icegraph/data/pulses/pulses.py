@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from icegraph.config import IGConfig
-from icegraph.pathutils import PathValidator
+from icegraph.utils.pathutils import PathValidator
 from icegraph.exceptions import IceCubeImportError
 
 import warnings

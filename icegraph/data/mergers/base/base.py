@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 from typing import Union, Optional
 from pathlib import Path
 
-from icegraph.pathutils import PathValidator
+from icegraph.utils.pathutils import PathValidator
 
 __all__ = ["IGMerger"]
 

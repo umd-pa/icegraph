@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Union, Optional, List, Literal, Dict, Generato
 from torch_geometric.data import Batch
 import torch
 
-from icegraph.data.readers import LMDBDatasetShardReader, LMDBReader
+from icegraph.data.readers import LMDBDatasetShardReader
 from icegraph.utils import Statistics
 from icegraph.console import Console
 

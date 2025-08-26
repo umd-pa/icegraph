@@ -13,7 +13,7 @@ import pandas as pd
 from .base import IGMerger
 from icegraph.console import Console
 from icegraph.data.writers import LMDBWriter
-from icegraph.pathutils import PathResolver
+from icegraph.utils.pathutils import PathResolver
 from .base.exceptions import MissingLMDBFilesError, MissingHDF5FilesError, MergeError, MergeToolNotFoundError
 from icegraph.utils import disabled_class
 

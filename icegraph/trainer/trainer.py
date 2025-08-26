@@ -18,7 +18,7 @@ from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 from .config import TrainerConfig
 from .arch import ModelFactory
-from icegraph.pathutils import PathResolver
+from icegraph.utils.pathutils import PathResolver
 from .callbacks.base import Callback, Normalizer
 from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, normalizers
 from .base.exceptions import EmptyDataLoaderError, TrainerError

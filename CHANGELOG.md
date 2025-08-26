@@ -1,5 +1,9 @@
 # Changelog
 
+#### Version [0.8.2] --- August 26th, 2025:
+- Renamed multiple files for clarity.
+- Moved `icegraph.pathutils` into `icegraph.utils.pathutils`.
+
 #### Version [0.8.1] --- August 25th, 2025:
 - Fix multilabel training.
 

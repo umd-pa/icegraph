@@ -7,16 +7,12 @@ from pathlib import Path
 from typing import List, Tuple, Union, Sequence, Iterator, Dict, Optional, overload, Self, Any, ClassVar, Generator
 from collections import OrderedDict
 import msgpack
-import hashlib
-import threading
 
 import pandas as pd
 import numpy as np
 
-from icegraph.config import IGConfig
-from icegraph.pathutils import PathValidator, PathResolver
+from icegraph.utils.pathutils import PathResolver, PathValidator
 from icegraph.console import Console
-from icegraph.utils import Statistics
 
 import msgpack_numpy as m
 m.patch()  # allow msgpack to work with numpy objects

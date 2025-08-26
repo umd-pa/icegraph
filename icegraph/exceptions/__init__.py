@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import IceGraphError, IceCubeImportError
+from .exceptions import IceGraphError, IceCubeImportError
 
 IceGraphError.__module__ = __name__
 IceCubeImportError.__module__ = __name__
