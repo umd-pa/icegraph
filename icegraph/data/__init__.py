@@ -3,10 +3,12 @@
 
 from .datasets import TrainingDataset, ValidationDataset, TestDataset
 from .registry import DatasetRegistry
+from .pipeline import Pipeline
 
 TrainingDataset.__module__ = __name__
 ValidationDataset.__module__ = __name__
 TestDataset.__module__ = __name__
 DatasetRegistry.__module__ = __name__
+Pipeline.__module__ = __name__
 
-__all__ = ["TrainingDataset", "ValidationDataset", "TestDataset", "DatasetRegistry"]
+__all__ = ["TrainingDataset", "ValidationDataset", "TestDataset", "DatasetRegistry", "Pipeline"]

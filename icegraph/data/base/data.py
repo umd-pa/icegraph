@@ -188,7 +188,6 @@ class IGData(Dataset, ABC):
                  or the number of classes/targets for vector labels).
         """
         y = self[0].y
-        print(y)
         if y.ndim == 0:
             return 1
         elif y.ndim == 1:

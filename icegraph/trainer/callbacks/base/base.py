@@ -176,7 +176,7 @@ class Callback(ABC):
         pass
 
 
-class StatMixin:
+class _StatMixin:
 
     @staticmethod
     def _get_global_stats(trainer: Trainer) -> Tuple[Statistics, Statistics]:
@@ -206,7 +206,7 @@ class StatMixin:
         return global_f, global_l
 
 
-class Normalizer(Callback, torch.nn.Module, StatMixin):
+class Normalizer(Callback, torch.nn.Module, _StatMixin):
 
     def __init__(self, param_list: List[str], **kwargs) -> None:
         """Initialize the normalizer."""

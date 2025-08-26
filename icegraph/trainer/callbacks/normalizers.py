@@ -11,7 +11,7 @@ from icegraph.console import Console
 from .base import Normalizer
 from icegraph.data.base import IGData
 
-__all__ = ["MinMaxNormalizer", "resolve_normalizer"]
+__all__ = ["MinMaxNormalizer", "ZScoreNormalizer", "resolve_normalizer"]
 
 
 def resolve_normalizer(name: str) -> Normalizer:

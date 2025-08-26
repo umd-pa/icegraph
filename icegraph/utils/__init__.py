@@ -5,10 +5,13 @@ from .networking import is_port_available
 from .statutils import Statistics
 from .flags import disabled_class
 from .hashutils import stable_hash_cbor
+from .pathutils import PathResolver, PathValidator
 
 is_port_available.__module__ = __name__
 Statistics.__module__ = __name__
 disabled_class.__module__ = __name__
 stable_hash_cbor.__module__ = __name__
+PathResolver.__module__ = __name__
+PathValidator.__module__ = __name__
 
-__all__ = ["is_port_available", "Statistics", "disabled_class", "stable_hash_cbor"]
+__all__ = ["is_port_available", "Statistics", "disabled_class", "stable_hash_cbor", "PathValidator", "PathResolver"]

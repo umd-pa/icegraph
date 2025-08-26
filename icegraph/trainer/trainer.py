@@ -16,11 +16,11 @@ import torch_scatter
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
-from .config import TrainerConfig
+from ._config import TrainerConfig
 from .arch import ModelFactory
 from icegraph.utils.pathutils import PathResolver
 from .callbacks.base import Callback, Normalizer
-from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, normalizers
+from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, resolve_normalizer
 from .base.exceptions import EmptyDataLoaderError, TrainerError
 
 __all__ = ["Trainer"]
@@ -119,7 +119,7 @@ class Trainer(torch.nn.Module):
 
         # grab normalizer
         norm_selection = self._config.user_config.training.normalizer
-        self.normalizer = normalizer or normalizers.resolve_normalizer(norm_selection)
+        self.normalizer = normalizer or resolve_normalizer(norm_selection)
 
         # grab callbacks
         self.callbacks = callbacks or default_callbacks
