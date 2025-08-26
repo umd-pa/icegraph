@@ -35,4 +35,21 @@ echo "Installing dependencies, this may take a while..."
 "$SROOT/metaprojects/icetray/v1.12.1/env-shell.sh" \
   $venv/bin/python3.11 -m pip install -v --progress-bar on -r requirements.txt
 
+echo "Generating initicetray.sh..."
+cat <<EOF > initicetray.sh
+#!/bin/bash
+# Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
+# Developed by Taylor St Jean
+
+venv = $venv
+
+eval $(/cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/setup.sh)
+source "\$venv/bin/activate"
+
+# Force Python to prioritize virtual environment
+export PYTHONPATH="\$venv/lib/python3.11/site-packages:$PYTHONPATH"
+
+"$SROOT"/metaprojects/icetray/v1.12.1/env-shell.sh "\$venv/bin/python3.11" "$@"
+EOF
+
 echo "Install complete."
