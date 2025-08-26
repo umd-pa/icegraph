@@ -9,7 +9,7 @@ os.environ.setdefault("HDF5_USE_FILE_LOCKING", "TRUE")
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import List, ClassVar, Optional, Iterator, Sequence, Union, Generic, TypeVar, Tuple, Callable, \
+from typing import List, ClassVar, Optional, Iterator, Sequence, Union, TypeVar, Tuple, \
     TypeAlias, Self, TYPE_CHECKING, Dict, Any, Type
 from queue import Queue, Empty, Full
 from pathlib import Path
@@ -18,7 +18,7 @@ import shutil
 import tempfile
 import threading
 import os
-from threading import Thread, Lock, current_thread, Event
+from threading import Thread, current_thread, Event
 import logging
 
 import pandas as pd
@@ -27,7 +27,7 @@ import portalocker
 from .extractor.base import Extractor
 from .processor.base import Processor
 from .writers.base import Writer
-from icegraph.pathutils import PathResolver, PathValidator
+from icegraph.utils.pathutils import PathResolver
 from icegraph.console import Console
 from .base.exceptions import PipelineBuildError
 from icegraph.config import IGConfig

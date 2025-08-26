@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import TrainingDataset, ValidationDataset, TestDataset
+from .datasets import TrainingDataset, ValidationDataset, TestDataset
 from .registry import DatasetRegistry
 
 TrainingDataset.__module__ = __name__

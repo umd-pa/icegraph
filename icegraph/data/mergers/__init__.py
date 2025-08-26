@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .models import LMDBMerger, HDF5Merger
+from .mergers import LMDBMerger, HDF5Merger
 
 LMDBMerger.__module__ = __name__
 HDF5Merger.__module__ = __name__

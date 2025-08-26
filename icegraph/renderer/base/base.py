@@ -5,13 +5,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union, Sequence
 
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 from icegraph.console import Console
-from icegraph.geometry import Detector
 
 import warnings
 
