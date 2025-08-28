@@ -58,7 +58,7 @@ class TrainerParamsConfig(BaseModel):
     num_nbrs: int
     hidden_layers: int
     hidden_channels: int
-    test_interval_epochs: int
+    val_interval_epochs: int
 
 
 class OptimizerConfig(BaseModel):

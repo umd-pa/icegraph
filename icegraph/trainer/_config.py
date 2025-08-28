@@ -10,7 +10,7 @@ from icegraph.config import IGConfig
 @dataclass
 class TrainerConfig:
     max_epochs: int
-    test_interval: int
+    val_interval: int
     hidden_channels: int
     hidden_layers: int
     seed: int
@@ -26,7 +26,7 @@ class TrainerConfig:
         opt = config.user_config.training.optimizer.toDict()
         return cls(
             max_epochs=p.max_epochs,
-            test_interval=p.test_interval_epochs,
+            val_interval=p.val_interval_epochs,
             hidden_channels=p.hidden_channels,
             hidden_layers=p.hidden_layers,
             seed=config.user_config.training.seed,
