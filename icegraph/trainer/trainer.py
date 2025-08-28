@@ -367,8 +367,7 @@ class Trainer(torch.nn.Module):
         """
         Train the model for the configured number of epochs.
 
-        Loops over epochs, logs MSE/RMSE, writes TensorBoard scalars if enabled,
-        and saves both latest and best checkpoints after each epoch.
+        Loops over epochs, logs MSE/RMSE.
         """
         self._fire("on_train_begin")
 
@@ -389,9 +388,9 @@ class Trainer(torch.nn.Module):
             self.save(epoch=epoch, metrics=metrics)
 
             # only run on specified intervals
-            test_interval = self.trainer_config.test_interval
-            if test_interval > 0 and (epoch + 1) % test_interval == 0:
-                self._test(epoch=epoch)
+            val_interval = self.trainer_config.val_interval
+            if val_interval > 0 and (epoch + 1) % val_interval == 0:
+                self._validate(epoch=epoch)
 
         self._fire("on_train_end")
 
@@ -440,4 +439,4 @@ class Trainer(torch.nn.Module):
         Execute the full pipeline: training, testing at set intervals, final validation, and teardown.
         """
         self._train()
-        self._validate(self._max_epochs - 1)
+        self._test(self._max_epochs - 1)

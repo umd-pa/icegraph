@@ -45,7 +45,7 @@ training:
     num_nbrs: 16
     hidden_layers: 3
     hidden_channels: 256
-    test_interval_epochs: 5
+    val_interval_epochs: 1
 
   normalizer: ZScoreNormalizer
 
