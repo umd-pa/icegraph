@@ -131,6 +131,12 @@ class RegressionMetricsCallback(Callback):
         self._target_labels = IGData.attrs[0]["global"]["target_labels"]
 
     def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+        self._build_plot(trainer, epoch, "test")
+
+    def on_validation_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+        self._build_plot(trainer, epoch, "validation")
+
+    def _build_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
         test_pred = trainer.test_predictions
         test_targ = trainer.test_targets
 
@@ -142,20 +148,20 @@ class RegressionMetricsCallback(Callback):
             pred = test_pred[:, i]
             targ = test_targ[:, i]
 
-            axis_title = r"\text{%s}$" % label
+            axis_title = r"\text{%s}" % label
 
             if self._target_labels[i] in self._y_asinh_mask:
                 pred = torch.log10(pred)
                 targ = torch.log10(targ)
 
-                axis_title = r"log_{10}%s" % axis_title
+                axis_title = r"log_{10}\left[%s\right]" % axis_title
 
             plot = ParityPlot()
             plot.plot(
                 x=targ,
                 y=pred,
-                title=f"{label} Parity [Epoch {epoch + 1}]",
                 save_path=trainer.outdir / f"{label}.parity.{epoch + 1}.html",
-                yaxis_title=r"$\text{Predicted }" + axis_title,
-                xaxis_title=r"$\text{True }" + axis_title,
+                title=f"{label} Parity [Epoch {epoch + 1} - Dataset: {dataset.title()}]",
+                yaxis_title=r"$\text{Predicted }%s$" % axis_title,
+                xaxis_title=r"$\text{True }%s$" % axis_title,
             )
