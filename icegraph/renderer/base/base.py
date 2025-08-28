@@ -3,9 +3,11 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union, Sequence
+from typing import TYPE_CHECKING, Optional, Union
 
 import plotly.graph_objects as go
+import numpy as np
+import torch
 
 from icegraph.config import IGConfig
 from icegraph.console import Console
@@ -34,60 +36,88 @@ class IGBasicPlot(ABC):
     """
     Base class for basic plots.
     """
+    # plot sizing
+    _inner_px = 600
+    _pad_px = 80
+
+    # for any colorbar (low saturation steel blue)
+    _colorbar = [[0, "rgba(0, 0, 0, 0)"], [0.0001, "#B5CAE6"], [1, "#08519C"]]
+
+    # plot base colors
+    _background_color = "#FFFFFF"
+    _border_color = "#111111"
+    _legend_border_color = "rgba(0, 0, 0, 0.25)"
+    _grid_color = "#CCCCCC"
+
+    # for simple overlays
+    _dark_gray = '#222222'
+
+    # accent 1 (magenta) variations
+    _accent_1 = 'rgba(255,45,134,1)'
+    _accent_1_opaque = 'rgba(255,45,134,0.85)'
+    _accent_1_opaque_fill = 'rgba(255,45,134,0.18)'
 
     def __init__(self) -> None:
         self._config = IGConfig.get()
         self._fig = go.Figure()
 
     @abstractmethod
-    def _populate_plot(self, x: Sequence[Union[int, float]], y: Sequence[Union[int, float]]) -> None:
+    def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
         """
         Abstract method to populate the plot with subclass-specific logic.
 
-        This method should modify `self._fig` using data from the specified DOM,
-        and return the associated DOM metadata.
+        This method should modify `self._fig`.
 
         Args:
-            x (Sequence[Union[int, float]): X values.
-            y (Sequence[Union[int, float]): Y values.
-
-        Returns:
-            (Pulses.DOMMetadata): Metadata associated with the plotted DOM.
+            x (np.ndarray): X values.
+            y (np.ndarray): Y values.
+            nbins (int): Number of bins for the heatmap.
         """
         ...
 
-    def plot(self, x: Sequence[Union[int, float]], y: Sequence[Union[int, float]], title: str, save_path: Optional[Union[str, Path]] = None, **kwargs) -> None:
+    def plot(self, x: torch.Tensor, y: torch.Tensor, save_path: Optional[Union[str, Path]] = None, **kwargs) -> None:
         """
-        Generate and save a plot for the specified DOM.
-
         This method calls `_populate_plot` to fill in plot data and saves the figure as an HTML file.
 
         Args:
-            x (Sequence[Union[int, float]): X values.
-            y (Sequence[Union[int, float]): Y values.
-            title (str): Plot title.
+            x (torch.Tensor): X values.
+            y (torch.Tensor): Y values.
             save_path (Optional[Union[str, Path]]): The path where the HTML plot file will be saved.
         """
-        self._populate_plot(x, y)
+        self._populate_plot(x.detach().cpu().numpy(), y.detach().cpu().numpy(), nbins=100)
 
         save_path = Path(
             save_path or
             Path(self._config.user_config.io.default_dir) /
-            f"{title}.html"
+            f"{kwargs.get('title', 'default')}.html"
         )
 
         if save_path.is_dir():
-            save_path = save_path / f"{title}.html"
+            save_path = save_path / f"{kwargs.get('title', 'default')}.html"
 
         self._fig.update_layout(
             **kwargs,
             font=dict(
                 size=16
             ),
-            title=(
-                title
-            )
+            plot_bgcolor=self._background_color, paper_bgcolor=self._background_color,
+            legend=dict(
+                x=0.02, y=0.98, xanchor="left", yanchor="top",
+                bgcolor=self._background_color, bordercolor=self._legend_border_color,
+                borderwidth=1, orientation="v"
+            ),
+            width=self._inner_px + self._pad_px + self._pad_px,
+            height=self._inner_px + self._pad_px + self._pad_px,
+            margin=dict(l=self._pad_px, r=self._pad_px, t=self._pad_px, b=self._pad_px),
+            yaxis=dict(scaleanchor="x", scaleratio=1)
         )
+
+        axis_kwargs = dict(
+            showgrid=True, gridcolor=self._grid_color, gridwidth=1, zeroline=False,
+            showline=True, linecolor=self._border_color, linewidth=1.25, mirror=True
+        )
+        self._fig.update_xaxes(**axis_kwargs)
+        self._fig.update_yaxes(**axis_kwargs)
 
         self.save(save_path)
 
