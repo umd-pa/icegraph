@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING, List
+from typing import Optional, TYPE_CHECKING, List, ClassVar, Callable, Dict, Any
 
 import torch
 
@@ -11,7 +11,7 @@ from icegraph.console import Console
 from icegraph.data.base import IGData
 from icegraph.inference import CoreModel
 from icegraph.trainer.tensorboard import TensorBoard
-from icegraph.renderer import ParityPlot
+from icegraph.renderer import ParityPlot, BiasPlot
 from icegraph._version import __version__
 
 __all__ = ["TensorBoardCallback", "ExportCallback", "ConsoleCallback", "RegressionMetricsCallback"]
@@ -122,31 +122,63 @@ class ExportCallback(Callback):
 
 class RegressionMetricsCallback(Callback):
 
+    # class vars
+    _plotters:  ClassVar[List[Callable[..., None]]] = []
+
+    # define a cache for storing plotting configurations
+    _cache:     ClassVar[Dict[str, Any]]            = {}
+
     def __init__(self) -> None:
-        self._y_asinh_mask: Optional[List[str]] = None
-        self._target_labels: Optional[List[str]] = None
+        self._y_asinh_mask:     Optional[List[str]] = None
+        self._target_labels:    Optional[List[str]] = None
+        self._include_labels:   Optional[List[str]] = None
 
     def on_init(self, trainer: Trainer) -> None:
-        self._y_asinh_mask = IGData.attrs[0]["global"]["apply_log_scaling_y"]
-        self._target_labels = IGData.attrs[0]["global"]["target_labels"]
+        self._y_asinh_mask =    IGData.attrs[0]["global"]["apply_log_scaling_y"]
+        self._include_labels =  IGData.attrs[0]["global"]["include_labels"]
+        self._target_labels =   IGData.attrs[0]["global"]["target_labels"]
 
     def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
-        self._build_plot(trainer, epoch, "test")
+        for plotter in type(self)._plotters:
+            plotter(self, trainer, epoch, "test")
 
     def on_validation_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
-        self._build_plot(trainer, epoch, "validation")
+        for plotter in type(self)._plotters:
+            plotter(self, trainer, epoch, "val")
 
-    def _build_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
-        test_pred = trainer.test_predictions
-        test_targ = trainer.test_targets
+    @classmethod
+    def enqueue_parity(cls) -> None:
+        cls._plotters.append(cls._build_parity_plot)
 
-        n_cols = test_pred.shape[1]
+    @classmethod
+    def enqueue_bias(cls, e_true: str) -> None:
+        cls._plotters.append(cls._build_bias_plot)
+
+        # grab target and included labels from metadata
+        _include_labels = IGData.attrs[0]["global"]["include_labels"]
+        _target_labels = IGData.attrs[0]["global"]["target_labels"]
+
+        # ensure the passed label exists in the processed dataset
+        if e_true not in (_include_labels + _target_labels):
+            raise KeyError(
+                f"Label '{e_true}' not found in dataset, select from available labels: "
+                f"[{', '.join(_include_labels + _target_labels)}]"
+            )
+
+        # if it exists, cache it for the plotter
+        cls._cache["e_true"] = e_true
+
+    def _build_parity_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
+        preds = getattr(trainer, f"{dataset}_predictions")
+        targs = getattr(trainer, f"{dataset}_targets")
+
+        n_cols = preds.shape[1]
 
         for i in range(n_cols):
             label = self._target_labels[i]
 
-            pred = test_pred[:, i]
-            targ = test_targ[:, i]
+            pred = preds[:, i]
+            targ = targs[:, i]
 
             axis_title = r"\text{%s}" % label
 
@@ -161,7 +193,40 @@ class RegressionMetricsCallback(Callback):
                 x=targ,
                 y=pred,
                 save_path=trainer.outdir / f"{label}.parity.{epoch + 1}.html",
-                title=f"{label} Parity [Epoch {epoch + 1} - Dataset: {dataset.title()}]",
+                title=f"{label} Parity [Epoch {epoch + 1} - {dataset.title()}]",
                 yaxis_title=r"$\text{Predicted }%s$" % axis_title,
                 xaxis_title=r"$\text{True }%s$" % axis_title,
+            )
+
+    def _build_bias_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
+        cls = type(self)
+
+        preds = getattr(trainer, f"{dataset}_predictions")
+        targs = getattr(trainer, f"{dataset}_targets")
+        incls = getattr(trainer, f"{dataset}_includes")
+
+        e_true = cls._cache["e_true"]
+        if e_true in self._include_labels:
+            x = incls[:, self._include_labels.index(e_true)]
+        elif e_true in self._target_labels:
+            x = targs[:, self._target_labels.index(e_true)]
+        else:
+            raise KeyError(f"Key '{e_true}' not found in target or included labels, you messed up!")
+
+        n_cols = preds.shape[1]
+
+        for i in range(n_cols):
+            label = self._target_labels[i]
+
+            pred = preds[:, i]
+            targ = targs[:, i]
+
+            plot = BiasPlot()
+            plot.plot(
+                x=x,
+                y=targ - pred,
+                save_path=trainer.outdir / f"{label}.bias.{epoch + 1}.html",
+                title=f"{label} Bias [Epoch {epoch + 1} - {dataset.title()}]",
+                yaxis_title=r"$\text{(True - Reco) %s}$" % label,
+                xaxis_title=r"$\text{%s}$" % e_true,
             )

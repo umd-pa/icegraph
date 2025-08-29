@@ -26,7 +26,7 @@ except ImportError:
 
 OMKey = _OMKey
 
-__all__ = ["CDFPlot", "PDFPlot", "ChargeDistributionPlot", "ParityPlot"]
+__all__ = ["CDFPlot", "PDFPlot", "ChargeDistributionPlot", "ParityPlot", "BiasPlot"]
 
 
 class CDFPlot(IGDistributionPlot):
@@ -166,6 +166,9 @@ class ParityPlot(IGBasicPlot):
             showlegend=True
         ))
 
+        # lock paperspace aspect ratio
+        self._fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1))
+
     @staticmethod
     def get_median_and_containment(
             x: Sequence[Union[int, float]],
@@ -240,3 +243,12 @@ class ParityPlot(IGBasicPlot):
         hi_e = np.r_[hi, hi[-1]]
 
         return edges, med_e, lo_e, hi_e
+
+
+class BiasPlot(IGBasicPlot):
+
+    def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
+        # plot
+        self._fig.add_trace(go.Scatter(
+            x=x, y=y, mode="markers"
+        ))
