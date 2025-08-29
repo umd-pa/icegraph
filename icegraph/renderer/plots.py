@@ -308,3 +308,4 @@ class BiasPlot(IGBasicPlot, AnalysisMixin):
             showlegend=True, legendgroup="median",
             line_shape='hv'
         ))
+

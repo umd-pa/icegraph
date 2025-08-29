@@ -48,6 +48,7 @@ class IGBasicPlot(ABC):
     _border_color = "#111111"
     _legend_border_color = "rgba(0, 0, 0, 0.25)"
     _legend_background_color = "rgba(255, 255, 255, 0.7)"
+
     _grid_color = "#CCCCCC"
 
     # for simple overlays
@@ -55,7 +56,7 @@ class IGBasicPlot(ABC):
 
     # base color (steel blue)
     _color_1 = "#B5CAE6"
-
+    
     # accent 1 (magenta) variations
     _accent_1 = 'rgba(255,45,134,1)'
     _accent_1_opaque = 'rgba(255,45,134,0.85)'
