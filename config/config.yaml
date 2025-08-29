@@ -22,6 +22,11 @@ data:
     - PrimaryNeutrinoEnergy
     - PrimaryNeutrinoAzimuth
 
+  # any non-target labels to include (not used in training), useful for plotting
+  # these labels will be served to callbacks by the trainer during validation and test steps
+  include_labels:
+    - PrimaryNeutrinoEnergy
+
   splits:
     weights: {train: 60, val: 20, test: 20}
 
@@ -37,7 +42,7 @@ training:
   seed: 27
   # batch size controls how many samples are loaded into memory at a time in each
   # training batch (see torch_geometric.loader.DataLoader batch_size argument)
-  batch_size: 32
+  batch_size: 128
   num_workers: 16
 
   trainer_params:
@@ -45,7 +50,7 @@ training:
     num_nbrs: 16
     hidden_layers: 3
     hidden_channels: 256
-    val_interval_epochs: 1
+    val_interval_epochs: 50
 
   normalizer: ZScoreNormalizer
 

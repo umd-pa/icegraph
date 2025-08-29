@@ -100,8 +100,13 @@ class IGData(Dataset, ABC):
         Returns:
             pyg.data.Data: Torch-Geometric Data object containing data for the selected event.
         """
-        x, y, edge_index, edge_weight = self.get(idx)
-        return PyGData(x=x, y=y, edge_index=edge_index, edge_attr=edge_weight)
+        x, y, edge_index, edge_weight, include_labels = self.get(idx)
+        data = PyGData(x=x, y=y, edge_index=edge_index, edge_attr=edge_weight)
+
+        if include_labels is not None:
+            data.include_labels = include_labels
+
+        return data
 
     def __len__(self) -> int:
         """
@@ -209,7 +214,7 @@ class IGData(Dataset, ABC):
        """
         return self[0].x.size(-1)
 
-    def get(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """
         Read and decode a single event from the LMDB dataset.
 
@@ -222,6 +227,7 @@ class IGData(Dataset, ABC):
                 - labels (torch.Tensor): Target labels of shape [1, num_labels].
                 - edge_index (torch.Tensor): Edge indices of shape [2, num_edges].
                 - edge_weight (torch.Tensor): Edge weights of shape [num_edges].
+                - included_labels (Optional[torch.Tensor]): Included labels of shape [1, num_included_labels].
 
         Raises:
             MissingFieldError, DataError
@@ -255,6 +261,20 @@ class IGData(Dataset, ABC):
                 raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])
         labels_np = np.asarray(labels_vals, dtype=np.float32).reshape(1, -1)
+
+        # on validation and test splits, we need to include extra labels for access via callbacks
+        included_labels_vals = []
+        included_labels_np: Optional[np.ndarray] = None
+        if self.subset in ["validation", "test"]:
+            for name in cls.attrs[0]["global"]["include_labels"]:
+                if name in cls.attrs[0]["global"]["target_labels"]:
+                    # dont need to include the label if its already a target label
+                    continue
+                if name not in data:
+                    raise MissingFieldError(f"Included label '{name}' not found in record at index {idx}")
+                included_labels_vals.append(data[name])
+            if included_labels_vals:
+                included_labels_np = np.asarray(included_labels_vals, dtype=np.float32).reshape(1, -1)
 
         # --- edges ---
         try:
@@ -293,4 +313,7 @@ class IGData(Dataset, ABC):
         edge_index = torch.from_numpy(ei_np).long()
         edge_weight = torch.from_numpy(ew_np).float()
 
-        return features, labels, edge_index, edge_weight
+        # any included labels for test/val steps
+        included_labels = torch.from_numpy(included_labels_np) if included_labels_np is not None else None
+
+        return features, labels, edge_index, edge_weight, included_labels

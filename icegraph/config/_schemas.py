@@ -48,6 +48,7 @@ class DataNormalizationConfig(BaseModel):
 
 class DataConfig(BaseModel):
     target_labels: List[str]
+    include_labels: List[str]
     splits: DataSplitsConfig
     normalization: DataNormalizationConfig
 
