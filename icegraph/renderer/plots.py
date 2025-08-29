@@ -93,81 +93,7 @@ class ChargeDistributionPlot(IGDistributionPlot):
         return metadata
 
 
-class ParityPlot(IGBasicPlot):
-
-    def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
-        _range = [min(x), max(x)]
-
-        self._fig.update_layout(
-            xaxis_range=_range,
-            yaxis_range=_range,
-        )
-
-        edges = np.linspace(_range[0], _range[1], nbins + 1)
-        H, _, _ = np.histogram2d(x, y, bins=[edges, edges])
-
-        Z = H.astype(int)
-
-        centers = (edges[:-1] + edges[1:]) / 2
-        zmax = np.nanmax(Z) if np.isfinite(np.nanmax(Z)) else 1.0
-
-        # plot
-        self._fig.update_layout(
-            coloraxis=dict(
-                cmin=0, cmax=float(zmax),
-                colorscale=self._colorbar,
-                colorbar=dict(title="Count", len=1, y=0.5)
-            )
-        )
-        self._fig.add_trace(go.Heatmap(
-            x=centers, y=centers, z=Z.T,
-            zauto=False, zmin=0,
-            coloraxis="coloraxis",
-            showlegend=True, name="Data",
-            hoverongaps=False
-        ))
-
-        # calculate binned median and containment
-        edges, m_e, lq_e, uq_e = self.get_median_and_containment(x, y, int(nbins / 2))
-
-        # plot containment
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=lq_e, mode='lines',
-            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
-            showlegend=False, line_shape='hv',
-            legendgroup="median"
-        ))
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=uq_e, mode='lines',
-            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
-            fill='tonexty', fillcolor=self._accent_1_opaque_fill,
-            showlegend=False, line_shape='hv',
-            legendgroup="median"
-        ))
-
-        # add median line
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=m_e, mode='lines',
-            line=dict(color="white", width=3),
-            showlegend=False, legendgroup="median",
-            line_shape='hv'
-        ))
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=m_e, mode='lines',
-            line=dict(color=self._accent_1, width=2), name='Median w/ 68% Containment',
-            showlegend=True, legendgroup="median",
-            line_shape='hv'
-        ))
-
-        # plot 1:1 line
-        self._fig.add_trace(go.Scatter(
-            x=_range, y=_range, mode="lines",
-            line=dict(color=self._dark_gray, dash='dash', width=2), name="1:1",
-            showlegend=True
-        ))
-
-        # lock paperspace aspect ratio
-        self._fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1))
+class AnalysisMixin:
 
     @staticmethod
     def get_median_and_containment(
@@ -245,10 +171,140 @@ class ParityPlot(IGBasicPlot):
         return edges, med_e, lo_e, hi_e
 
 
-class BiasPlot(IGBasicPlot):
+class ParityPlot(IGBasicPlot, AnalysisMixin):
 
     def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
+        _range = [min(x), max(x)]
+
+        self._fig.update_layout(
+            xaxis_range=_range,
+            yaxis_range=_range,
+        )
+
+        edges = np.linspace(_range[0], _range[1], nbins + 1)
+        H, _, _ = np.histogram2d(x, y, bins=[edges, edges])
+
+        Z = H.astype(int)
+
+        centers = (edges[:-1] + edges[1:]) / 2
+        zmax = np.nanmax(Z) if np.isfinite(np.nanmax(Z)) else 1.0
+
         # plot
+        self._fig.update_layout(
+            coloraxis=dict(
+                cmin=0, cmax=float(zmax),
+                colorscale=self._colorbar,
+                colorbar=dict(title="Count", len=1, y=0.5)
+            )
+        )
+        self._fig.add_trace(go.Heatmap(
+            x=centers, y=centers, z=Z.T,
+            zauto=False, zmin=0,
+            coloraxis="coloraxis",
+            showlegend=True, name="Data",
+            hoverongaps=False
+        ))
+
+        # calculate binned median and containment
+        edges, m_e, lq_e, uq_e = self.get_median_and_containment(x, y, int(nbins / 2))
+
+        # plot containment
         self._fig.add_trace(go.Scatter(
-            x=x, y=y, mode="markers"
+            x=edges, y=lq_e, mode='lines',
+            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
+            showlegend=False, line_shape='hv',
+            legendgroup="median"
+        ))
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=uq_e, mode='lines',
+            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
+            fill='tonexty', fillcolor=self._accent_1_opaque_fill,
+            showlegend=False, line_shape='hv',
+            legendgroup="median"
+        ))
+
+        # add median line
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=m_e, mode='lines',
+            line=dict(color="white", width=3),
+            showlegend=False, legendgroup="median",
+            line_shape='hv'
+        ))
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=m_e, mode='lines',
+            line=dict(color=self._accent_1, width=2), name='Median w/ 68% Containment',
+            showlegend=True, legendgroup="median",
+            line_shape='hv'
+        ))
+
+        # plot 1:1 line
+        self._fig.add_trace(go.Scatter(
+            x=_range, y=_range, mode="lines",
+            line=dict(color=self._dark_gray, dash='dash', width=2), name="1:1",
+            showlegend=True
+        ))
+
+        # lock paperspace aspect ratio
+        self._fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1))
+
+
+class BiasPlot(IGBasicPlot, AnalysisMixin):
+
+    def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
+        _range = [min(x), max(x)]
+
+        edges = np.linspace(_range[0], _range[1], nbins + 1)
+        H, _, _ = np.histogram2d(x, y, bins=[edges, edges])
+
+        Z = H.astype(int)
+
+        centers = (edges[:-1] + edges[1:]) / 2
+        zmax = np.nanmax(Z) if np.isfinite(np.nanmax(Z)) else 1.0
+
+        # plot
+        self._fig.update_layout(
+            coloraxis=dict(
+                cmin=0, cmax=float(zmax),
+                colorscale=self._colorbar,
+                colorbar=dict(title="Count", len=1, y=0.5)
+            )
+        )
+        self._fig.add_trace(go.Heatmap(
+            x=centers, y=centers, z=Z.T,
+            zauto=False, zmin=0,
+            coloraxis="coloraxis",
+            showlegend=True, name="Data",
+            hoverongaps=False
+        ))
+
+        # calculate binned median and containment
+        edges, m_e, lq_e, uq_e = self.get_median_and_containment(x, y, int(nbins / 2))
+
+        # plot containment
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=lq_e, mode='lines',
+            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
+            showlegend=False, line_shape='hv',
+            legendgroup="median"
+        ))
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=uq_e, mode='lines',
+            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
+            fill='tonexty', fillcolor=self._accent_1_opaque_fill,
+            showlegend=False, line_shape='hv',
+            legendgroup="median"
+        ))
+
+        # add median line
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=m_e, mode='lines',
+            line=dict(color="white", width=3),
+            showlegend=False, legendgroup="median",
+            line_shape='hv'
+        ))
+        self._fig.add_trace(go.Scatter(
+            x=edges, y=m_e, mode='lines',
+            line=dict(color=self._accent_1, width=2), name='Median w/ 68% Containment',
+            showlegend=True, legendgroup="median",
+            line_shape='hv'
         ))

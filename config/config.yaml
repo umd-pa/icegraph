@@ -42,7 +42,7 @@ training:
   seed: 27
   # batch size controls how many samples are loaded into memory at a time in each
   # training batch (see torch_geometric.loader.DataLoader batch_size argument)
-  batch_size: 32
+  batch_size: 128
   num_workers: 16
 
   trainer_params:

@@ -53,6 +53,9 @@ class IGBasicPlot(ABC):
     # for simple overlays
     _dark_gray = '#222222'
 
+    # base color (steel blue)
+    _color_1 = "#B5CAE6"
+
     # accent 1 (magenta) variations
     _accent_1 = 'rgba(255,45,134,1)'
     _accent_1_opaque = 'rgba(255,45,134,0.85)'
