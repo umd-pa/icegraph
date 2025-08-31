@@ -1,5 +1,12 @@
 # Changelog
 
+#### Version [0.8.4] --- August 31st, 2025:
+- Somewhat fixed installer, needs more work and currently only functions on Ubuntu systems with GLIBC>=2.35.
+- Flipped val and test in trainer, they were incorrectly labelled.
+- Improved regression plots, added (somewhat functional) bias plots, still need work.
+- Added the ability to include labels that are not targets, these are provided to the trainer during evaluation loops, useful for analysis and plotting via callbacks.
+- Fixed a warning about non-writable tensors.
+
 #### Version [0.8.3] --- August 26th, 2025:
 - API cleanup, some files moved and some renamed.
 - Removed old `icegraph.pathutils`.

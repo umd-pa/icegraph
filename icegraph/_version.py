@@ -1,4 +1,4 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-__version__ = "0.8.3"
+__version__ = "0.8.4"
