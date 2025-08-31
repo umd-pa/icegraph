@@ -253,6 +253,7 @@ class TruthProcessor(Processor, HelperMixin):
         self.event_id_cols = self._config.internal_config.column_names.event_id_columns
         self.target_labels = self._config.user_config.data.target_labels
         self.apply_log_scaling_y = self._config.user_config.data.normalization.apply_log_scaling_y
+        self.include_labels = self._config.user_config.data.include_labels
 
         # get keys
         self.target_key = self._config.user_config.table_names.truth
@@ -262,7 +263,7 @@ class TruthProcessor(Processor, HelperMixin):
         df = self._load_from_hdf(env, self.target_key)
 
         # clean table if source hdf5 is fixed format and all cols were loaded
-        truth_needed = self.event_id_cols + list(self.target_labels)
+        truth_needed = list(set(self.event_id_cols + list(self.target_labels) + list(self.include_labels)))
         df = df[truth_needed]
 
         # register associated metadata
@@ -277,6 +278,7 @@ class TruthProcessor(Processor, HelperMixin):
 
         env.attrs["stat"]["label_stats"] = l_stats.to_dict()
         env.attrs["global"]["target_labels"] = self.target_labels
+        env.attrs["global"]["include_labels"] = [label for label in self.include_labels if label not in self.target_labels]
         env.attrs["global"]["apply_log_scaling_y"] = self.apply_log_scaling_y
 
 

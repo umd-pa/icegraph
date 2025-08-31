@@ -48,6 +48,7 @@ class DataNormalizationConfig(BaseModel):
 
 class DataConfig(BaseModel):
     target_labels: List[str]
+    include_labels: List[str]
     splits: DataSplitsConfig
     normalization: DataNormalizationConfig
 
@@ -58,7 +59,7 @@ class TrainerParamsConfig(BaseModel):
     num_nbrs: int
     hidden_layers: int
     hidden_channels: int
-    test_interval_epochs: int
+    val_interval_epochs: int
 
 
 class OptimizerConfig(BaseModel):

@@ -157,8 +157,8 @@ class Trainer(torch.nn.Module):
         self._max_epochs = self.trainer_config.max_epochs
 
         self._last_eval = {
-            "val": {"preds": None, "targets": None},
-            "test": {"preds": None, "targets": None},
+            "val": {"preds": None, "targets": None, "includes": None},
+            "test": {"preds": None, "targets": None, "includes": None},
         }
 
         self._fire("on_init")
@@ -190,12 +190,20 @@ class Trainer(torch.nn.Module):
         return self._last_eval["val"]["targets"]
 
     @property
+    def val_includes(self) -> Optional[torch.Tensor]:
+        return self._last_eval["val"]["includes"]
+
+    @property
     def test_predictions(self) -> Optional[torch.Tensor]:
         return self._last_eval["test"]["preds"]
 
     @property
     def test_targets(self) -> Optional[torch.Tensor]:
         return self._last_eval["test"]["targets"]
+
+    @property
+    def test_includes(self) -> Optional[torch.Tensor]:
+        return self._last_eval["test"]["includes"]
 
     def _ensure_single_normalizer(self) -> None:
         _normalizers: List[Normalizer] = [cb for cb in self.callbacks + [self.normalizer] if isinstance(cb, Normalizer)]
@@ -318,6 +326,7 @@ class Trainer(torch.nn.Module):
         collect = stash in {"val", "test"}
         outs: list[torch.Tensor] = []
         targets: list[torch.Tensor] = []
+        includes: list[torch.Tensor] = []
 
         # use no_grad on eval loops
         with torch.no_grad():
@@ -342,9 +351,14 @@ class Trainer(torch.nn.Module):
                     outs.append(out.detach().cpu().clone())
                     targets.append(target.detach().cpu().clone())
 
+                    # grab includes if present
+                    if hasattr(batch, "include_labels"):
+                        includes.append(batch.include_labels.detach().cpu().clone())
+
             if collect:
                 self._last_eval[stash]["preds"] = torch.cat(outs, dim=0) if outs else None
                 self._last_eval[stash]["targets"] = torch.cat(targets, dim=0) if targets else None
+                self._last_eval[stash]["includes"] = torch.cat(includes, dim=0) if includes else None
 
         return metrics
 
@@ -367,8 +381,7 @@ class Trainer(torch.nn.Module):
         """
         Train the model for the configured number of epochs.
 
-        Loops over epochs, logs MSE/RMSE, writes TensorBoard scalars if enabled,
-        and saves both latest and best checkpoints after each epoch.
+        Loops over epochs, logs MSE/RMSE.
         """
         self._fire("on_train_begin")
 
@@ -389,9 +402,9 @@ class Trainer(torch.nn.Module):
             self.save(epoch=epoch, metrics=metrics)
 
             # only run on specified intervals
-            test_interval = self.trainer_config.test_interval
-            if test_interval > 0 and (epoch + 1) % test_interval == 0:
-                self._test(epoch=epoch)
+            val_interval = self.trainer_config.val_interval
+            if val_interval > 0 and (epoch + 1) % val_interval == 0:
+                self._validate(epoch=epoch)
 
         self._fire("on_train_end")
 
@@ -440,4 +453,4 @@ class Trainer(torch.nn.Module):
         Execute the full pipeline: training, testing at set intervals, final validation, and teardown.
         """
         self._train()
-        self._validate(self._max_epochs - 1)
+        self._test(self._max_epochs - 1)

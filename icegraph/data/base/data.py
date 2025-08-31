@@ -100,8 +100,13 @@ class IGData(Dataset, ABC):
         Returns:
             pyg.data.Data: Torch-Geometric Data object containing data for the selected event.
         """
-        x, y, edge_index, edge_weight = self.get(idx)
-        return PyGData(x=x, y=y, edge_index=edge_index, edge_attr=edge_weight)
+        x, y, edge_index, edge_weight, include_labels = self.get(idx)
+        data = PyGData(x=x, y=y, edge_index=edge_index, edge_attr=edge_weight)
+
+        if include_labels is not None:
+            data.include_labels = include_labels
+
+        return data
 
     def __len__(self) -> int:
         """
@@ -209,7 +214,7 @@ class IGData(Dataset, ABC):
        """
         return self[0].x.size(-1)
 
-    def get(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """
         Read and decode a single event from the LMDB dataset.
 
@@ -222,31 +227,30 @@ class IGData(Dataset, ABC):
                 - labels (torch.Tensor): Target labels of shape [1, num_labels].
                 - edge_index (torch.Tensor): Edge indices of shape [2, num_edges].
                 - edge_weight (torch.Tensor): Edge weights of shape [num_edges].
+                - included_labels (Optional[torch.Tensor]): Included labels of shape [1, num_included_labels].
 
         Raises:
             MissingFieldError, DataError
         """
         cls = type(self)
 
-        # validate index
         if not isinstance(idx, int):
             raise DataError(f"Index must be int, got {type(idx).__name__!r}")
 
-        # fetch record via reader
+        # fetch the record from the reader
         try:
             with cls._reader() as reader:
-                data, *_ = reader[idx]  # dict unpacked from msgpack (string keys)
+                data, *_ = reader[idx]
         except (IndexError, KeyError) as e:
             raise DataError(f"Failed to retrieve record at index {idx}: {e}")
 
         # --- features ---
         try:
-            features_np = np.asarray(data["features"], dtype=np.float32)
+            features = torch.tensor(data["features"], dtype=torch.float32)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'features' field")
-        if features_np.ndim == 1:
-            # ensure 2D
-            features_np = features_np[np.newaxis, :]
+        if features.ndim == 1:
+            features = features.unsqueeze(0)  # [F] -> [1, F]
 
         # --- labels ---
         labels_vals = []
@@ -254,43 +258,50 @@ class IGData(Dataset, ABC):
             if name not in data:
                 raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])
-        labels_np = np.asarray(labels_vals, dtype=np.float32).reshape(1, -1)
+        labels = torch.tensor(labels_vals, dtype=torch.float32).unsqueeze(0)  # [1, L]
+
+        # --- included labels (val/test only) ---
+        included_labels: Optional[torch.Tensor] = None
+        if self.subset in ["validation", "test"]:
+            inc_vals = []
+            for name in cls.attrs[0]["global"]["include_labels"]:
+                if name in cls.attrs[0]["global"]["target_labels"]:
+                    continue
+                if name not in data:
+                    raise MissingFieldError(f"Included label '{name}' not found in record at index {idx}")
+                inc_vals.append(data[name])
+            if inc_vals:
+                included_labels = torch.tensor(inc_vals, dtype=torch.float32).unsqueeze(0)  # [1, N_inc]
 
         # --- edges ---
         try:
-            ei_np = np.asarray(data["edge_index"], dtype=np.int64)
+            edge_index = torch.tensor(data["edge_index"], dtype=torch.long)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'edge_index' field")
         try:
-            ew_np = np.asarray(data["edge_weight"], dtype=np.int64)
+            edge_weight = torch.tensor(data["edge_weight"], dtype=torch.float32)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'edge_weight' field")
 
-        # sanity checks
-        # normalize edge shapes
-        if ei_np.ndim != 2:
-            raise DataError(f"'edge_index' must be 2-D, got {ei_np.shape} at index {idx}")
-        if ei_np.shape[0] == 2:
-            pass  # already [2, E]
-        elif ei_np.shape[1] == 2:
-            ei_np = ei_np.T  # [E, 2] -> [2, E]
+        # normalize shapes / sanity checks
+        if edge_index.ndim != 2:
+            raise DataError(f"'edge_index' must be 2-D, got {tuple(edge_index.shape)} at index {idx}")
+        if edge_index.shape[0] == 2:
+            pass  # [2, E]
+        elif edge_index.shape[1] == 2:
+            edge_index = edge_index.T.contiguous()  # [E,2] -> [2,E]
         else:
-            raise DataError(f"'edge_index' must be [2, E] or [E, 2], got {ei_np.shape} at index {idx}")
-        if ew_np.ndim == 2 and ew_np.shape[1] == 1:
-            ew_np = ew_np.reshape(-1)  # [E, 1] -> [E]
-        if ew_np.ndim != 1:
-            raise DataError(f"'edge_weight' must be 1-D (or [E, 1]), got {ew_np.shape} at index {idx}")
+            raise DataError(f"'edge_index' must be [2, E] or [E, 2], got {tuple(edge_index.shape)} at index {idx}")
 
-        if ei_np.shape[1] != ew_np.shape[0]:
+        if edge_weight.ndim == 2 and edge_weight.shape[1] == 1:
+            edge_weight = edge_weight.reshape(-1)
+        if edge_weight.ndim != 1:
+            raise DataError(f"'edge_weight' must be 1-D (or [E,1]), got {tuple(edge_weight.shape)} at index {idx}")
+
+        if edge_index.shape[1] != edge_weight.shape[0]:
             raise DataError(
-                f"edge count mismatch: edge_index has {ei_np.shape[1]} edges "
-                f"but edge_weight has {ew_np.shape[0]} at index {idx}"
+                f"edge count mismatch: edge_index has {edge_index.shape[1]} edges "
+                f"but edge_weight has {edge_weight.shape[0]} at index {idx}"
             )
 
-        # to tensors
-        features = torch.from_numpy(features_np)
-        labels = torch.from_numpy(labels_np)
-        edge_index = torch.from_numpy(ei_np).long()
-        edge_weight = torch.from_numpy(ew_np).float()
-
-        return features, labels, edge_index, edge_weight
+        return features, labels, edge_index, edge_weight, included_labels
