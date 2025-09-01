@@ -192,18 +192,19 @@ class LMDBDatasetShardReader:
 
         for fi, path in Console.progress_bar(list(enumerate(cls._lmdb_paths))):
             env = cls._open_env(path)
-            with env.begin(db=env.open_db(b"data")) as txn:
-                entries = txn.stat()["entries"]
-                for i in range(entries):
+            with env.begin(db=env.open_db(b"data")) as txn, txn.cursor() as cursor:
+                # need to iterate over keys to ensure they line up, doing it via length is MUCH faster but not
+                # necessarily robust enough, might need to save a sidecar file (ugh)
+                for key, _ in cursor:
                     rows_fi.append(fi)
-                    rows_key.append(i)
+                    rows_key.append(int.from_bytes(key, byteorder="big", signed=False))
             env.close()
 
         n = len(rows_fi)
         out = np.empty(n, dtype=cls._INDEX_DTYPE)
         if n:
             out["file_index"] = np.asarray(rows_fi, dtype=np.int32)
-            out["key"] = np.asarray(rows_key, dtype=">i8")
+            out["key"] = np.asarray(rows_key, dtype=">u8")
         return out
 
     def _get_attrs(self) -> Dict[int, Dict[str, Dict[str, Any]]]:

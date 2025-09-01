@@ -21,7 +21,14 @@ from icegraph.utils import Statistics
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline
 
-__all__ = ["FeatureProcessor", "TruthProcessor", "EdgeProcessor", "StandardSplitAllocator", "StratifiedSplitAllocator"]
+__all__ = [
+    "FeatureProcessor",
+    "TruthProcessor",
+    "EdgeProcessor",
+    "StandardSplitAllocator",
+    "StratifiedSplitAllocator",
+    "StatisticsProcessor"
+]
 
 
 
@@ -99,12 +106,12 @@ class FeatureProcessor(Processor, HelperMixin):
         vector_map = generate_vector_mapping()
         df = df.rename(columns=vector_map)
 
-        # compress features by event
+        # compress features by event, grab feature cols before compression
         feature_cols = self._get_feature_cols(df)
         df = self._compress(df)
 
         # register metadata to the envelope
-        self._register_metadata(env, df, feature_cols)
+        self._register_metadata(env, feature_cols)
 
         # merge this table to the main df and return
         self.merge_to_env(env, df)
@@ -227,18 +234,8 @@ class FeatureProcessor(Processor, HelperMixin):
 
         return out
 
-    def _register_metadata(self, env: Pipeline.Envelope, df: pd.DataFrame, feature_cols: List[str]) -> None:
-        f_stats: Optional[Statistics] = None
-        for array in df["features"].to_numpy():
-            s = Statistics.from_dense_array(array, feature_cols)
-            f_stats = s if f_stats is None else f_stats.merge(s)
+    def _register_metadata(self, env: Pipeline.Envelope, feature_cols: List[str]) -> None:
 
-        if f_stats is None:
-            f_stats = Statistics.from_dense_array(
-                np.zeros((0, len(feature_cols)), dtype=np.float32), feature_cols
-            )
-
-        env.attrs["stat"]["feature_stats"] = f_stats.to_dict()
         env.attrs["global"]["feature_names"] = feature_cols
         env.attrs["global"]["apply_log_scaling_x"] = self.apply_log_scaling_x
 
@@ -267,16 +264,14 @@ class TruthProcessor(Processor, HelperMixin):
         df = df[truth_needed]
 
         # register associated metadata
-        self._register_metadata(env, df)
+        self._register_metadata(env)
 
         # merge this table to the main df and return
         self.merge_to_env(env, df)
         return env
 
-    def _register_metadata(self, env: Pipeline.Envelope, df: pd.DataFrame) -> None:
-        l_stats: Statistics = Statistics.from_dataframe(df[self.target_labels])
+    def _register_metadata(self, env: Pipeline.Envelope) -> None:
 
-        env.attrs["stat"]["label_stats"] = l_stats.to_dict()
         env.attrs["global"]["target_labels"] = self.target_labels
         env.attrs["global"]["include_labels"] = [label for label in self.include_labels if label not in self.target_labels]
         env.attrs["global"]["apply_log_scaling_y"] = self.apply_log_scaling_y
@@ -338,16 +333,58 @@ class StandardSplitAllocator(Processor, HelperMixin):
 
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # grab weights and seed
-        weights_dict = self._config.user_config.data.splits.weights
+        weights = self._config.user_config.data.splits.weights
         seed = self._config.user_config.training.seed
+        N = len(env.df)
 
-        # get normalized weights for each split
-        weights_arr = np.array([weights_dict[key] for key in ["train", "val", "test"]])
-        weights_norm = weights_arr / weights_arr.sum()
-        
-        # randomly assign splits weighted by provided weights
-        rng = np.random.default_rng(seed)  # seed for reproducibility
-        env.attrs["allocation"]["splitmap"] = rng.choice(3, size=len(env.df), p=weights_norm)
+        p = np.array([weights[k] for k in ("train", "val", "test")], dtype=float)
+        p /= p.sum()  # normalize
+
+        rng = np.random.default_rng(seed)
+
+        # target counts, round deterministically
+        raw = p * N
+        counts = np.floor(raw).astype(int)
+        remainder = N - counts.sum()
+        if remainder > 0:
+            # give leftovers to the largest fractional parts; break ties randomly (but deterministically)
+            frac = raw - np.floor(raw)
+            jitter = rng.random(len(p)) * 1e-12
+            order = np.argsort(-(frac + jitter))
+            counts[order[:remainder]] += 1
+
+        # enforce minimum of 1 for any split with p > 0 (if feasible)
+        pos = p > 0
+        need = (counts == 0) & pos
+        k = int(need.sum())
+        if k and N >= int(pos.sum()):
+            # reassign from biggest-count splits until each needed split has 1
+            donors = np.argsort(-counts)
+            di = 0
+            for s in np.where(need)[0]:
+                # find a donor with count > 1
+                while di < len(donors) and counts[donors[di]] <= 1:
+                    di += 1
+                if di >= len(donors):
+                    break
+                counts[donors[di]] -= 1
+                counts[s] += 1
+
+        # if some p==0, those splits are allowed to remain zero.
+        assert counts.sum() == N, "Counts must sum to N."
+
+        # create a splitmap with random row assignment
+        indices = np.arange(N)
+        rng.shuffle(indices)  # randomize which rows go to which split
+        splitmap = np.empty(N, dtype=np.int64)
+        start = 0
+        for s, c in enumerate(counts):
+            if c:
+                splitmap[indices[start:start + c]] = s
+            start += c
+
+        # stash for downstream
+        env.attrs["allocation"]["splitmap"] = splitmap
 
         return env
 
@@ -438,4 +475,46 @@ class StratifiedSplitAllocator(Processor, HelperMixin):
 
         # store result and return
         env.attrs["allocation"]["splitmap"] = out
+        return env
+
+
+class StatisticsProcessor(Processor, HelperMixin):
+
+    PRE_REQS = [FeatureProcessor, (StandardSplitAllocator, StratifiedSplitAllocator)]
+
+    def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
+        # grab necessary values from envelope
+        feature_cols = env.attrs["global"]["feature_names"]
+        splitmap = np.array(env.attrs["allocation"]["splitmap"])
+        target_labels = env.attrs["global"]["target_labels"]
+        df = env.df
+
+        # get split labels from ints for human readability
+        split_int_assignments = self._config.internal_config.split_int_assignments
+        int_to_split_str: Dict[int, str] = dict(map(reversed, split_int_assignments.items()))
+
+        # get feature and label stats for each split
+        f_stats: Dict[str, Dict] = {}
+        l_stats: Dict[str, Dict] = {}
+
+        for split in range(3):
+            split_name = int_to_split_str[split]
+            sub_df = df[splitmap == split]
+
+            # build stats from all dense arrays in split
+            stats: Optional[Statistics] = None
+            for array in sub_df["features"].to_numpy():
+                s = Statistics.from_dense_array(array, feature_cols)
+                stats = s if stats is None else stats.merge(s)
+
+            # add to main dict as a dict
+            f_stats[split_name] = stats.to_dict() if stats else {}
+
+            l_stats[split_name] = (
+                Statistics.from_dataframe(sub_df[target_labels]).to_dict() if not sub_df.empty else {}
+            )
+
+        env.attrs["stat"]["feature_stats"] = f_stats
+        env.attrs["stat"]["label_stats"] = l_stats
+
         return env

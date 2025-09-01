@@ -146,7 +146,10 @@ class Trainer(torch.nn.Module):
             weight_decay=self.trainer_config.weight_decay,
             amsgrad=self.trainer_config.amsgrad
         )
-        self.loss_fn = torch.nn.MSELoss(reduction="mean")
+
+        # loss function
+        self.loss_fn = torch.nn.HuberLoss(reduction="mean", delta=getattr(self.trainer_config, "huber_delta", 0.2))
+        self.mse_metric = torch.nn.MSELoss(reduction="mean")
 
         # init metric dicts
         self._train_metrics: dict[int, Trainer.Metrics] = {}
@@ -299,10 +302,11 @@ class Trainer(torch.nn.Module):
             loss.backward()
             self.optimizer.step()
 
-            metrics.sse_sum += loss.item() * batch_size
-            metrics.samples += batch_size
+            self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
 
-            self._fire("on_batch_end", batch, out, target, loss.item(), metrics)
+            mse = self.mse_metric(out.detach(), target.detach())
+            metrics.sse_sum += mse.item() * batch_size
+            metrics.samples += batch_size
 
         return metrics
 
@@ -342,10 +346,11 @@ class Trainer(torch.nn.Module):
 
                 loss = self.loss_fn(out, target)
 
-                metrics.sse_sum += loss.item() * batch_size
-                metrics.samples += batch_size
+                self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
 
-                self._fire("on_batch_end", batch, out, target, loss.item(), metrics)
+                mse = self.mse_metric(out.detach(), target.detach())
+                metrics.sse_sum += mse.item() * batch_size
+                metrics.samples += batch_size
 
                 if collect:
                     outs.append(out.detach().cpu().clone())

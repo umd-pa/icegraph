@@ -1,13 +1,9 @@
-import os
-
-# Disable the fatal HDF5 version‐mismatch check
-os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
-
 import argparse
 from pathlib import Path
 
 from icegraph.data.pipeline import Pipeline
-from icegraph.data.processor import FeatureProcessor, EdgeProcessor, TruthProcessor, StandardSplitAllocator
+from icegraph.data.processor import FeatureProcessor, EdgeProcessor, TruthProcessor, StandardSplitAllocator, StatisticsProcessor
+from icegraph.data.extractor import FeatureExtractor
 from icegraph.data.writers import LMDBWriter
 from icegraph.config import IGConfig
 
@@ -17,7 +13,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-i", "--input",
+        "-i", "--source",
         required=True,
         help="Path to the input source"
     )
@@ -37,7 +33,7 @@ def main() -> None:
     with Pipeline() as pipeline:
         pipeline.build(
             extractor=FeatureExtractor,
-            processors=[FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator],
+            processors=[FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator, StatisticsProcessor],
             writer=LMDBWriter
         )
         pipeline.configure(args.input, outdir=args.output)
