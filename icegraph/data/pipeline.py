@@ -295,13 +295,26 @@ class Pipeline:
             if pre_reqs is None:
                 continue
 
-            # check if the required prereqs are present, if not raise
+            # build a string repr for printout
+            _req_repr_list: List[str] = []
             for required in pre_reqs:
-                if required not in seen_specs:
-                    raise PipelineBuildError(
-                        f"Error building pipeline, processor module {spec.__name__} "
-                        f"has prerequisites [{', '.join([req.__name__ for req in pre_reqs])}]"
-                    )
+                if isinstance(required, tuple):
+                    _req_repr_list.append(f"({' or '.join([req.__name__ for req in required])})")
+                else:
+                    _req_repr_list.append(required.__name__)
+            req_repr = f"[{', '.join(_req_repr_list)}]"
+
+            # check if the required prereqs are present, if not raise
+            _BuildError = PipelineBuildError(
+                f"Error building pipeline, processor module {spec.__name__} "
+                f"has prerequisites {req_repr}"
+            )
+            for required in pre_reqs:
+                if isinstance(required, tuple):
+                    if not any(r in seen_specs for r in required):
+                        raise _BuildError
+                elif required not in seen_specs:
+                    raise _BuildError
 
     def _wire_stages(self) -> None:
         if self.file_list is None:
