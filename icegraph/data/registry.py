@@ -66,7 +66,6 @@ class DatasetRegistry:
 
         self.dataloader_kwargs = {
             "batch_size": batch_size,
-            "shuffle": True,
             "num_workers": num_workers,
             "multiprocessing_context": torch.multiprocessing.get_context("fork"),
             "pin_memory": torch.cuda.is_available(),
@@ -178,7 +177,8 @@ class DatasetRegistry:
         Returns a Torch Geometric dataloader for the training split.
         """
         return self.train_dataset.dataloader(
-            **self.dataloader_kwargs
+            **self.dataloader_kwargs,
+            shuffle=True
         )
 
     @property
@@ -187,7 +187,8 @@ class DatasetRegistry:
         Returns a Torch Geometric dataloader for the validation split.
         """
         return self.val_dataset.dataloader(
-            **self.dataloader_kwargs
+            **self.dataloader_kwargs,
+            shuffle=False  # dont need shuffle on eval sets
         )
 
     @property
@@ -196,7 +197,8 @@ class DatasetRegistry:
         Returns a Torch Geometric dataloader for the test split.
         """
         return self.test_dataset.dataloader(
-            **self.dataloader_kwargs
+            **self.dataloader_kwargs,
+            shuffle=False  # dont need shuffle on eval sets
         )
 
     @classmethod

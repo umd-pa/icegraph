@@ -9,7 +9,8 @@ from pathlib import Path
 from wcwidth import wcswidth
 import re
 
-from tqdm import tqdm
+from rich.progress import track
+from rich.console import Console as RichConsole
 
 from .objects import Spinner
 from icegraph.config import IGConfig
@@ -181,7 +182,7 @@ class Console:
     @classmethod
     def progress_bar(cls, _iter, **kwargs) -> iter:
         """
-        Create a standardized progress bar using `tqdm`.
+        Create a standardized progress bar using `rich`.
 
         Args:
             _iter (iterable): The iterable to wrap in a progress bar.
@@ -189,11 +190,31 @@ class Console:
         Returns:
             iterator: The wrapped iterable with progress bar display.
         """
-        return tqdm(
+        total = kwargs.pop("total", None)
+
+        # If total isn't given, track() will try len(_iter) if available
+        if total is None and hasattr(_iter, "__len__"):
+            try:
+                total = len(_iter)  # type: ignore
+            except Exception:
+                total = None
+
+        # description
+        program_tag = f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}]"
+        program_time = datetime.now().strftime('%X')
+        severity_tag = cls._severity_tag(0)
+        delimiter = ": "
+
+        parts = [program_tag, program_time, severity_tag]
+
+        console = RichConsole(file=sys.stdout, force_terminal=True, force_interactive=True)
+
+        return track(
             _iter,
-            desc=f"[{cls.color(IGConfig.PROGRAM_NAME, 'cyan')}] {datetime.now().strftime('%X')}",
-            file=sys.stdout,
-            **kwargs
+            total=total,
+            description=" ".join(parts) + delimiter,
+            console=console,
+            update_period=0.1
         )
 
     @classmethod

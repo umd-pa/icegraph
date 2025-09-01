@@ -134,3 +134,5 @@ main.py
 *.old
 runpytest.sh
 initicetray.sh
+build_dagman.py
+

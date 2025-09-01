@@ -179,14 +179,14 @@ class Callback(ABC):
 class _StatMixin:
 
     @staticmethod
-    def _get_global_stats(trainer: Trainer) -> Tuple[Statistics, Statistics]:
+    def _get_global_stats() -> Tuple[Statistics, Statistics]:
         def iter_shard_stats() -> Generator[Tuple[Statistics, Statistics], Any, None]:
             with LMDBDatasetShardReader() as reader:
                 attrs = reader.attrs()
                 try:
                     for file_idx, stat_dict in attrs.items():
                         stats = stat_dict["stat"]
-                        f_stats_dict, l_stats_dict = stats["feature_stats"], stats["label_stats"]
+                        f_stats_dict, l_stats_dict = stats["feature_stats"]["train"], stats["label_stats"]["train"]
                         yield Statistics.from_dict(f_stats_dict), Statistics.from_dict(l_stats_dict)
                 except KeyError as e:
                     Console.out(f"Skipping file_idx {file_idx}: no stats found ({e}).", severity=2)
@@ -231,7 +231,7 @@ class Normalizer(Callback, torch.nn.Module, _StatMixin):
 
     def on_init(self, trainer: Trainer) -> None:
         # Build global stats once on trainer init
-        self.f_stats, self.l_stats = self._get_global_stats(trainer)  # tuple[Statistics, Statistics]
+        self.f_stats, self.l_stats = self._get_global_stats()  # tuple[Statistics, Statistics]
 
         # build params
         self._configure(trainer)

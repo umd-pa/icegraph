@@ -1,5 +1,10 @@
 # Changelog
 
+#### Version [0.8.5] --- September 1st, 2025:
+- Implemented Huber loss for a more robust loss function.
+- Fixed data leakage by calculating normalization constants using only the training dataset.
+- Moved from tqdm to rich for better looking progress bars.
+
 #### Version [0.8.4] --- August 31st, 2025:
 - Somewhat fixed installer, needs more work and currently only functions on Ubuntu systems with GLIBC>=2.35.
 - Flipped val and test in trainer, they were incorrectly labelled.
