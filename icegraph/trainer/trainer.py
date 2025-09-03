@@ -148,7 +148,7 @@ class Trainer(torch.nn.Module):
         )
 
         # loss function
-        self.loss_fn = torch.nn.HuberLoss(reduction="mean", delta=getattr(self.trainer_config, "huber_delta", 0.2))
+        self.loss_fn = torch.nn.MSELoss(reduction="mean")
         self.mse_metric = torch.nn.MSELoss(reduction="mean")
 
         # init metric dicts
