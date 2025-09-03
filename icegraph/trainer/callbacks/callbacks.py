@@ -201,32 +201,43 @@ class RegressionMetricsCallback(Callback):
     def _build_bias_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
         cls = type(self)
 
-        preds = getattr(trainer, f"{dataset}_predictions")
-        targs = getattr(trainer, f"{dataset}_targets")
-        incls = getattr(trainer, f"{dataset}_includes")
+        preds: torch.Tensor = getattr(trainer, f"{dataset}_predictions")
+        targs: torch.Tensor = getattr(trainer, f"{dataset}_targets")
+        incls: torch.Tensor = getattr(trainer, f"{dataset}_includes")
 
         e_true = cls._cache["e_true"]
         if e_true in self._include_labels:
-            x = incls[:, self._include_labels.index(e_true)]
+            x = incls[:, self._include_labels.index(e_true)].clone()
         elif e_true in self._target_labels:
-            x = targs[:, self._target_labels.index(e_true)]
+            x = targs[:, self._target_labels.index(e_true)].clone()
         else:
             raise KeyError(f"Key '{e_true}' not found in target or included labels, you messed up!")
+
+        xaxis_title = r"\text{%s}" % e_true
+        if e_true in self._y_asinh_mask:
+            x = torch.log10(x)
+            xaxis_title = r"log_{10}\left[%s\right]" % xaxis_title
 
         n_cols = preds.shape[1]
 
         for i in range(n_cols):
             label = self._target_labels[i]
+            yaxis_title = r"\text{(True - Reco)/True %s}" % label
 
             pred = preds[:, i]
             targ = targs[:, i]
 
+            y = (targ - pred) / targ
+            if e_true in self._y_asinh_mask:
+                y = torch.log10(y)
+                yaxis_title = r"log_{10}\left[%s\right]" % yaxis_title
+
             plot = BiasPlot()
             plot.plot(
                 x=x,
-                y=targ - pred,
+                y=y,
                 save_path=trainer.outdir / f"{label}.bias.{epoch + 1}.html",
                 title=f"{label} Bias [Epoch {epoch + 1} - {dataset.title()}]",
-                yaxis_title=r"$\text{(True - Reco) %s}$" % label,
-                xaxis_title=r"$\text{%s}$" % e_true,
+                yaxis_title="$%s$" % yaxis_title,
+                xaxis_title="$%s$" % xaxis_title,
             )
