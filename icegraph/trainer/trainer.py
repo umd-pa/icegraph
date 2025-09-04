@@ -39,7 +39,7 @@ class Trainer(torch.nn.Module):
     @dataclass
     class Metrics:
         samples: int
-        sse_sum: Union[float, int]
+        sse_sum: float
 
         _avg_loss: Optional[Union[float, int]] = None
         _rmse: Optional[Union[float, int]] = None
@@ -281,7 +281,7 @@ class Trainer(torch.nn.Module):
         Returns:
             Metrics: Contains total samples and sum of squared errors for the epoch.
         """
-        metrics = self.Metrics(0, 0)
+        metrics = self.Metrics(0, 0.0)
 
         # make sure correct mode is active
         self.model.train()
@@ -294,7 +294,6 @@ class Trainer(torch.nn.Module):
             self._fire("on_batch_transfer", batch)
 
             out, target = self._forward_and_target(batch)
-            batch_size = out.size(0)
 
             self.optimizer.zero_grad()
             loss = self.loss_fn(out, target)
@@ -302,11 +301,11 @@ class Trainer(torch.nn.Module):
             loss.backward()
             self.optimizer.step()
 
-            self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
+            se = torch.nn.functional.mse_loss(out, target, reduction='sum')
+            metrics.sse_sum += float(se.item())
+            metrics.samples += out.numel()
 
-            mse = self.mse_metric(out.detach(), target.detach())
-            metrics.sse_sum += mse.item() * batch_size
-            metrics.samples += batch_size
+            self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
 
         return metrics
 
@@ -321,7 +320,7 @@ class Trainer(torch.nn.Module):
         Returns:
             Metrics: Contains total samples and sum of squared errors for the run.
         """
-        metrics = self.Metrics(0, 0)
+        metrics = self.Metrics(0, 0.0)
 
         # make sure correct mode is active
         self.model.eval()
@@ -331,6 +330,8 @@ class Trainer(torch.nn.Module):
         outs: list[torch.Tensor] = []
         targets: list[torch.Tensor] = []
         includes: list[torch.Tensor] = []
+
+        torch.set_printoptions(threshold=float('inf'))
 
         # use no_grad on eval loops
         with torch.no_grad():
@@ -342,15 +343,24 @@ class Trainer(torch.nn.Module):
                 self._fire("on_batch_transfer", batch)
 
                 out, target = self._forward_and_target(batch)
-                batch_size = out.size(0)
+
+                finite = torch.isfinite(out) & torch.isfinite(target)
+                dropped = out.numel() - int(finite.sum().item())
+                out = out[finite].view(-1, 1)
+                target = target[finite].view(-1, 1)
+                if dropped:
+                    Console.out(f"Eval dropped {dropped} elems (mask/non-finite)", severity=2)
+                if out.numel() == 0:
+                    self._fire("on_batch_end", batch, torch.tensor([]), torch.tensor([]), float("nan"), metrics)
+                    continue
 
                 loss = self.loss_fn(out, target)
 
-                self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
+                se = torch.nn.functional.mse_loss(out, target, reduction='sum')
+                metrics.sse_sum += float(se.item())
+                metrics.samples += out.numel()
 
-                mse = self.mse_metric(out.detach(), target.detach())
-                metrics.sse_sum += mse.item() * batch_size
-                metrics.samples += batch_size
+                self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
 
                 if collect:
                     outs.append(out.detach().cpu().clone())
