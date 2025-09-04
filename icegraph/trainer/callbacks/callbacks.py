@@ -79,7 +79,7 @@ class ExportCallback(Callback):
     def __init__(self) -> None:
         self._best_rmse: float = float("inf")
 
-    def on_save(self, trainer, epoch, metrics) -> None:
+    def _export(self, trainer, epoch, metrics) -> None:
         latest_path = trainer.outdir / "model_latest.pt"
         best_path = trainer.outdir / "model_best.pt"
 
@@ -118,6 +118,9 @@ class ExportCallback(Callback):
                     torch.save(export_model, best_path)
                 except Exception as e:
                     Console.out(f"Failed to save model: {e}", severity=3)
+
+    # run both on validation and test, not on train
+    on_validation_end = on_test_end = _export
 
 
 class RegressionMetricsCallback(Callback):
