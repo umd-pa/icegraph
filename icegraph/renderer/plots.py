@@ -5,6 +5,7 @@ from typing import Optional, Sequence, Union, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
+import plotly.graph_objs.scatterternary.marker
 
 from .base import IGBasicPlot, IGDistributionPlot
 from icegraph.data.pulses import Pulses
@@ -170,6 +171,55 @@ class AnalysisMixin:
 
         return edges, med_e, lo_e, hi_e
 
+    @staticmethod
+    def stairs(edges: np.ndarray, vals: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        x = np.repeat(edges, 2)[1:-1]
+        y = np.repeat(vals, 2)
+        return x, y
+
+    def add_step_polygon(
+            self,
+            fig: go.Figure, *,
+            edges: np.ndarray,
+            lower: np.ndarray,
+            upper: np.ndarray,
+            fill_color: str,
+            outline_color: str,
+            legendgroup: Optional[str]=None
+    ) -> None:
+        edges = np.asarray(edges, float)
+        lower = np.asarray(lower, float)
+        upper = np.asarray(upper, float)
+        valid = np.isfinite(lower) & np.isfinite(upper)
+        i, n = 0, lower.size
+        while i < n:
+            if not valid[i]:
+                i += 1;
+                continue
+            j = i
+            while j < n and valid[j]:
+                j += 1
+            x_lo, y_lo = self.stairs(edges[i:j + 1], lower[i:j])
+            x_up, y_up = self.stairs(edges[i:j + 1], upper[i:j])
+            fig.add_trace(go.Scatter(
+                x=np.concatenate([x_lo, x_up[::-1]]),
+                y=np.concatenate([y_lo, y_up[::-1]]),
+                mode='lines', line=dict(width=0),
+                fill='toself', fillcolor=fill_color,
+                hoverinfo='skip', showlegend=False,
+                legendgroup=legendgroup
+            ))
+            # outlines
+            fig.add_trace(go.Scatter(x=x_lo, y=y_lo, mode='lines',
+                                     line=dict(color=outline_color, width=1, dash='dot'),
+                                     showlegend=False, hoverinfo='skip',
+                                     legendgroup=legendgroup))
+            fig.add_trace(go.Scatter(x=x_up, y=y_up, mode='lines',
+                                     line=dict(color=outline_color, width=1, dash='dot'),
+                                     showlegend=False, hoverinfo='skip',
+                                     legendgroup=legendgroup))
+            i = j
+
 
 class ParityPlot(IGBasicPlot, AnalysisMixin):
 
@@ -209,19 +259,13 @@ class ParityPlot(IGBasicPlot, AnalysisMixin):
         edges, m_e, lq_e, uq_e = self.get_median_and_containment(x, y, int(nbins / 2))
 
         # plot containment
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=lq_e, mode='lines',
-            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
-            showlegend=False, line_shape='hv',
+        self.add_step_polygon(
+            self._fig,
+            edges=edges, lower=lq_e, upper=uq_e,
+            outline_color=self._accent_1_opaque,
+            fill_color=self._accent_1_opaque_fill,
             legendgroup="median"
-        ))
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=uq_e, mode='lines',
-            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
-            fill='tonexty', fillcolor=self._accent_1_opaque_fill,
-            showlegend=False, line_shape='hv',
-            legendgroup="median"
-        ))
+        )
 
         # add median line
         self._fig.add_trace(go.Scatter(
@@ -253,12 +297,14 @@ class BiasPlot(IGBasicPlot, AnalysisMixin):
     def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
         _range = [min(x), max(x)]
 
-        edges = np.linspace(_range[0], _range[1], nbins + 1)
-        H, _, _ = np.histogram2d(x, y, bins=[edges, edges])
+        y_edges = np.linspace(max(-max(x), min(y)), min(max(x), max(y)), nbins + 1)
+        x_edges = np.linspace(min(x), max(x), nbins + 1)
+        H, _, _ = np.histogram2d(x, y, bins=[x_edges, y_edges])
 
         Z = H.astype(int)
 
-        centers = (edges[:-1] + edges[1:]) / 2
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
         zmax = np.nanmax(Z) if np.isfinite(np.nanmax(Z)) else 1.0
 
         # plot
@@ -270,7 +316,7 @@ class BiasPlot(IGBasicPlot, AnalysisMixin):
             )
         )
         self._fig.add_trace(go.Heatmap(
-            x=centers, y=centers, z=Z.T,
+            x=x_centers, y=y_centers, z=Z.T,
             zauto=False, zmin=0,
             coloraxis="coloraxis",
             showlegend=True, name="Data",
@@ -281,19 +327,13 @@ class BiasPlot(IGBasicPlot, AnalysisMixin):
         edges, m_e, lq_e, uq_e = self.get_median_and_containment(x, y, int(nbins / 2))
 
         # plot containment
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=lq_e, mode='lines',
-            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
-            showlegend=False, line_shape='hv',
+        self.add_step_polygon(
+            self._fig,
+            edges=edges, lower=lq_e, upper=uq_e,
+            outline_color=self._accent_1_opaque,
+            fill_color=self._accent_1_opaque_fill,
             legendgroup="median"
-        ))
-        self._fig.add_trace(go.Scatter(
-            x=edges, y=uq_e, mode='lines',
-            line=dict(color=self._accent_1_opaque, width=1, dash='dot'),
-            fill='tonexty', fillcolor=self._accent_1_opaque_fill,
-            showlegend=False, line_shape='hv',
-            legendgroup="median"
-        ))
+        )
 
         # add median line
         self._fig.add_trace(go.Scatter(
