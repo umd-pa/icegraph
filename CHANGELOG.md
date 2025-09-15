@@ -1,5 +1,11 @@
 # Changelog
 
+#### Version [0.8.6] --- September 5th, 2025:
+- Reverted to MSE loss for now.
+- Fixed error on validation RMSE/MSE reporting.
+- Changed export callback to export on validation and test steps, ignoring training steps.
+- Fixed plots, especially fills.
+
 #### Version [0.8.5] --- September 1st, 2025:
 - Implemented Huber loss for a more robust loss function.
 - Fixed data leakage by calculating normalization constants using only the training dataset.
