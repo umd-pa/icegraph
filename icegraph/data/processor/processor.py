@@ -3,8 +3,12 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import os
 from dataclasses import dataclass, field
-from typing import Optional, List, TYPE_CHECKING, Dict
+from collections import defaultdict
+from typing import Optional, List, TYPE_CHECKING, Dict, Set, DefaultDict
 
 import pandas as pd
 import numpy as np
@@ -27,9 +31,9 @@ __all__ = [
     "EdgeProcessor",
     "StandardSplitAllocator",
     "StratifiedSplitAllocator",
-    "StatisticsProcessor"
+    "StatisticsProcessor",
+    "ClassNormalizer"
 ]
-
 
 
 class HelperMixin:
@@ -518,3 +522,135 @@ class StatisticsProcessor(Processor, HelperMixin):
         env.attrs["stat"]["label_stats"] = l_stats
 
         return env
+
+
+class ClassNormalizer(Processor, HelperMixin):
+
+    PRE_REQS = [TruthProcessor]
+
+    _transfer_file: str = "_classmap.json"
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # per-process cache of global classmap
+        self._classmap: DefaultDict[str, List[str]] = defaultdict(list)
+
+    def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
+        target_labels = env.attrs["global"]["target_labels"]
+
+        local_diff: Dict[str, List[str]] = {}
+        str_casted_series: Dict[str, pd.Series[str]] = {}
+        unique_sets: Dict[str, Set[str]] = {}
+
+        for label in target_labels:
+            # grab all unique values in this batch
+            str_casted_series[label] = env.df[label].astype(str)
+            ordered_unique = pd.unique(str_casted_series[label])
+
+            # stash for next loop
+            unique_sets[label] = set(ordered_unique)
+
+            existing = set(self._classmap[label])
+
+            # check for diffs
+            diff: List[str]
+            if diff := [c for c in ordered_unique if c not in existing]:
+                local_diff[label] = diff
+
+        # sync the classmap with the global one if there are any diffs
+        if local_diff:
+            self._sync_classmap(local_diff)
+
+        # apply mapping
+        filtered_classmap: Dict[str, Dict[str, int]] = {}
+        for label in target_labels:
+            # build mapping order (IDs are indices into this list)
+            cats = self._classmap[label]
+
+            s = str_casted_series[label]
+            codes = pd.Categorical(s, categories=cats, ordered=True).codes  # int array
+
+            # fail loudly on unknowns
+            if (codes == -1).any():
+                missing = pd.unique(s[codes == -1]).tolist()
+                raise ProcessorError(f"Unknown classes in '{label}': {missing}")
+
+            max_code = int(codes.max(initial=0))
+            env.df[label] = (
+                codes.astype(np.uint8, copy=False)
+                if max_code <= 255 else
+                codes.astype(np.uint16, copy=False)
+            )
+
+            # minimal classmap for this batch
+            filtered_classmap[label] = {cls: i for i, cls in enumerate(cats) if cls in unique_sets[label]}
+
+        env.attrs["map"]["classmap"] = filtered_classmap
+
+        return env
+
+    def _sync_classmap(self, map_diff: Dict[str, List[str]]) -> None:
+        # grab the temp dir and file paths
+        temp_dir = self._parent.global_working_dir
+        path = temp_dir / self._transfer_file
+
+        # ensure file exists
+        if not path.exists():
+            with self._parent.global_tmpdir_obj.exclusive_write_lock(path):
+                if not path.exists():
+                    self._atomic_write_json(path, {})
+
+        # grab file lock
+        with self._parent.global_tmpdir_obj.exclusive_write_lock(path):
+            gmap = self._read_json(path)
+
+            # merge diffs preserving provided order, no duplicates
+            for label, new_items in map_diff.items():
+                lst = gmap.get(label, [])
+                seen = set(lst)
+                # keep order from the diff list
+                additions = [x for x in new_items if x not in seen]
+                if additions:
+                    lst.extend(additions)
+                    gmap[label] = lst
+
+            # write atomically
+            self._atomic_write_json(path, gmap)
+
+            # refresh local cache from global
+            self._classmap.clear()
+            for k, v in gmap.items():
+                self._classmap[k] = list(v)
+
+    @staticmethod
+    def _read_json(path: Path) -> Dict[str, List[str]]:
+        try:
+            with path.open("r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
+        except json.JSONDecodeError:
+            # extremely unlikely with atomic replace, retry once
+            with path.open("r") as f:
+                return json.load(f)
+
+    @staticmethod
+    def _atomic_write_json(path: Path, payload: Dict[str, List[str]]) -> None:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        with tmp.open("w") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+        os.replace(tmp, path)  # atomic on POSIX/Windows
+        # best-effort fsync of the directory
+        try:
+            dfd = os.open(str(path.parent), os.O_RDONLY)
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
+        except OSError:
+            pass

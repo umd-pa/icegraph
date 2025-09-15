@@ -65,7 +65,7 @@ class FeatureExtractor(Extractor):
         frame_keys = self._config.user_config.frame_keys.toDict()
         mls_config = str(self._config.ml_suite_config_file)
         gcd_path = str(self._config.gcd_path)
-        out_dir = str(self._parent.local_working_dir_path)
+        out_dir = str(self._parent.local_working_dir)
 
         # Launch/ensure worker
         self._ensure_worker()
