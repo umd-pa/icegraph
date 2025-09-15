@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import List, Optional, Dict, Self, Literal
+from typing import List, Optional, Dict, Self, Literal, Any
 from pydantic import BaseModel, Field, validator, model_validator
 
 
@@ -80,11 +80,17 @@ class TensorBoardConfig(BaseModel):
     port: int
 
 
+class StrategyConfig(BaseModel):
+    task: str
+    kwargs: Dict[str, Any]
+
+
 class TrainingConfig(BaseModel):
     seed: int
     batch_size: int
     num_workers: int
     trainer_params: TrainerParamsConfig
+    strategy: StrategyConfig
     normalizer: str
     optimizer: OptimizerConfig
     tensorboard: TensorBoardConfig

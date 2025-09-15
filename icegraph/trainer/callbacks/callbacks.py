@@ -35,16 +35,16 @@ class TensorBoardCallback(Callback):
         self._tb.launch()
 
     def on_epoch_end(self, trainer, epoch, metrics) -> None:
-        self._tb.writer.add_scalar("Train/MSE", metrics.avg_loss, epoch + 1)
-        self._tb.writer.add_scalar("Train/RMSE", metrics.rmse, epoch + 1)
+        self._tb.writer.add_scalar("Train/MSE", metrics['loss'], epoch + 1)
+        self._tb.writer.add_scalar("Train/RMSE", metrics['rmse'], epoch + 1)
 
     def on_validation_end(self, trainer, epoch, metrics) -> None:
-        self._tb.writer.add_scalar("Validation/MSE", metrics.avg_loss, epoch + 1)
-        self._tb.writer.add_scalar("Validation/RMSE", metrics.rmse, epoch + 1)
+        self._tb.writer.add_scalar("Validation/MSE", metrics['loss'], epoch + 1)
+        self._tb.writer.add_scalar("Validation/RMSE", metrics['rmse'], epoch + 1)
 
     def on_test_end(self, trainer, epoch, metrics) -> None:
-        self._tb.writer.add_scalar("Test/MSE", metrics.avg_loss, epoch + 1)
-        self._tb.writer.add_scalar("Test/RMSE", metrics.rmse, epoch + 1)
+        self._tb.writer.add_scalar("Test/MSE", metrics['loss'], epoch + 1)
+        self._tb.writer.add_scalar("Test/RMSE", metrics['rmse'], epoch + 1)
 
     def on_teardown(self, trainer) -> None:
         self._tb.writer.close()
@@ -70,7 +70,16 @@ class ConsoleCallback(Callback):
         Console.out(f"[Test] Epoch {epoch + 1}/{trainer.trainer_config.max_epochs}")
 
     def display_loss(self, trainer, epoch, metrics) -> None:
-        Console.out(f" --> MSE: {metrics.avg_loss:.4f} | RMSE: {metrics.rmse:.4f}")
+        task = trainer.strategy.task
+
+        out: str = ""
+        if task == "regression":
+            out = f" --> MSE: {metrics['loss']:.4f} | RMSE: {metrics['rmse']:.4f}"
+        elif task == "multiclass":
+            k = trainer.strategy_kwargs["k"]
+            out = f" --> MSE: {metrics['loss']:.4f} | Acc: {metrics['acc']:.4f} | Top-{k} Acc: {metrics['top%d_acc' % k]:.4f}"
+
+        Console.out(out)
 
     on_validation_end = on_test_end = on_epoch_end = display_loss
 
@@ -79,7 +88,7 @@ class ExportCallback(Callback):
     def __init__(self) -> None:
         self._best_rmse: float = float("inf")
 
-    def _export(self, trainer, epoch, metrics) -> None:
+    def _export(self, trainer: Trainer, epoch: int, metrics: Dict[str, float]) -> None:
         latest_path = trainer.outdir / "model_latest.pt"
         best_path = trainer.outdir / "model_best.pt"
 
@@ -106,7 +115,7 @@ class ExportCallback(Callback):
 
         # Save best model if improved
         if metrics is not None:
-            current_rmse = metrics.rmse
+            current_rmse = metrics["rmse"]
             if current_rmse < self._best_rmse:
                 Console.out(
                     f"New best RMSE {current_rmse:.4f} < {self._best_rmse:.4f}; "

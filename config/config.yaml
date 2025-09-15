@@ -19,7 +19,7 @@ table_names:
 data:
   # truth labels to use for training
   target_labels:
-    - PrimaryNeutrinoEnergy
+    - PrimaryNeutrinoType
 
   # any non-target labels to include (not used in training), useful for plotting
   # these labels will be served to callbacks by the trainer during validation and test steps
@@ -34,7 +34,7 @@ data:
       # !!! must be columns present as features (see feature_extraction.feature_config.features
       []
     apply_log_scaling_y:
-        # !!! must be columns present under data.target_labels
+        # !!! must be columns present under data.target_labels or data.include_labels
       - PrimaryNeutrinoEnergy
 
 training:
@@ -52,6 +52,11 @@ training:
     val_interval_epochs: 5
 
   normalizer: ZScoreNormalizer
+
+  strategy:
+    task: MulticlassStrategy
+    kwargs:
+      k: 3
 
   optimizer:
     learning_rate: 5e-4
