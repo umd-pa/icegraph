@@ -2,14 +2,14 @@
 # Developed by Taylor St Jean
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING, List, ClassVar, Callable, Dict, Any
+from typing import Optional, TYPE_CHECKING, List, ClassVar, Callable, Dict, Any, Tuple, Self, Literal, Union
 
 import torch
 
 from .base import Callback
 from icegraph.console import Console
 from icegraph.data.base import IGData
-from icegraph.types import ComputedMetrics
+from icegraph.types import ComputedMetrics, MetricsPlotMethod
 from icegraph.inference import CoreModel
 from icegraph.trainer.tensorboard import TensorBoard
 from icegraph.renderer import ParityPlot, BiasPlot, ConfusionMatrixPlot, ROCPlot
@@ -26,7 +26,8 @@ __all__ = [
 if TYPE_CHECKING:
     from .. import Trainer
 else:
-    Trainer = None
+    class Trainer:
+        pass
 
 
 class TensorBoardCallback(Callback):
@@ -35,24 +36,21 @@ class TensorBoardCallback(Callback):
         self._tb: Optional[TensorBoard] = None
 
     def on_init(self, trainer) -> None:
-        if trainer.strategy.task != "regression":
-            raise NotImplementedError("Tensorboard callback is currently incompatible with non-regression strategies.")
-
         if self._tb is None:
             self._tb = TensorBoard(trainer.log_dir)
         self._tb.launch()
 
     def on_epoch_end(self, trainer, epoch, metrics) -> None:
-        self._tb.writer.add_scalar("Train/MSE", metrics['loss'], epoch + 1)
-        self._tb.writer.add_scalar("Train/RMSE", metrics['rmse'], epoch + 1)
+        for metric, value in metrics.items():
+            self._tb.writer.add_scalar(f"Train/{metric.upper().split(':')[-1]}", value, epoch + 1)
 
     def on_validation_end(self, trainer, epoch, metrics) -> None:
-        self._tb.writer.add_scalar("Validation/MSE", metrics['loss'], epoch + 1)
-        self._tb.writer.add_scalar("Validation/RMSE", metrics['rmse'], epoch + 1)
+        for metric, value in metrics.items():
+            self._tb.writer.add_scalar(f"Validation/{metric.upper().split(':')[-1]}", value, epoch + 1)
 
     def on_test_end(self, trainer, epoch, metrics) -> None:
-        self._tb.writer.add_scalar("Test/MSE", metrics['loss'], epoch + 1)
-        self._tb.writer.add_scalar("Test/RMSE", metrics['rmse'], epoch + 1)
+        for metric, value in metrics.items():
+            self._tb.writer.add_scalar(f"Test/{metric.upper().split(':')[-1]}", value, epoch + 1)
 
     def on_teardown(self, trainer) -> None:
         self._tb.writer.close()
@@ -79,7 +77,7 @@ class ConsoleCallback(Callback):
 
     def display_metrics(self, trainer, epoch, metrics) -> None:
         # task agnostic display of metrics
-        display_metrics = [f"{metric.upper()}: {value:.4f}" for metric, value in metrics.items()]
+        display_metrics = [f"{metric.upper().split(':')[-1]}: {value:.4f}" for metric, value in metrics.items()]
         out = f" --> {' | '.join(display_metrics)}"
 
         Console.out(out)
@@ -89,13 +87,14 @@ class ConsoleCallback(Callback):
 
 class ExportCallback(Callback):
     def __init__(self) -> None:
-        self._best_mse: float = float("inf")
+        self._best_loss: float = float("inf")
 
     def _export(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         latest_path = trainer.outdir / "model_latest.pt"
         best_path = trainer.outdir / "model_best.pt"
 
         # Build CoreModel for export
+        # TODO: only pass necessary attrs, IGData.attrs can be very large and needs to be stripped
         export_model = CoreModel(
             net=trainer.model,
             normalizer=trainer.normalizer,
@@ -118,14 +117,15 @@ class ExportCallback(Callback):
 
         # Save best model if improved
         if metrics is not None:
-            current_mse = metrics["loss"]
-            if current_mse < self._best_mse:
+            loss_key = next((k for k in metrics if k.startswith("loss")), None)
+            loss = metrics[loss_key]
+            if loss < self._best_loss:
                 Console.out(
-                    f"New best MSE {current_mse:.4f} < {self._best_mse:.4f}; "
+                    f"New best {loss_key.split(':')[1].upper()} {loss:.4f} < {self._best_loss:.4f}; "
                     f"saving best model to {best_path}...",
                     severity=1
                 )
-                self._best_mse = current_mse
+                self._best_loss = loss
                 try:
                     torch.save(export_model, best_path)
                 except Exception as e:
@@ -135,18 +135,57 @@ class ExportCallback(Callback):
     on_validation_end = on_test_end = _export
 
 
-class RegressionMetricsCallback(Callback):
+class PlotConfigurationMixin:
 
-    # class vars
-    _plotters:  ClassVar[List[Callable[..., None]]] = []
+    _ALIASES:   Dict[str, List[str]]
+    _plotters:  List[Tuple[MetricsPlotMethod, Dict]]
+    _dispatch:  Dict[str, MetricsPlotMethod]
 
-    # define a cache for storing plotting configurations
-    _cache:     ClassVar[Dict[str, Any]]            = {}
+    def _parse_options(self, options: Union[Dict[str, Dict], List[str]]) -> Dict[str, Dict]:
+        # build lookup dict
+        alias_lookup = {
+            alias: canonical
+            for canonical, aliases in self._ALIASES.items()
+            for alias in aliases
+        }
+
+        # normalize dict keys in place
+        if isinstance(options, list):
+            options = {o: {} for o in options}
+        for k, v in list(options.items()):
+            norm_key = alias_lookup.get(k, k)
+            if norm_key != k:
+                options[norm_key] = options.pop(k)
+
+        return options
+
+    def configure_plots(self, options: Union[Dict[str, Dict], List[str]]) -> None:
+        options = self._parse_options(options)
+
+        for option, kwargs in options.items():
+            if option not in self._dispatch.keys():
+                raise KeyError(f"Option '{option}' is not supported.")
+            self._plotters.append((self._dispatch[option], kwargs))
+
+
+class RegressionMetricsCallback(Callback, PlotConfigurationMixin):
+
+    _COMPATIBLE = ["regression"]
+    _ALIASES: Dict[str, List[str]] = {}
 
     def __init__(self) -> None:
         self._y_asinh_mask:     Optional[List[str]] = None
         self._target_labels:    Optional[List[str]] = None
         self._include_labels:   Optional[List[str]] = None
+
+        # plotting attrs
+        self._plotters: List[Tuple[MetricsPlotMethod, Dict]] = []
+
+        # dispatch dict
+        self._dispatch: Dict[str, MetricsPlotMethod] = {
+            "bias": self._build_bias_plot,
+            "parity": self._build_parity_plot
+        }
 
     def on_init(self, trainer: Trainer) -> None:
         self._y_asinh_mask =    IGData.attrs[0]["global"]["apply_log_scaling_y"]
@@ -154,38 +193,16 @@ class RegressionMetricsCallback(Callback):
         self._target_labels =   IGData.attrs[0]["global"]["target_labels"]
 
     def on_test_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
-        for plotter in type(self)._plotters:
-            plotter(self, trainer, epoch, "test")
+        for plotter, kwargs in self._plotters:
+            plotter(trainer, epoch, "test", **kwargs)
 
     def on_validation_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
-        for plotter in type(self)._plotters:
-            plotter(self, trainer, epoch, "val")
+        for plotter, kwargs in self._plotters:
+            plotter(trainer, epoch, "val", **kwargs)
 
-    @classmethod
-    def enqueue_parity(cls) -> None:
-        cls._plotters.append(cls._build_parity_plot)
-
-    @classmethod
-    def enqueue_bias(cls, e_true: str) -> None:
-        cls._plotters.append(cls._build_bias_plot)
-
-        # grab target and included labels from metadata
-        _include_labels = IGData.attrs[0]["global"]["include_labels"]
-        _target_labels = IGData.attrs[0]["global"]["target_labels"]
-
-        # ensure the passed label exists in the processed dataset
-        if e_true not in (_include_labels + _target_labels):
-            raise KeyError(
-                f"Label '{e_true}' not found in dataset, select from available labels: "
-                f"[{', '.join(_include_labels + _target_labels)}]"
-            )
-
-        # if it exists, cache it for the plotter
-        cls._cache["e_true"] = e_true
-
-    def _build_parity_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
-        preds = getattr(trainer, f"{dataset}_predictions")
-        targs = getattr(trainer, f"{dataset}_targets")
+    def _build_parity_plot(self, trainer: Trainer, epoch: int, dataset: str, **kwargs) -> None:
+        preds = trainer.last_eval[dataset]["preds"]
+        targs = trainer.last_eval[dataset]["targets"]
 
         n_cols = preds.shape[1]
 
@@ -217,14 +234,18 @@ class RegressionMetricsCallback(Callback):
                 layout_kwargs=layout_kwargs
             )
 
-    def _build_bias_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
-        cls = type(self)
+    def _build_bias_plot(self, trainer: Trainer, epoch: int, dataset: str, **kwargs) -> None:
+        # ensure correct kwargs are passed
+        _required_kw = ["e_true"]
+        for kw in _required_kw:
+            if kw not in kwargs.keys():
+                raise KeyError(f"Bias plotter requires setting the key word argument '{kw}'.")
 
-        preds: torch.Tensor = getattr(trainer, f"{dataset}_predictions")
-        targs: torch.Tensor = getattr(trainer, f"{dataset}_targets")
-        incls: torch.Tensor = getattr(trainer, f"{dataset}_includes")
+        preds = trainer.last_eval[dataset]["preds"]
+        targs = trainer.last_eval[dataset]["targets"]
+        incls = trainer.last_eval[dataset]["includes"]
 
-        e_true = cls._cache["e_true"]
+        e_true = kwargs["e_true"]
         if e_true in self._include_labels:
             x = incls[:, self._include_labels.index(e_true)].clone()
         elif e_true in self._target_labels:
@@ -266,38 +287,42 @@ class RegressionMetricsCallback(Callback):
             )
 
 
-class MulticlassMetricsCallback(Callback):
+class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
 
-    # class vars
-    _plotters:  ClassVar[List[Callable[..., None]]] = []
+    _COMPATIBLE = ["multiclass"]
+    _ALIASES: Dict[str, List[str]] = {
+        "cm": [
+            "confusion-matrix"
+        ]
+    }
 
     def __init__(self) -> None:
         self._target_label:     Optional[str]       = None
         self._include_labels:   Optional[List[str]] = None
 
+        # plotting attrs
+        self._plotters: List[Tuple[MetricsPlotMethod, Dict]] = []
+
+        # dispatch dict
+        self._dispatch: Dict[str, MetricsPlotMethod] = {
+            "cm": self._build_confusion_matrix,
+            "roc": self._build_roc_plot
+        }
+
     def on_init(self, trainer: Trainer) -> None:
-        self._include_labels =  IGData.attrs[0]["global"]["include_labels"]
-        self._target_label =   IGData.attrs[0]["global"]["target_labels"][0]  # should be only one for multiclass
+        self._target_label = IGData.attrs[0]["global"]["target_labels"][0]  # should be only one for multiclass
 
     def on_test_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
-        for plotter in type(self)._plotters:
-            plotter(self, trainer, epoch, "test")
+        for plotter, kwargs in self._plotters:
+            plotter(trainer, epoch, "test", **kwargs)
 
     def on_validation_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
-        for plotter in type(self)._plotters:
-            plotter(self, trainer, epoch, "val")
+        for plotter, kwargs in self._plotters:
+            plotter(trainer, epoch, "val", **kwargs)
 
-    @classmethod
-    def enqueue_confusion_matrix(cls) -> None:
-        cls._plotters.append(cls._build_confusion_matrix)
-
-    @classmethod
-    def enqueue_roc(cls) -> None:
-        cls._plotters.append(cls._build_roc_plot)
-
-    def _build_confusion_matrix(self, trainer: Trainer, epoch: int, dataset: str) -> None:
-        preds: torch.Tensor = getattr(trainer, f"{dataset}_predictions")
-        targs: torch.Tensor = getattr(trainer, f"{dataset}_targets")
+    def _build_confusion_matrix(self, trainer: Trainer, epoch: int, dataset: str, **kwargs) -> None:
+        preds = trainer.last_eval[dataset]["preds"]
+        targs = trainer.last_eval[dataset]["targets"]
 
         layout_kwargs = {
             "title": f"{self._target_label} Confusion Matrix [Epoch {epoch + 1} - {dataset.title()}]",
@@ -309,13 +334,13 @@ class MulticlassMetricsCallback(Callback):
         cm.plot(
             preds,
             targs,
-            save_path=trainer.outdir / f"{self._target_label}.cm.{epoch + 1}.html",
+            save_path=trainer.outdir / f"{self._target_label}.CM.{epoch + 1}.html",
             layout_kwargs=layout_kwargs
         )
 
-    def _build_roc_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
-        preds: torch.Tensor = getattr(trainer, f"{dataset}_predictions")
-        targs: torch.Tensor = getattr(trainer, f"{dataset}_targets")
+    def _build_roc_plot(self, trainer: Trainer, epoch: int, dataset: str, **kwargs) -> None:
+        preds = trainer.last_eval[dataset]["preds"]
+        targs = trainer.last_eval[dataset]["targets"]
 
         layout_kwargs = {
             "title": f"{self._target_label} ROC [Epoch {epoch + 1} - {dataset.title()}]"

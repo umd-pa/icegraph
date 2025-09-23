@@ -98,7 +98,8 @@ class Trainer(torch.nn.Module):
         # grab callbacks
         default_callbacks = [
             ConsoleCallback(),
-            ExportCallback()
+            ExportCallback(),
+            TensorBoardCallback()
         ]
         self.callbacks = callbacks or default_callbacks
 
@@ -138,7 +139,7 @@ class Trainer(torch.nn.Module):
         self._test_metrics: Dict[int, ComputedMetrics] = {}
 
         # setup stash dict
-        self._last_eval = {
+        self._last_eval: Dict[str, Dict[str, Optional[torch.Tensor]]] = {
             "val": {"preds": None, "targets": None, "includes": None},
             "test": {"preds": None, "targets": None, "includes": None},
         }
@@ -177,41 +178,22 @@ class Trainer(torch.nn.Module):
                     except Exception:
                         pass
 
-    def register_callback(self, callback: Type[Callback]) -> None:
-        """Register a callback."""
-        if not issubclass(callback, Callback):
-            raise TypeError("callback must be a subclass of 'Callback'")
-        self.callbacks.append(callback())
+    @property
+    def last_eval(self) -> Dict[str, Dict[str, Optional[torch.Tensor]]]:
+        """Getter for the last eval stash dict."""
+        return self._last_eval
 
-        # make sure user didnt pass a normalizer
+    def register_callback(self, callback: Callback) -> None:
+        """Register a callback."""
+        if not isinstance(callback, Callback):
+            raise TypeError("callback must be a subclass of 'Callback'")
+        self.callbacks.append(callback)
+
+        # make sure user didnt pass a normalizer callback
         self._ensure_single_normalizer()
 
         # need to initialize this new callback as it wasn't caught in trainer's __init__
         self.callbacks[-1].on_init(self)
-
-    @property
-    def val_predictions(self) -> Optional[torch.Tensor]:
-        return self._last_eval["val"]["preds"]
-
-    @property
-    def val_targets(self) -> Optional[torch.Tensor]:
-        return self._last_eval["val"]["targets"]
-
-    @property
-    def val_includes(self) -> Optional[torch.Tensor]:
-        return self._last_eval["val"]["includes"]
-
-    @property
-    def test_predictions(self) -> Optional[torch.Tensor]:
-        return self._last_eval["test"]["preds"]
-
-    @property
-    def test_targets(self) -> Optional[torch.Tensor]:
-        return self._last_eval["test"]["targets"]
-
-    @property
-    def test_includes(self) -> Optional[torch.Tensor]:
-        return self._last_eval["test"]["includes"]
 
     def _ensure_single_normalizer(self) -> None:
         _normalizers: List[Normalizer] = [cb for cb in self.callbacks + [self.normalizer] if isinstance(cb, Normalizer)]
