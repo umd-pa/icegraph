@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 project = 'IceGraph'
 author = 'Taylor St Jean'
-release = '0.8.6'
+release = '0.9.0'
 
 html_theme = "sphinx_rtd_theme"
 master_doc = 'index'
