@@ -8,6 +8,10 @@ class DataError(IceGraphError):
     """Raised when an error occurs during the data loading process."""
 
 
+class NotConfiguredError(IceGraphError):
+    """Raised on attempt to call a method before full configuration."""
+
+
 class EmptyDatasetError(DataError):
     """Exception raised when a dataset is empty."""
 

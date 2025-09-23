@@ -70,7 +70,7 @@ class DatasetRegistry:
             "multiprocessing_context": torch.multiprocessing.get_context("fork"),
             "pin_memory": torch.cuda.is_available(),
             "persistent_workers": True,
-            "prefetch_factor": 4
+            "prefetch_factor": 8
         }
 
         # verify the datasets were passed in the correct order
@@ -93,7 +93,7 @@ class DatasetRegistry:
     def profile(self, target_samples: int = 50_000, warmup_batches: int = 5) -> None:
         """
         Measure DataLoader throughput (samples/s, MB/s) for PyG batches.
-        ONLY the time spent pulling the next batch from the loader is counted.
+        Only the time spent pulling the next batch from the loader is counted.
         Byte measurement happens off-clock so it doesn't affect the timing.
 
         Args:
@@ -126,7 +126,6 @@ class DatasetRegistry:
         loader = self.train_dataloader
         it = iter(loader)
 
-        # --- Warmup (optional, not timed) ---
         for _ in range(warmup_batches):
             try:
                 _ = next(it)
@@ -140,13 +139,13 @@ class DatasetRegistry:
         while count < target_samples:
             t0 = time.perf_counter()
             try:
-                batch = next(it)  # ⬅️ time ONLY the loader fetch/collate/IPC
+                batch = next(it)  # time ONLY the loader fetch/collate/IPC
             except StopIteration:
                 break
             t1 = time.perf_counter()
             load_time += (t1 - t0)
 
-            # Off-clock accounting
+            # off clock
             batch_size = int(getattr(batch, "num_graphs", 1))
             count += batch_size
             total_bytes += _pyg_bytes(batch)

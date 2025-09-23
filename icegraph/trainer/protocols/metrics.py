@@ -7,6 +7,7 @@ from typing import Optional, Dict, Self
 import torch
 
 from .base import Metrics
+from icegraph.types import ComputedMetrics
 
 __all__ = ["RegressionMetrics", "MulticlassMetrics"]
 
@@ -31,7 +32,7 @@ class RegressionMetrics(Metrics):
         self.sse_sum += float(loss.item())
         self.n_elems += out.numel()
 
-    def _compute(self) -> Dict[str, float]:
+    def _compute(self) -> ComputedMetrics:
         if self.n_elems == 0:
             return {"loss": float("nan"), "rmse": float("nan")}
         mse = self.loss_sum / self.n_elems
@@ -44,14 +45,14 @@ class RegressionMetrics(Metrics):
 
 
 @dataclass
-class MulticlassMetrics:
+class MulticlassMetrics(Metrics):
     loss_sum: float = field(default=0.0, init=False)
     n_samples: int = field(default=0, init=False)
     correct: int = field(default=0, init=False)
     topk_correct: int = field(default=0, init=False)
     k: int = field(default=3, kw_only=True)
 
-    def update(self, out, target, loss, *, mask=None) -> None:
+    def _update(self, out, target, loss, *, mask=None) -> None:
         if mask is not None:
             out, target = out[mask], target[mask]
             if out.numel() == 0: return
@@ -65,14 +66,14 @@ class MulticlassMetrics:
             topk = out.topk(self.k, dim=1).indices
             self.topk_correct += int((topk == target.unsqueeze(1)).any(dim=1).sum().item())
 
-    def compute(self) -> dict:
+    def _compute(self) -> ComputedMetrics:
         if self.n_samples == 0:
             return {"loss": float("nan"), "acc": float("nan"), f"top{self.k}_acc": float("nan")}
 
         return {
             "loss": self.loss_sum / self.n_samples,
             "acc": self.correct / self.n_samples,
-            f"top{self.k}_acc": self.topk_correct / self.n_samples if self.k else float("nan"),
+            f"top{self.k}_acc": self.topk_correct / self.n_samples if self.k else float("nan")
         }
 
     def merge_(self, other: Self) -> None:
@@ -80,4 +81,3 @@ class MulticlassMetrics:
         self.n_samples += other.n_samples
         self.correct += other.correct
         self.topk_correct += other.topk_correct
-

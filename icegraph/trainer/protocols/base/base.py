@@ -3,11 +3,18 @@
 
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, final, Tuple
+from typing import Optional, Dict, Any, final, Tuple, TypeAlias, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 from torch import nn
 import torch
+
+from icegraph.types import ComputedMetrics
+
+if TYPE_CHECKING:
+    from icegraph.trainer import Trainer
+else:
+    Trainer = None
 
 
 class TaskStrategy(ABC):
@@ -37,6 +44,12 @@ class TaskStrategy(ABC):
     def make_metrics(self) -> Metrics: ...
 
     @abstractmethod
+    def out_channels(self, trainer: Trainer) -> int: ...
+
+    @abstractmethod
+    def in_channels(self, trainer: Trainer) -> int: ...
+
+    @abstractmethod
     def filter_eval(
             self,
             out: torch.Tensor,
@@ -45,7 +58,7 @@ class TaskStrategy(ABC):
 
 
 class Metrics(ABC):
-    _compute_cache: Optional[Dict[str, float]] = None
+    _compute_cache: Optional[ComputedMetrics] = None
 
     @final
     def update(
@@ -68,13 +81,13 @@ class Metrics(ABC):
     ) -> None: ...
 
     @final
-    def compute(self) -> Dict[str, float]:
+    def compute(self) -> ComputedMetrics:
         if self._compute_cache is None:
             self._compute_cache = self._compute()
         return self._compute_cache
 
     @abstractmethod
-    def _compute(self) -> Dict[str, float]: ...
+    def _compute(self) -> ComputedMetrics: ...
 
     @abstractmethod
     def merge_(self, other: Metrics) -> None: ...

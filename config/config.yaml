@@ -1,13 +1,13 @@
 # file and dir paths
 io:
-  default_dir: "/data/i3store/users/tstjean/21002_subset"
+  default_dir: "/data/i3store/users/tstjean/data/processed/22646"
   gcd_path: ""
 
 # frame keys (for feature extraction)
 frame_keys:
   header: I3EventHeader
   mctree: I3MCTree_preMuonProp
-  bg_mctree: BackgroundI3MCTree_preMuonProp
+  bg_mctree: I3MCTree
   weight_dict: I3MCWeightDict
   truth_dict: I3MCWeightDict
 
@@ -19,7 +19,7 @@ table_names:
 data:
   # truth labels to use for training
   target_labels:
-    - PrimaryNeutrinoType
+    - InteractionType
 
   # any non-target labels to include (not used in training), useful for plotting
   # these labels will be served to callbacks by the trainer during validation and test steps
@@ -42,7 +42,7 @@ training:
   # batch size controls how many samples are loaded into memory at a time in each
   # training batch (see torch_geometric.loader.DataLoader batch_size argument)
   batch_size: 2048
-  num_workers: 16
+  num_workers: 20
 
   trainer_params:
     max_epochs: 100000
@@ -56,7 +56,7 @@ training:
   strategy:
     task: MulticlassStrategy
     kwargs:
-      k: 3
+      k: 2
 
   optimizer:
     learning_rate: 5e-4

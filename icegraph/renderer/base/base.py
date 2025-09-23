@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, Dict
 
 import plotly.graph_objects as go
 import numpy as np
@@ -67,7 +67,7 @@ class IGBasicPlot(ABC):
         self._fig = go.Figure()
 
     @abstractmethod
-    def _populate_plot(self, x: np.ndarray, y: np.ndarray, nbins: int) -> None:
+    def _populate_plot(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
         """
         Abstract method to populate the plot with subclass-specific logic.
 
@@ -76,11 +76,17 @@ class IGBasicPlot(ABC):
         Args:
             x (np.ndarray): X values.
             y (np.ndarray): Y values.
-            nbins (int): Number of bins for the heatmap.
         """
         ...
 
-    def plot(self, x: torch.Tensor, y: torch.Tensor, save_path: Optional[Union[str, Path]] = None, **kwargs) -> None:
+    def plot(
+            self,
+            x: torch.Tensor,
+            y: torch.Tensor,
+            save_path: Optional[Union[str, Path]] = None, *,
+            layout_kwargs: Optional[Dict] = None,
+            plot_kwargs: Optional[Dict] = None
+    ) -> None:
         """
         This method calls `_populate_plot` to fill in plot data and saves the figure as an HTML file.
 
@@ -88,20 +94,26 @@ class IGBasicPlot(ABC):
             x (torch.Tensor): X values.
             y (torch.Tensor): Y values.
             save_path (Optional[Union[str, Path]]): The path where the HTML plot file will be saved.
+            layout_kwargs (Optional[Dict]): kwargs passed to plotly update_layout() method.
+            plot_kwargs (Optional[Dict]): kwargs passed to local _populate_plot() method.
         """
-        self._populate_plot(x.detach().cpu().numpy(), y.detach().cpu().numpy(), nbins=100)
+        if plot_kwargs is None:
+            plot_kwargs = {}
+
+        if layout_kwargs is None:
+            layout_kwargs = {}
 
         save_path = Path(
             save_path or
             Path(self._config.user_config.io.default_dir) /
-            f"{kwargs.get('title', 'default')}.html"
+            f"{layout_kwargs.get('title', 'default')}.html"
         )
 
         if save_path.is_dir():
-            save_path = save_path / f"{kwargs.get('title', 'default')}.html"
+            save_path = save_path / f"{layout_kwargs.get('title', 'default')}.html"
 
         self._fig.update_layout(
-            **kwargs,
+            **layout_kwargs,
             font=dict(
                 size=16
             ),
@@ -122,6 +134,8 @@ class IGBasicPlot(ABC):
         )
         self._fig.update_xaxes(**axis_kwargs)
         self._fig.update_yaxes(**axis_kwargs)
+
+        self._populate_plot(x.detach().cpu().numpy(), y.detach().cpu().numpy(), **plot_kwargs)
 
         self.save(save_path)
 
@@ -144,8 +158,6 @@ class IGBasicPlot(ABC):
             include_plotlyjs="cdn",
             include_mathjax="cdn"
         )
-
-
 
 
 class IGDistributionPlot(ABC):

@@ -10,13 +10,12 @@ import torch
 from icegraph.data.readers import LMDBDatasetShardReader
 from icegraph.utils import Statistics
 from icegraph.console import Console
+from icegraph.types import ComputedMetrics
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
 else:
-    class Trainer:
-        class Metrics:
-            ...
+    Trainer = None
 
 __all__ = ["Callback", "Normalizer"]
 
@@ -66,7 +65,7 @@ class Callback(ABC):
         """
         pass
 
-    def on_epoch_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+    def on_epoch_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         """
         Called at the end of each epoch, after training (and optional testing)
         for that epoch has completed.
@@ -97,7 +96,7 @@ class Callback(ABC):
             batch: The current PyG Batch instance about to be forwarded.
         """
 
-    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
+    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: ComputedMetrics) -> None:
         """
         Called immediately after each batch is processed.
 
@@ -121,7 +120,7 @@ class Callback(ABC):
         """
         pass
 
-    def on_validation_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+    def on_validation_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         """
         Called after validation completes for a given epoch.
 
@@ -142,7 +141,7 @@ class Callback(ABC):
         """
         pass
 
-    def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+    def on_test_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         """
         Called after testing completes for a given epoch.
 
@@ -153,7 +152,7 @@ class Callback(ABC):
         """
         pass
 
-    def on_save(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+    def on_save(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         """
         Called whenever the Trainer invokes save(), regardless of whether
         it’s a “latest” or “best” checkpoint.
@@ -244,25 +243,21 @@ class Normalizer(Callback, torch.nn.Module, _StatMixin):
 
     def on_batch_transfer(self, trainer: Trainer, batch: Batch) -> None:
         # normalization will always be called on batch transfer so processing can be done on the accelerator
-        self._ensure_on_device(trainer.device)
         self.dispatch(batch, trainer)
 
-    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: Trainer.Metrics) -> None:
+    def on_batch_end(self, trainer: Trainer, batch: Batch, out: torch.Tensor, target: torch.Tensor, loss: Union[int, float], metrics: ComputedMetrics) -> None:
         if not trainer.model.training:
-            self._ensure_on_device(trainer.device)
             self.dispatch(out, trainer, inverse=True)
             self.dispatch(target, trainer, inverse=True)
 
     def dispatch(self, data: Union[torch.Tensor, Batch], trainer: Optional[Trainer] = None, inverse: bool = False) -> Optional[torch.Tensor]:
         """
         Executes the calculation. Detects if in training or inference mode and dispatches to the evaluator.
-
-        Returns:
-            - torch.Tensor if on inference
-            - None if on training
         """
         # determine which transform to perform
-        operate: Callable[[torch.Tensor, Literal['x', 'y']], torch.Tensor] = self.normalize if not inverse else self.inverse_normalize
+        operate: Callable[
+            [torch.Tensor, Literal['x', 'y']], torch.Tensor
+        ] = self.normalize if not inverse else self.inverse_normalize
 
         if isinstance(data, Batch):
             if trainer is None:
@@ -272,6 +267,8 @@ class Normalizer(Callback, torch.nn.Module, _StatMixin):
                 data.x = operate(data.x, field='x')
 
             if hasattr(data, "y"):
+                if trainer.strategy.task != "regression":
+                    return  # no op
                 data.y = operate(data.y, field="y")
 
         elif isinstance(data, torch.Tensor):

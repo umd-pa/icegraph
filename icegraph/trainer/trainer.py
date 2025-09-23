@@ -12,6 +12,7 @@ from torch_geometric.loader import DataLoader
 
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
+from icegraph.types import ComputedMetrics
 from icegraph.config import IGConfig
 from ._config import TrainerConfig
 from .arch import ModelFactory
@@ -19,7 +20,6 @@ from icegraph.utils.pathutils import PathResolver
 from .callbacks.base import Callback, Normalizer
 from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, resolve_normalizer
 from .base.exceptions import EmptyDataLoaderError, TrainerError
-from .protocols.base import TaskStrategy
 from .protocols import resolve_strategy
 
 __all__ = ["Trainer"]
@@ -59,7 +59,6 @@ class Trainer(torch.nn.Module):
             model (str): The model to be trained and evaluated, must be one of ['gravnet'].
             device (str): Preferred device for computation. Defaults to 'cuda'.
             normalizer (Optional[normalizer]): Normalizer to use, overrides any normalizer specified in config.
-            strategy (Optional[TaskStrategy]): Strategy to use, overrides any strategy specified in config.
         """
         super().__init__()
 
@@ -80,7 +79,7 @@ class Trainer(torch.nn.Module):
         self._set_seed(self.trainer_config.seed)
 
         # load datasets and device
-        self.datasets = dataset_registry
+        self.registry = dataset_registry
 
         # load strategy
         strategy_selection = self._config.user_config.training.strategy.task
@@ -99,8 +98,7 @@ class Trainer(torch.nn.Module):
         # grab callbacks
         default_callbacks = [
             ConsoleCallback(),
-            ExportCallback(),
-            TensorBoardCallback()
+            ExportCallback()
         ]
         self.callbacks = callbacks or default_callbacks
 
@@ -111,8 +109,8 @@ class Trainer(torch.nn.Module):
         self._ensure_single_normalizer()
 
         # determine dimensions of input and output
-        in_channels = dataset_registry.train_dataset.num_node_features
-        out_channels = dataset_registry.train_dataset.num_output_features
+        in_channels = self.strategy.in_channels(self)
+        out_channels = self.strategy.out_channels(self)
 
         # get the model
         active_model = ModelFactory.create(
@@ -135,9 +133,9 @@ class Trainer(torch.nn.Module):
         self.strategy.post_init_check(self.model)  # run post init check if any
 
         # init metric dicts
-        self._train_metrics: Dict[int, Dict[str, float]] = {}
-        self._val_metrics: Dict[int, Dict[str, float]] = {}
-        self._test_metrics: Dict[int, Dict[str, float]] = {}
+        self._train_metrics: Dict[int, ComputedMetrics] = {}
+        self._val_metrics: Dict[int, ComputedMetrics] = {}
+        self._test_metrics: Dict[int, ComputedMetrics] = {}
 
         # setup stash dict
         self._last_eval = {
@@ -151,7 +149,33 @@ class Trainer(torch.nn.Module):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self._fire("on_teardown")
+        try:
+            self._close_resources()
+        finally:
+            self._fire("on_teardown")
+
+    def _close_resources(self) -> None:
+        """Close dataset resources."""
+        for attr in ("train_dataset", "val_dataset", "test_dataset"):
+            dataset = getattr(self.registry, attr, None)
+            if dataset is not None and hasattr(dataset, "close"):
+                try:
+                    dataset.close()
+                except Exception:
+                    pass
+
+        for attr in ("train_dataloader", "val_dataloader", "test_dataloader"):
+            loader = getattr(self.registry, attr, None)
+            if loader is None:
+                continue
+            if getattr(loader, "persistent_workers", False):
+                loader_iterator = getattr(loader, "_iterator", None)
+                if loader_iterator is not None:
+                    try:
+                        # attempt to directly shutdown workers
+                        loader_iterator._shutdown_workers()
+                    except Exception:
+                        pass
 
     def register_callback(self, callback: Type[Callback]) -> None:
         """Register a callback."""
@@ -244,7 +268,7 @@ class Trainer(torch.nn.Module):
 
         return out, target
 
-    def _train_batchwise(self, dataloader: DataLoader) -> Dict[str, float]:
+    def _train_batchwise(self, dataloader: DataLoader) -> ComputedMetrics:
         """
         Run one epoch of training over `dataloader` and collect SSE and sample counts.
 
@@ -252,7 +276,7 @@ class Trainer(torch.nn.Module):
             dataloader (DataLoader): Yields batches for training.
 
         Returns:
-            Dict[str, float]: Contains metrics for the epoch.
+            ComputedMetrics: Contains metrics for the epoch.
         """
         metrics = self.strategy.make_metrics()
 
@@ -263,7 +287,6 @@ class Trainer(torch.nn.Module):
         for batch in Console.progress_bar(dataloader):
             self._fire("on_batch_begin", batch)
 
-            print(batch.y)
             batch = batch.to(self.device)
             self._fire("on_batch_transfer", batch)
 
@@ -282,7 +305,7 @@ class Trainer(torch.nn.Module):
 
         return metrics.compute()
 
-    def _evaluate_batchwise(self, dataloader: DataLoader, *, stash: Optional[str] = None) -> Dict[str, float]:
+    def _evaluate_batchwise(self, dataloader: DataLoader, *, stash: Optional[str] = None) -> ComputedMetrics:
         """
         Run one pass of evaluation (no gradient) over `dataloader`.
 
@@ -291,7 +314,7 @@ class Trainer(torch.nn.Module):
             stash (Optional[str]): Whether to stash results.
 
         Returns:
-            Metrics: Contains metrics for the run.
+            ComputedMetrics: Contains metrics for the run.
         """
         metrics = self.strategy.make_metrics()
 
@@ -338,17 +361,17 @@ class Trainer(torch.nn.Module):
         return metrics.compute()
 
     @property
-    def train_metrics(self) -> dict[int, Dict[str, float]]:
+    def train_metrics(self) -> dict[int, ComputedMetrics]:
         """Getter for training metrics."""
         return self._train_metrics
 
     @property
-    def val_metrics(self) -> dict[int, Dict[str, float]]:
+    def val_metrics(self) -> dict[int, ComputedMetrics]:
         """Getter for validation metrics."""
         return self._val_metrics
 
     @property
-    def test_metrics(self) -> dict[int, Dict[str, float]]:
+    def test_metrics(self) -> dict[int, ComputedMetrics]:
         """Getter for testing metrics."""
         return self._test_metrics
 
@@ -364,7 +387,7 @@ class Trainer(torch.nn.Module):
         for epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
             self._fire("on_epoch_begin", epoch)
 
-            metrics_dict = self._train_batchwise(self.datasets.train_dataloader)
+            metrics_dict = self._train_batchwise(self.registry.train_dataloader)
 
             if not metrics_dict or all(v != v for v in metrics_dict.values()):  # all NaN
                 raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
@@ -391,7 +414,7 @@ class Trainer(torch.nn.Module):
             epoch (int): The epoch index for logging/scalar steps.
         """
         self._fire("on_validation_begin", epoch)
-        metrics_dict = self._evaluate_batchwise(self.datasets.val_dataloader, stash="val")
+        metrics_dict = self._evaluate_batchwise(self.registry.val_dataloader, stash="val")
 
         if not metrics_dict or all(v != v for v in metrics_dict.values()):
             raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
@@ -408,7 +431,7 @@ class Trainer(torch.nn.Module):
             epoch (int): The epoch index for logging/scalar steps.
         """
         self._fire("on_test_begin", epoch)
-        metrics_dict = self._evaluate_batchwise(self.datasets.test_dataloader, stash="test")
+        metrics_dict = self._evaluate_batchwise(self.registry.test_dataloader, stash="test")
 
         if not metrics_dict or all(v != v for v in metrics_dict.values()):
             raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
@@ -417,7 +440,7 @@ class Trainer(torch.nn.Module):
 
         self._fire("on_test_end", epoch, metrics_dict)
 
-    def save(self, epoch: Optional[int] = None, metrics: Optional[Dict[str, float]] = None) -> None:
+    def save(self, epoch: Optional[int] = None, metrics: Optional[ComputedMetrics] = None) -> None:
         """
         Saves the model if there is an associated callback.
         """

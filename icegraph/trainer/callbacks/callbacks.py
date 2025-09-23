@@ -9,19 +9,24 @@ import torch
 from .base import Callback
 from icegraph.console import Console
 from icegraph.data.base import IGData
+from icegraph.types import ComputedMetrics
 from icegraph.inference import CoreModel
 from icegraph.trainer.tensorboard import TensorBoard
-from icegraph.renderer import ParityPlot, BiasPlot
+from icegraph.renderer import ParityPlot, BiasPlot, ConfusionMatrixPlot, ROCPlot
 from icegraph._version import __version__
 
-__all__ = ["TensorBoardCallback", "ExportCallback", "ConsoleCallback", "RegressionMetricsCallback"]
+__all__ = [
+    "TensorBoardCallback",
+    "ExportCallback",
+    "ConsoleCallback",
+    "RegressionMetricsCallback",
+    "MulticlassMetricsCallback"
+]
 
 if TYPE_CHECKING:
     from .. import Trainer
 else:
-    class Trainer:
-        class Metrics:
-            pass
+    Trainer = None
 
 
 class TensorBoardCallback(Callback):
@@ -30,6 +35,9 @@ class TensorBoardCallback(Callback):
         self._tb: Optional[TensorBoard] = None
 
     def on_init(self, trainer) -> None:
+        if trainer.strategy.task != "regression":
+            raise NotImplementedError("Tensorboard callback is currently incompatible with non-regression strategies.")
+
         if self._tb is None:
             self._tb = TensorBoard(trainer.log_dir)
         self._tb.launch()
@@ -69,26 +77,21 @@ class ConsoleCallback(Callback):
     def on_test_begin(self, trainer, epoch) -> None:
         Console.out(f"[Test] Epoch {epoch + 1}/{trainer.trainer_config.max_epochs}")
 
-    def display_loss(self, trainer, epoch, metrics) -> None:
-        task = trainer.strategy.task
-
-        out: str = ""
-        if task == "regression":
-            out = f" --> MSE: {metrics['loss']:.4f} | RMSE: {metrics['rmse']:.4f}"
-        elif task == "multiclass":
-            k = trainer.strategy_kwargs["k"]
-            out = f" --> MSE: {metrics['loss']:.4f} | Acc: {metrics['acc']:.4f} | Top-{k} Acc: {metrics['top%d_acc' % k]:.4f}"
+    def display_metrics(self, trainer, epoch, metrics) -> None:
+        # task agnostic display of metrics
+        display_metrics = [f"{metric.upper()}: {value:.4f}" for metric, value in metrics.items()]
+        out = f" --> {' | '.join(display_metrics)}"
 
         Console.out(out)
 
-    on_validation_end = on_test_end = on_epoch_end = display_loss
+    on_validation_end = on_test_end = on_epoch_end = display_metrics
 
 
 class ExportCallback(Callback):
     def __init__(self) -> None:
-        self._best_rmse: float = float("inf")
+        self._best_mse: float = float("inf")
 
-    def _export(self, trainer: Trainer, epoch: int, metrics: Dict[str, float]) -> None:
+    def _export(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         latest_path = trainer.outdir / "model_latest.pt"
         best_path = trainer.outdir / "model_best.pt"
 
@@ -115,14 +118,14 @@ class ExportCallback(Callback):
 
         # Save best model if improved
         if metrics is not None:
-            current_rmse = metrics["rmse"]
-            if current_rmse < self._best_rmse:
+            current_mse = metrics["loss"]
+            if current_mse < self._best_mse:
                 Console.out(
-                    f"New best RMSE {current_rmse:.4f} < {self._best_rmse:.4f}; "
+                    f"New best MSE {current_mse:.4f} < {self._best_mse:.4f}; "
                     f"saving best model to {best_path}...",
                     severity=1
                 )
-                self._best_rmse = current_rmse
+                self._best_mse = current_mse
                 try:
                     torch.save(export_model, best_path)
                 except Exception as e:
@@ -150,11 +153,11 @@ class RegressionMetricsCallback(Callback):
         self._include_labels =  IGData.attrs[0]["global"]["include_labels"]
         self._target_labels =   IGData.attrs[0]["global"]["target_labels"]
 
-    def on_test_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+    def on_test_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         for plotter in type(self)._plotters:
             plotter(self, trainer, epoch, "test")
 
-    def on_validation_end(self, trainer: Trainer, epoch: int, metrics: Trainer.Metrics) -> None:
+    def on_validation_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
         for plotter in type(self)._plotters:
             plotter(self, trainer, epoch, "val")
 
@@ -200,14 +203,18 @@ class RegressionMetricsCallback(Callback):
 
                 axis_title = r"log_{10}\left[%s\right]" % axis_title
 
+            layout_kwargs = {
+                "title": f"{label} Parity [Epoch {epoch + 1} - {dataset.title()}]",
+                "yaxis_title": r"$\text{Predicted }%s$" % axis_title,
+                "xaxis_title": r"$\text{True }%s$" % axis_title
+            }
+
             plot = ParityPlot()
             plot.plot(
                 x=targ,
                 y=pred,
                 save_path=trainer.outdir / f"{label}.parity.{epoch + 1}.html",
-                title=f"{label} Parity [Epoch {epoch + 1} - {dataset.title()}]",
-                yaxis_title=r"$\text{Predicted }%s$" % axis_title,
-                xaxis_title=r"$\text{True }%s$" % axis_title,
+                layout_kwargs=layout_kwargs
             )
 
     def _build_bias_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
@@ -244,12 +251,80 @@ class RegressionMetricsCallback(Callback):
                 y = torch.log10(y)
                 yaxis_title = r"log_{10}\left[%s\right]" % yaxis_title
 
+            layout_kwargs = {
+                "title": f"{label} Bias [Epoch {epoch + 1} - {dataset.title()}]",
+                "yaxis_title": "$%s$" % yaxis_title,
+                "xaxis_title": "$%s$" % xaxis_title
+            }
+
             plot = BiasPlot()
             plot.plot(
                 x=x,
                 y=y,
                 save_path=trainer.outdir / f"{label}.bias.{epoch + 1}.html",
-                title=f"{label} Bias [Epoch {epoch + 1} - {dataset.title()}]",
-                yaxis_title="$%s$" % yaxis_title,
-                xaxis_title="$%s$" % xaxis_title,
+                layout_kwargs=layout_kwargs
             )
+
+
+class MulticlassMetricsCallback(Callback):
+
+    # class vars
+    _plotters:  ClassVar[List[Callable[..., None]]] = []
+
+    def __init__(self) -> None:
+        self._target_label:     Optional[str]       = None
+        self._include_labels:   Optional[List[str]] = None
+
+    def on_init(self, trainer: Trainer) -> None:
+        self._include_labels =  IGData.attrs[0]["global"]["include_labels"]
+        self._target_label =   IGData.attrs[0]["global"]["target_labels"][0]  # should be only one for multiclass
+
+    def on_test_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
+        for plotter in type(self)._plotters:
+            plotter(self, trainer, epoch, "test")
+
+    def on_validation_end(self, trainer: Trainer, epoch: int, metrics: ComputedMetrics) -> None:
+        for plotter in type(self)._plotters:
+            plotter(self, trainer, epoch, "val")
+
+    @classmethod
+    def enqueue_confusion_matrix(cls) -> None:
+        cls._plotters.append(cls._build_confusion_matrix)
+
+    @classmethod
+    def enqueue_roc(cls) -> None:
+        cls._plotters.append(cls._build_roc_plot)
+
+    def _build_confusion_matrix(self, trainer: Trainer, epoch: int, dataset: str) -> None:
+        preds: torch.Tensor = getattr(trainer, f"{dataset}_predictions")
+        targs: torch.Tensor = getattr(trainer, f"{dataset}_targets")
+
+        layout_kwargs = {
+            "title": f"{self._target_label} Confusion Matrix [Epoch {epoch + 1} - {dataset.title()}]",
+            "yaxis_title": r"$\text{True %s}$" % self._target_label,
+            "xaxis_title": r"$\text{Predicted %s}$" % self._target_label
+        }
+
+        cm = ConfusionMatrixPlot()
+        cm.plot(
+            preds,
+            targs,
+            save_path=trainer.outdir / f"{self._target_label}.cm.{epoch + 1}.html",
+            layout_kwargs=layout_kwargs
+        )
+
+    def _build_roc_plot(self, trainer: Trainer, epoch: int, dataset: str) -> None:
+        preds: torch.Tensor = getattr(trainer, f"{dataset}_predictions")
+        targs: torch.Tensor = getattr(trainer, f"{dataset}_targets")
+
+        layout_kwargs = {
+            "title": f"{self._target_label} ROC [Epoch {epoch + 1} - {dataset.title()}]"
+        }
+
+        cm = ROCPlot()
+        cm.plot(
+            preds,
+            targs,
+            save_path=trainer.outdir / f"{self._target_label}.ROC.{epoch + 1}.html",
+            layout_kwargs=layout_kwargs
+        )
