@@ -1,25 +1,39 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional, Literal, Sequence, ClassVar, Dict, Any, List, Type
+import os
+from typing import Union, Optional, Literal, Sequence, ClassVar, Dict, Any, List, Type, TypeVar, Callable, cast
 from pathlib import Path
 from abc import ABC
 import functools
-import os
+import itertools
+from contextlib import ExitStack
+from multiprocessing.util import Finalize
 
 from torch.utils.data import Dataset
 import torch_geometric as pyg
 from torch_geometric.data import Data as PyGData
 import torch
 import numpy as np
-import pandas as pd
+from numpy.typing import NDArray
 
 from icegraph.config import IGConfig
-from icegraph.data.base.exceptions import EmptyDatasetError, DataError, MissingFieldError
-from icegraph.data.readers import LMDBDatasetShardReader, LMDBReader
+from icegraph.data.base.exceptions import NotConfiguredError, DataError, MissingFieldError
+from icegraph.data.readers import LMDBDatasetShardReader
 from icegraph.utils import stable_hash_cbor
 
 __all__ = ["IGData"]
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+def requires_config(func):
+    @functools.wraps(func)
+    def w(self, *a, **k):
+        if getattr(self, "_source", None) is None:
+            raise NotConfiguredError("IGData must be configured before use.")
+        return func(self, *a, **k)
+    return w
 
 
 class IGData(Dataset, ABC):
@@ -35,42 +49,35 @@ class IGData(Dataset, ABC):
     subset:             ClassVar[Optional[Literal["train","validation","test"]]]            = None
 
     # shared class vars
-    _reader:            ClassVar[Optional[Type[LMDBDatasetShardReader]]]                          = None
     _source:            ClassVar[Optional[Union[str, Path, Sequence[Union[str, Path]]]]]    = None
 
-    # reader process id for forks
-    _reader_pid:        ClassVar[Optional[int]]                                             = None
-
     # dataset attributes
-    attrs:              ClassVar[Optional[Dict[int, Any]]]                                  = None
+    attrs:              ClassVar[Optional[Dict[int, Dict[str, Dict[str, Any]]]]]            = None
+    include_labels:     ClassVar[Optional[List[str]]]                                       = None
+    target_labels:      ClassVar[Optional[List[str]]]                                       = None
 
     dataloader = property(
         lambda self: functools.partial(pyg.loader.DataLoader, self),
         doc="A convenience property that returns a partially-applied torch geometric DataLoader constructor for this dataset."
     )
 
+    @requires_config
     def __init__(self) -> None:
         """
         Initialize an IGData object from an LMDB file.
-
-        Raises:
-            EmptyDatasetError: If the loaded dataset is empty.
         """
-        # verify preloading attributes have been set
-        cls = type(self)
-        if cls._source is None:
-            raise DataError("Please run IGData.configure() before instantiating subclasses.")
-
         super().__init__()
 
-        # build the reader
-        cls._build_reader()
+        self._stack:        Optional[ExitStack]                 = None
+        self._proc_pid:     Optional[int]                       = None
+        self._reader:       Optional[LMDBDatasetShardReader]    = None
+        self._finalizer:    Optional[Finalize]                  = None
 
         # grab global config
         self._config: IGConfig = IGConfig.get()
 
         # get the key list
-        self._keys: Optional[List[int]] = None
+        self._keys: Optional[np.ndarray] = None
 
     def __init_subclass__(cls, **kwargs) -> None:
         """
@@ -81,15 +88,15 @@ class IGData(Dataset, ABC):
         it consists only of alphabetic characters.
 
         Raises:
-            TypeError: If `subset` is not defined on the subclass.
-            ValueError: If `subset` is not an alphabetic string.
+            DataError: If `subset` is not defined on the subclass or if `subset` is not an alphabetic string.
         """
         super().__init_subclass__(**kwargs)
         if cls.subset is None:
             raise DataError(f"{cls.__name__}.subset must be set to 'train'|'validation'|'test'")
         if not isinstance(cls.subset, str) or not cls.subset.isalpha():
-            raise DataError(f"`subset` on {cls.__name__!r} must be alpha string, got {cls.subset!r}")
+            raise DataError(f"`subset` on {cls.__name__!r} must be alphabetic string, got {cls.subset!r}")
 
+    @requires_config
     def __getitem__(self, idx: int) -> PyGData:
         """
         Retrieve a single sample by index.
@@ -100,14 +107,15 @@ class IGData(Dataset, ABC):
         Returns:
             pyg.data.Data: Torch-Geometric Data object containing data for the selected event.
         """
-        x, y, edge_index, edge_weight, include_labels = self.get(idx)
-        data = PyGData(x=x, y=y, edge_index=edge_index, edge_attr=edge_weight)
+        data_dict, attr_dict = self.get(cast(int, self.keys[idx]))
+        data = PyGData(**data_dict)
 
-        if include_labels is not None:
-            data.include_labels = include_labels
+        for attr, value in attr_dict.items():
+            setattr(data, attr, value)
 
         return data
 
+    @requires_config
     def __len__(self) -> int:
         """
         Return the number of events in the subset.
@@ -117,16 +125,7 @@ class IGData(Dataset, ABC):
         """
         return len(self.keys)
 
-    @classmethod
-    def _build_reader(cls) -> None:
-        """
-        Build the shared shard reader to be used by all subclasses.
-        """
-        pid = os.getpid()
-        if cls._reader is None or cls._reader_pid != pid:
-            cls._reader = LMDBDatasetShardReader
-
-    def _load_keys(self) -> List[int]:
+    def _load_keys(self) -> NDArray:
         # load the split key for the subset
         split_key = self._config.internal_config.split_int_assignments[self.subset]
 
@@ -134,22 +133,53 @@ class IGData(Dataset, ABC):
         splitmap = self._load_splitmap()
 
         # build the mask and return
-        mask = (splitmap == split_key)
-        return np.where(mask)[0]
+        return np.where((splitmap == split_key))[0]
 
-    def _load_splitmap(self) -> List[int]:
-        splitmaps: List[List[int]] = []
+    def _load_splitmap(self) -> NDArray[np.uint8]:
+        cls = type(self)
 
-        with self._reader() as reader:
-            attrs = reader.attrs()
-            for i in range(len(attrs)):
-                splitmaps.append(attrs[i]["allocation"]["splitmap"])
+        # split keys are small integers (0,1,2), so uint8 is safe and more compact
+        splitmap = np.fromiter(
+            itertools.chain.from_iterable(attr["allocation"]["splitmap"] for attr in cls.attrs.values()),
+            dtype=np.uint8
+        )
 
-        flattened_splitmap = np.array([x for _map in splitmaps for x in _map])
-        return flattened_splitmap
+        return splitmap
+
+    @requires_config
+    def _ensure_reader(self):
+        pid = os.getpid()
+        if self._reader is not None and pid == self._proc_pid:
+            return self._reader
+
+        # close old stack if any
+        if self._stack is not None:
+            try:
+                self._stack.close()
+            finally:
+                self._stack = None
+                self._reader = None
+
+        # create per-process reader
+        self._proc_pid = pid
+        self._stack = ExitStack()
+        self._reader = self._stack.enter_context(LMDBDatasetShardReader())
+
+        # GC/process-exit fallback
+        self._finalizer = Finalize(self, self._stack.close, exitpriority=10)
+        return self._reader
+
+    def close(self) -> None:
+        if getattr(self, "_finalizer", None) is not None:
+            try:
+                self._finalizer()
+            except Exception:
+                pass
+            self._finalizer = None
 
     @property
-    def keys(self) -> List[int]:
+    @requires_config
+    def keys(self) -> NDArray:
         if self._keys is None:
             self._keys = self._load_keys()
         return self._keys
@@ -176,6 +206,10 @@ class IGData(Dataset, ABC):
         with LMDBDatasetShardReader() as reader:
             cls.attrs = reader.attrs()
 
+        # cache target an included labels for quick access on hot paths
+        cls.include_labels = cls.attrs[0]["global"]["include_labels"]
+        cls.target_labels = cls.attrs[0]["global"]["target_labels"]
+
         # verify config hash
         config = cls.attrs[0]["global"]["config"]
         config_hash = cls.attrs[0]["global"]["config_hash"]
@@ -184,13 +218,13 @@ class IGData(Dataset, ABC):
             raise RuntimeError("Source config hash does not match expected hash. One or more files may be corrupted.")
 
     @property
-    def num_output_features(self) -> int:
+    @requires_config
+    def num_target_labels(self) -> int:
         """
         Returns the dimensionality of the target (label) for each graph sample.
 
         Returns:
-            int: The number of output features (e.g., 1 for scalar regression,
-                 or the number of classes/targets for vector labels).
+            int: The number of output labels.
         """
         y = self[0].y
         if y.ndim == 0:
@@ -198,14 +232,15 @@ class IGData(Dataset, ABC):
         elif y.ndim == 1:
             return y.shape[0]
         elif y.ndim == 2:
-            return len(y[0])
+            return y.shape[1]
         else:
             raise DataError(
                 f"Expected label tensor to be 0D, 1D, or 2D, got {y.ndim}D (shape={tuple(y.shape)})"
             )
 
     @property
-    def num_node_features(self):
+    @requires_config
+    def num_node_features(self) -> int:
         """
        Returns the dimensionality of the input feature list for each graph sample.
 
@@ -214,94 +249,90 @@ class IGData(Dataset, ABC):
        """
         return self[0].x.size(-1)
 
-    def get(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+    @requires_config
+    def get(self, idx: int) -> tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Read and decode a single event from the LMDB dataset.
 
         Args:
             idx (int): Index of the event to retrieve.
 
-        Returns:
-            tuple[torch.Tensor, ...]: Tuple containing:
-                - features (torch.Tensor): Node features of shape [num_nodes, num_features].
-                - labels (torch.Tensor): Target labels of shape [1, num_labels].
-                - edge_index (torch.Tensor): Edge indices of shape [2, num_edges].
-                - edge_weight (torch.Tensor): Edge weights of shape [num_edges].
-                - included_labels (Optional[torch.Tensor]): Included labels of shape [1, num_included_labels].
-
         Raises:
             MissingFieldError, DataError
         """
         cls = type(self)
 
-        if not isinstance(idx, int):
+        # initialize the data and attribute dict
+        data_dict = {}
+        attr_dict = {}
+
+        if not isinstance(idx, (int, np.integer)):
             raise DataError(f"Index must be int, got {type(idx).__name__!r}")
 
         # fetch the record from the reader
+        reader = self._ensure_reader()
         try:
-            with cls._reader() as reader:
-                data, *_ = reader[idx]
+            data, *_ = reader[idx]
         except (IndexError, KeyError) as e:
             raise DataError(f"Failed to retrieve record at index {idx}: {e}")
 
         # --- features ---
         try:
-            features = torch.tensor(data["features"], dtype=torch.float32)
+            data_dict["x"] = torch.tensor(data["features"], dtype=torch.float32)
         except KeyError:
             raise MissingFieldError(f"Record at index {idx} missing 'features' field")
-        if features.ndim == 1:
-            features = features.unsqueeze(0)  # [F] -> [1, F]
+        if data_dict["x"].ndim == 1:
+            data_dict["x"] = data_dict["x"].unsqueeze(0)  # [F] -> [1, F]
 
         # --- labels ---
         labels_vals = []
-        for name in cls.attrs[0]["global"]["target_labels"]:
+        for name in cls.target_labels:
             if name not in data:
                 raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])
-        labels = torch.tensor(labels_vals, dtype=torch.float32).unsqueeze(0)  # [1, L]
+        data_dict["y"] = torch.tensor(labels_vals, dtype=torch.float32).unsqueeze(0)  # [1, L]
+
+        # --- edges ---
+        try:
+            data_dict["edge_index"] = torch.tensor(data["edge_index"], dtype=torch.long)
+        except KeyError:
+            raise MissingFieldError(f"Record at index {idx} missing 'edge_index' field")
+        try:
+            data_dict["edge_attr"] = torch.tensor(data["edge_weight"], dtype=torch.float32)
+        except KeyError:
+            raise MissingFieldError(f"Record at index {idx} missing 'edge_weight' field")
+
+        # normalize shapes / sanity checks
+        if data_dict["edge_index"].ndim != 2:
+            raise DataError(f"'edge_index' must be 2-D, got {tuple(data_dict['edge_index'].shape)} at index {idx}")
+        if data_dict["edge_index"].shape[0] == 2:
+            pass  # [2, E]
+        elif data_dict["edge_index"].shape[1] == 2:
+            data_dict["edge_index"] = data_dict["edge_index"].T.contiguous()  # [E,2] -> [2,E]
+        else:
+            raise DataError(f"'edge_index' must be [2, E] or [E, 2], got {tuple(data_dict['edge_index'].shape)} at index {idx}")
+
+        if data_dict["edge_attr"].ndim == 2 and data_dict["edge_attr"].shape[1] == 1:
+            data_dict["edge_attr"] = data_dict["edge_attr"].reshape(-1)
+        if data_dict["edge_attr"].ndim != 1:
+            raise DataError(f"'edge_attr' must be 1-D (or [E,1]), got {tuple(data_dict['edge_attr'].shape)} at index {idx}")
+
+        if data_dict["edge_index"].shape[1] != data_dict["edge_attr"].shape[0]:
+            raise DataError(
+                f"edge count mismatch: edge_index has {data_dict['edge_index'].shape[1]} edges "
+                f"but edge_attr has {data_dict['edge_attr'].shape[0]} at index {idx}"
+            )
 
         # --- included labels (val/test only) ---
-        included_labels: Optional[torch.Tensor] = None
         if self.subset in ["validation", "test"]:
             inc_vals = []
-            for name in cls.attrs[0]["global"]["include_labels"]:
-                if name in cls.attrs[0]["global"]["target_labels"]:
+            for name in cls.include_labels:
+                if name in cls.target_labels:
                     continue
                 if name not in data:
                     raise MissingFieldError(f"Included label '{name}' not found in record at index {idx}")
                 inc_vals.append(data[name])
             if inc_vals:
-                included_labels = torch.tensor(inc_vals, dtype=torch.float32).unsqueeze(0)  # [1, N_inc]
+                attr_dict["include_labels"] = torch.tensor(inc_vals, dtype=torch.float32).unsqueeze(0)  # [1, N_inc]
 
-        # --- edges ---
-        try:
-            edge_index = torch.tensor(data["edge_index"], dtype=torch.long)
-        except KeyError:
-            raise MissingFieldError(f"Record at index {idx} missing 'edge_index' field")
-        try:
-            edge_weight = torch.tensor(data["edge_weight"], dtype=torch.float32)
-        except KeyError:
-            raise MissingFieldError(f"Record at index {idx} missing 'edge_weight' field")
-
-        # normalize shapes / sanity checks
-        if edge_index.ndim != 2:
-            raise DataError(f"'edge_index' must be 2-D, got {tuple(edge_index.shape)} at index {idx}")
-        if edge_index.shape[0] == 2:
-            pass  # [2, E]
-        elif edge_index.shape[1] == 2:
-            edge_index = edge_index.T.contiguous()  # [E,2] -> [2,E]
-        else:
-            raise DataError(f"'edge_index' must be [2, E] or [E, 2], got {tuple(edge_index.shape)} at index {idx}")
-
-        if edge_weight.ndim == 2 and edge_weight.shape[1] == 1:
-            edge_weight = edge_weight.reshape(-1)
-        if edge_weight.ndim != 1:
-            raise DataError(f"'edge_weight' must be 1-D (or [E,1]), got {tuple(edge_weight.shape)} at index {idx}")
-
-        if edge_index.shape[1] != edge_weight.shape[0]:
-            raise DataError(
-                f"edge count mismatch: edge_index has {edge_index.shape[1]} edges "
-                f"but edge_weight has {edge_weight.shape[0]} at index {idx}"
-            )
-
-        return features, labels, edge_index, edge_weight, included_labels
+        return data_dict, attr_dict

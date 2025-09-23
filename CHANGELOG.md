@@ -1,5 +1,12 @@
 # Changelog
 
+### Version [0.9.0] --- September 22nd, 2025:
+- `Trainer` now runs on a protocol based architecture.
+- Implemented `icegraph.data.processor.ClassNormalizer` which handles automatic enumeration of classes for training.
+- Some minor `Pipeline` architecture improvements.
+- Added `icegraph.types` for future consolidation of IceGraph types.
+- Added ROC and Confusion Matrix plotters and an associated callback for the trainer.
+
 #### Version [0.8.6] --- September 5th, 2025:
 - Reverted to MSE loss for now.
 - Fixed error on validation RMSE/MSE reporting.

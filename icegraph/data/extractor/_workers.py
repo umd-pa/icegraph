@@ -6,9 +6,10 @@ from __future__ import annotations
 import os
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from multiprocessing import Queue
 
+from icegraph.exceptions import IceCubeImportError
 from icegraph.console._streams import suppress_output
 
 
@@ -23,13 +24,26 @@ def _run_icetray_pipeline(
     All heavy IceCube imports stay inside to avoid touching them in the parent.
     """
     # Lazy imports (child-only)
-    from icecube.icetray import I3Tray
-    from icecube import dataclasses, icetray, dataio, hdfwriter, ml_suite
-    from icecube.sim_services.label_events import (
-        MCLabeler,
-        ClassificationConverter,
-        MuonLabels,
-    )
+    with suppress_output():
+        try:
+            from icecube.icetray import I3Tray as _I3Tray
+            from icecube import hdfwriter as _hdfwriter, ml_suite as _ml_suite
+            from icecube.sim_services.label_events import (
+                MCLabeler as _MCLabeler,
+                ClassificationConverter as _ClassificationConverter
+            )
+        except ImportError:
+            _I3Tray = IceCubeImportError.IceCubeMissingBase
+            _MCLabeler = IceCubeImportError.IceCubeMissingBase
+            _ClassificationConverter = IceCubeImportError.IceCubeMissingBase
+            _hdfwriter = IceCubeImportError()
+            _ml_suite = IceCubeImportError()
+
+        I3Tray = _I3Tray
+        MCLabeler = _MCLabeler
+        ClassificationConverter = _ClassificationConverter
+        hdfwriter = _hdfwriter
+        ml_suite = _ml_suite
 
     tray = I3Tray()
     tray.Add("I3Reader", Filenamelist=file_batch)

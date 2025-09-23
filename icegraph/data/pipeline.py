@@ -10,16 +10,17 @@ os.environ.setdefault("HDF5_USE_FILE_LOCKING", "TRUE")
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import List, ClassVar, Optional, Iterator, Sequence, Union, TypeVar, Tuple, \
-    TypeAlias, Self, TYPE_CHECKING, Dict, Any, Type
+    TypeAlias, Self, Dict, Any, Type
 from queue import Queue, Empty, Full
 from pathlib import Path
 import weakref
 import shutil
 import tempfile
+import time
 import threading
-import os
 from threading import Thread, current_thread, Event
 import logging
+import functools
 
 import pandas as pd
 import portalocker
@@ -31,6 +32,7 @@ from icegraph.utils.pathutils import PathResolver
 from icegraph.console import Console
 from .base.exceptions import PipelineBuildError
 from icegraph.config import IGConfig
+from icegraph.utils.mputils import MPTempDir
 
 import faulthandler, signal
 
@@ -48,22 +50,23 @@ for sig_name in ("SIGUSR2", "SIGTERM"):
         # Ignore if not supported on this platform or already handled
         pass
 
-if TYPE_CHECKING:
-    from .base.operator import Operator
-else:
-    Operator = None
-
-
-T = TypeVar("T", bound="Operator")
-
 SentinelType: TypeAlias = Tuple[str, str]
 EnvelopeOrSentinel: TypeAlias = Union["Pipeline.Envelope", SentinelType]
+StageSpec: TypeAlias = Union[Extractor, Processor, Writer]
 
 def nested_dict():
     return defaultdict(nested_dict)
 
+
 class Pipeline:
-    """Initialize the data processing pipeline. MUST BE USED AS A CONTEXT MANAGER TO ENSURE PROPER CLEANUP."""
+    """
+    Concurrent, stage-based data processing pipeline.
+
+    This pipeline wires an optional Extractor, a sequence of Processor stages,
+    and an optional Writer. Stages communicate via bounded queues, and the
+    pipeline coordinates startup, teardown, and resource cleanup.
+    Use as a context manager to guarantee finalization.
+    """
 
     SENTINEL: ClassVar[SentinelType] = ("__END__", "Pipeline")
 
@@ -89,9 +92,9 @@ class Pipeline:
         FILELOCK_EX_TIMEOUT: ClassVar[int] = 60
 
         def __post_init__(self) -> None:
+            """Install a finalizer that cleans up the file path on GC."""
             self._finalizer = weakref.finalize(self, Pipeline.FileHandle._cleanup, self.src)
 
-        # ---- Locks (sidecar .lock file) ----
         @property
         def _lock_path(self) -> Path:
             return self.src.with_suffix(self.src.suffix + ".lock")
@@ -99,40 +102,76 @@ class Pipeline:
         def lock_shared(self, timeout: Union[int, float] = FILELOCK_SH_TIMEOUT):
             """Readers: allow many; blocks if a writer holds the lock."""
             return portalocker.Lock(
-                self._lock_path, timeout=timeout, flags=portalocker.LockFlags.SHARED | portalocker.LockFlags.NON_BLOCKING
+                self._lock_path, mode="a+", timeout=timeout,
+                flags=portalocker.LockFlags.SHARED | portalocker.LockFlags.NON_BLOCKING
             )
 
         def lock_exclusive(self, timeout: Union[int, float] = FILELOCK_EX_TIMEOUT):
             """Writers: exclusive; blocks until all readers/writers are done."""
             return portalocker.Lock(
-                self._lock_path, timeout=timeout, flags=portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING
+                self._lock_path, mode="a+", timeout=timeout,
+                flags=portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING
             )
 
-        # ---- Cleanup ----
         def close(self) -> None:
+            """
+            Delete the underlying file or directory (best-effort).
+
+            This does not remove the sidecar ``.lock``; call :meth:`remove_lock`
+            after the lock context exits to unlink it safely on all platforms.
+            """
             if self._finalizer.alive:
                 self._finalizer()
 
         @staticmethod
         def _cleanup(path: Path) -> None:
+            """Finalizer target that removes the file path or directory tree."""
             try:
                 path.unlink(missing_ok=True)
             except IsADirectoryError:
                 shutil.rmtree(path, ignore_errors=True)
-            # remove sidecar lock file too
-            try:
-                path.with_suffix(path.suffix + ".lock").unlink(missing_ok=True)
-            except Exception:
-                pass
+
+        def remove_lock(self, retries: int = 5, delay: float = 0.05) -> None:
+            """
+            Remove the sidecar ``.lock`` after the lock context has exited.
+
+            Retries are helpful on Windows where the handle can linger briefly.
+
+            Args:
+                retries: Maximum retry attempts.
+                delay: Seconds to sleep between retries.
+            """
+
+            lock_path = self._lock_path
+            for _ in range(max(1, retries)):
+                try:
+                    lock_path.unlink(missing_ok=True)
+                    return
+                except PermissionError:
+                    time.sleep(delay)
+                except FileNotFoundError:
+                    # no file, break
+                    return
+                except OSError:
+                    # Best effort; retry a few times
+                    time.sleep(delay)
 
     @dataclass
     class Envelope:
-        """Envelope containing data passed through the pipeline."""
+        """
+        Data + metadata wrapper exchanged between stages.
+
+        Attributes:
+            df: The payload DataFrame.
+            fh: The temporary file handle associated with this item.
+            attrs: Arbitrary nested attributes (auto-nesting).
+        """
         df: pd.DataFrame
         fh: Pipeline.FileHandle
         attrs: Dict[str, Dict[str, Any]] = field(default_factory=nested_dict)
 
     def __init__(self):
+        """Construct an empty pipeline with default queues and temp dirs."""
         # warm operators
         self._extractor:    Optional[Type[Extractor]]         = None
         self._processors:   Optional[List[Type[Processor]]]   = None
@@ -158,17 +197,15 @@ class Pipeline:
         self._build_called:     bool = False
         self._configure_called: bool = False
 
-        # set up working directory
-        tmp = tempfile.TemporaryDirectory(
+        # set up local and global working directories
+        self.local_tmpdir_obj = tempfile.TemporaryDirectory(
             prefix="icegraph_", dir="/dev/shm" if os.path.isdir("/dev/shm") else None
         )
+        self.global_tmpdir_obj = MPTempDir()
 
-        self._local_working_dir = tmp
-        self.local_working_dir_path = Path(tmp.name)
-
-        # set the multiprocess-safe working directory
-        home = Path(os.path.expanduser("~"))
-        self._global_working_dir = home / ".cache"
+        # normalize to paths
+        self.local_working_dir = Path(self.local_tmpdir_obj.name)
+        self.global_working_dir = Path(self.global_tmpdir_obj.tempdir)
 
         # grab global config
         self._config: IGConfig = IGConfig.get()
@@ -181,6 +218,7 @@ class Pipeline:
         self.terminate()
 
     def terminate(self) -> None:
+        """Signal stages to stop, flush queues, and clean temporary resources."""
         Console.out("Terminating pipeline and running cleanup, this may take a few seconds...", severity=2)
         self.stop.set()
         for q in self.queues:
@@ -196,29 +234,38 @@ class Pipeline:
                 if hasattr(stage, "close"):
                     stage.close()
 
-        # clean the working directory
+        # clean the working directories
         try:
-            self._local_working_dir.cleanup()
+            self.local_tmpdir_obj.cleanup()
+            self.global_tmpdir_obj.terminate_instance()
         except Exception:
-            shutil.rmtree(self.local_working_dir_path, ignore_errors=True)
+            shutil.rmtree(str(self.local_working_dir), ignore_errors=True)
+            shutil.rmtree(str(self.global_working_dir), ignore_errors=True)
 
     ### PORTS
 
-    def iter_output(self) -> Iterator[pd.DataFrame]:
+    def iter_output(self) -> Iterator[Envelope]:
         """
-        Consume the pipeline's output queue and yield DataFrames as they arrive.
-        Stops on sentinel or when self.stop is set.
+        Yield envelopes from the final stage, performing safe cleanup.
+
+        Acquires an exclusive file lock and a global HDF5 lock to close
+        the temp file, then removes the sidecar lock. Yields until a sentinel
+        item arrives or the stop event is set.
         """
         if not self.queues:
             raise RuntimeError("Pipeline not configured.")
 
         iter_queue = self._iter_from_queue(self.queues[-1], self.stop)
 
+        # item will always be an envelope for final queue
+        item: Pipeline.Envelope
         for item in iter_queue:
             try:
                 # Close the temp file under locks, then yield the DataFrame
                 with item.fh.lock_exclusive(), self.HDF5_LOCK:
                     item.fh.close()
+                # remove the lock file
+                item.fh.remove_lock()
                 yield item
 
             finally:
@@ -226,7 +273,14 @@ class Pipeline:
                 self.queues[-1].task_done()
 
     def start_output_printer(self, *, name="output-printer") -> Thread:
-        """Spawn a daemon thread that prints items for debugging."""
+        """
+        Spawn a daemon thread that prints envelope dataframes for debugging.
+
+        Args:
+            name: Thread name.
+        Returns:
+            The started Thread object.
+        """
 
         def _printer():
             pd.set_option('display.max_columns', None)
@@ -246,6 +300,11 @@ class Pipeline:
         processors: List[Type[Processor]],
         writer: Optional[Type[Writer]] = None
     ) -> None:
+        """
+        Define the stage types (Extractor/Processors/Writer) and validate order.
+
+        Must be called before :meth:`configure`.
+        """
         self._extractor = extractor
         self._processors = processors
         self._writer = writer
@@ -261,7 +320,20 @@ class Pipeline:
         # if build is called more than once, ensure configure is called again before execution
         self._configure_called = False
 
-    def configure(self, source: Union[str, Path, Sequence[Union[str, Path]]], outdir: Optional[Union[str, Path]] = None) -> None:
+    def configure(
+            self,
+            source: Union[str, Path, Sequence[Union[str, Path]]],
+            outdir: Optional[Union[str, Path]] = None
+    ) -> None:
+        """
+        Bind sources, normalize file list, create output directory, and wire stages.
+
+        Args:
+            source: Single path, glob, or sequence of paths.
+            outdir: Optional output directory for the Writer.
+        Raises:
+            RuntimeError: If :meth:`build` has not been called.
+        """
         if not self._build_called:
             raise RuntimeError("Must call build() before configure().")
 
@@ -281,6 +353,12 @@ class Pipeline:
         self._configure_called = True
 
     def _check_pre_reqs(self) -> None:
+        """
+        Validate processor prerequisite ordering.
+
+        Raises:
+            PipelineBuildError: If a stage's prerequisites are not satisfied.
+        """
         seen_specs = []
         for spec in self._stage_specs:
             # append to seen list, we can do this before checks without problems
@@ -307,7 +385,7 @@ class Pipeline:
             # check if the required prereqs are present, if not raise
             _BuildError = PipelineBuildError(
                 f"Error building pipeline, processor module {spec.__name__} "
-                f"has prerequisites {req_repr}"
+                f"has unsatisfied prerequisites {req_repr}"
             )
             for required in pre_reqs:
                 if isinstance(required, tuple):
@@ -317,6 +395,7 @@ class Pipeline:
                     raise _BuildError
 
     def _wire_stages(self) -> None:
+        """Instantiate stages, create bounded queues, and connect iterators."""
         if self.file_list is None:
             raise RuntimeError("file_list not set; call configure().")
 
@@ -324,46 +403,53 @@ class Pipeline:
         if stage_count == 0:
             raise RuntimeError("No stages to wire.")
 
-        # create one outbound queue per stage
-        self.queues = [Queue(maxsize=type(self).MAX_QUEUE_SIZE) for _ in range(stage_count)]
+        # One inbound queue per stage + final outbound (stage_count + 1)
+        self.queues = [Queue(maxsize=type(self).MAX_QUEUE_SIZE) for _ in range(stage_count + 1)]
+        self._stages = []
 
-        # instantiate stages with appropriate input iterators
         for i, spec in enumerate(self._stage_specs):
-            in_iter: Optional[Union[Iterator[Pipeline.Envelope], Iterator[Path]]]
+            # create an instance
             stage = spec()
 
-            if i == 0:
-                # Seed first stage by calling its bootstrap on each file AFTER instantiation.
-                # create a generator bound to this stage instance
-                in_iter = self.seed_iter(stage)
-            else:
-                # downstream stages consume from previous queue
-                in_iter = self._iter_from_queue(self.queues[i - 1], stop=self.stop)
+            # assign the output queue (next from input queue)
+            stage.assign_queue(i + 1)
 
-            stage.set_in_iter(in_iter)
-            stage.assign_queue(i)
+            # tell the stage whos daddy
             stage.set_parent(self)
 
+            # each worker gets its own iterator object that
+            # pulls from the *shared* inbound queue self.queues[i]
+            if i == 0:
+                # first stage consumes Paths and builds envs via its own bootstrap
+                in_iter = self._iter_from_bootstrap(self.queues[0], stage, stop=self.stop)
+            else:
+                # Downstream stages consume envelopes
+                in_iter = self._iter_from_queue(self.queues[i], stop=self.stop)
+
+            stage.set_in_iter(in_iter)
             self._stages.append(stage)
 
     ### EXECUTOR
 
     def execute(self, *, debug: bool = False) -> None:
+        """
+        Launch all stage threads and (optionally) the writer/console printer.
+
+        Blocks until all threads finish or an unrecoverable exception occurs.
+
+        Args:
+            debug: If True, start the printer instead of the writer.
+        Raises:
+            RuntimeError: If not configured or already executing.
+        """
         if not self._configure_called:
             raise RuntimeError("Call configure() before execute().")
         if self._threads:
             raise RuntimeError("execute() already called")
 
+        @self.runner
         def _runner(stage):
-            try:
-                stage.execute()
-            except BaseException as e:
-                logging.error(
-                    "Stage crashed: %s", current_thread().name, exc_info=(type(e), e, e.__traceback__)
-                )
-                # signal everyone to stop
-                self.terminate()
-                raise
+            stage.execute()
 
         # start
         for i, s in enumerate(self._stages):
@@ -383,32 +469,68 @@ class Pipeline:
             writer_thread = self._start_writer()
             self._threads.append(writer_thread)
 
+        self._threads.append(self._start_feeder(stop=self.stop))
+
         for thread in self._threads:
             thread.join()
+
+    ### FEEDER
+
+    def _start_feeder(self, *, stop: Optional[Event] = None) -> Thread:
+        """
+        Feed queue[0] with Paths and then push one sentinel per extractor worker.
+        """
+        @self.runner
+        def _runner(_stop: Optional[Event]) -> None:
+            # feed Paths into inbound queue 0
+            assert self.file_list is not None
+            for path in self.file_list:
+                if _stop and _stop.is_set():
+                    break
+                while True:
+                    try:
+                        self.queues[0].put(path, timeout=self.TIMEOUT)
+                        break
+                    except Full:
+                        if _stop and _stop.is_set():
+                            break
+                        continue
+
+            # send one sentinel
+            while True:
+                try:
+                    self.queues[0].put(self.SENTINEL, timeout=self.TIMEOUT)
+                    break
+                except Full:
+                    if _stop and _stop.is_set():
+                        # still try to deliver sentinel
+                        continue
+                    continue
+
+        t = Thread(target=_runner, args=(stop,), name="pipeline-feeder", daemon=True)
+        t.start()
+        return t
 
     ### WRITER
 
     def _start_writer(self) -> Thread:
+        """
+        Start the writer thread that drains the output and persists results.
 
+        Returns:
+            The started writer thread.
+        """
+        @self.runner
         def _runner(outdir: Optional[Path]) -> None:
             # grab outdir location
             outdir = Path(outdir or self._config.user_config.io.default_dir)
-            try:
-                for item in Console.progress_bar(self.iter_output(), total=len(self.file_list)):
-                    # dynamically generate output file path
-                    outfile = outdir / item.fh.src.with_suffix(self._writer.suffix).name
-                    # write to the file
-                    with self._writer(outfile) as writer:
-                        writer.write_attrs(item.attrs)
-                        writer.write(item.df)
-
-            except BaseException as e:
-                logging.error(
-                    "Stage crashed: %s", current_thread().name, exc_info=(type(e), e, e.__traceback__)
-                )
-                # signal everyone to stop
-                self.terminate()
-                raise
+            for item in Console.progress_bar(self.iter_output(), total=len(self.file_list)):
+                # dynamically generate output file path
+                outfile = outdir / item.fh.src.with_suffix(self._writer.suffix).name
+                # write to the file
+                with self._writer(outfile) as writer:
+                    writer.write_attrs(item.attrs)
+                    writer.write(item.df)
 
         t = Thread(
             target=_runner,
@@ -422,6 +544,11 @@ class Pipeline:
     ### HELPERS
 
     def seed_iter(self, s: Union[Extractor, Processor]) -> Union[Iterator[Path], Iterator[Envelope]]:
+        """
+        Generator that seeds the first stage (Extractor or Processor).
+
+        Yields each non-None envelope produced by ``s.bootstrap(path)``.
+        """
         assert self.file_list is not None
         for path in self.file_list:
             if self.stop.is_set():
@@ -431,7 +558,20 @@ class Pipeline:
                 yield env
 
     @classmethod
-    def _iter_from_queue(cls, in_queue: Queue[EnvelopeOrSentinel], stop: Optional[Event] = None) -> Iterator[Envelope]:
+    def _iter_from_queue(
+            cls,
+            in_queue: Queue[EnvelopeOrSentinel],
+            stop: Optional[Event] = None
+    ) -> Union[Iterator[Path], Iterator[Envelope]]:
+        """
+        Pull items from a queue, respecting stop/sentinel semantics.
+
+        Args:
+            in_queue: The inbound queue to consume.
+            stop: Optional Event to stop consumption early.
+        Yields:
+            Envelopes until the sentinel is received or stop is set.
+        """
         while True:
             if stop is not None and stop.is_set():
                 break
@@ -442,3 +582,43 @@ class Pipeline:
             if item == cls.SENTINEL:
                 break
             yield item
+
+    def _iter_from_bootstrap(
+            self,
+            in_queue: Queue[Union[Path, EnvelopeOrSentinel]],
+            stage: "Extractor",
+            stop: Optional[Event] = None,
+    ) -> Union[Iterator[Path], Iterator[Envelope]]:
+        """
+        Per-worker iterator: consume Paths from a shared queue and yield Envelopes
+        by calling this worker's own `bootstrap(path)`.
+        """
+        from queue import Empty
+        while True:
+            if stop is not None and stop.is_set():
+                break
+            try:
+                item = in_queue.get(timeout=self.TIMEOUT)
+            except Empty:
+                continue
+            if item == self.SENTINEL:
+                break
+            # item is a Path
+            env = stage.bootstrap(item)  # each worker uses its own instance here
+            if env is not None:
+                yield env
+
+    def runner(self, func):
+        """Wrapper for thread runners."""
+        @functools.wraps(func)
+        def inner(*args, **kwargs) -> None:
+            try:
+                return func(*args, **kwargs)
+            except BaseException as e:
+                logging.error(
+                    "Stage crashed: %s", current_thread().name, exc_info=(type(e), e, e.__traceback__)
+                )
+                # signal everyone to stop
+                self.terminate()
+                raise
+        return inner
