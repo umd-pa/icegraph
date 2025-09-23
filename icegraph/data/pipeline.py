@@ -248,7 +248,7 @@ class Pipeline:
         """
         Yield envelopes from the final stage, performing safe cleanup.
 
-        Acquires an exclusive file lock and a global HDF5 lock to close (delete)
+        Acquires an exclusive file lock and a global HDF5 lock to close
         the temp file, then removes the sidecar lock. Yields until a sentinel
         item arrives or the stop event is set.
         """
@@ -257,6 +257,8 @@ class Pipeline:
 
         iter_queue = self._iter_from_queue(self.queues[-1], self.stop)
 
+        # item will always be an envelope for final queue
+        item: Pipeline.Envelope
         for item in iter_queue:
             try:
                 # Close the temp file under locks, then yield the DataFrame
@@ -586,7 +588,7 @@ class Pipeline:
             in_queue: Queue[Union[Path, EnvelopeOrSentinel]],
             stage: "Extractor",
             stop: Optional[Event] = None,
-    ):
+    ) -> Union[Iterator[Path], Iterator[Envelope]]:
         """
         Per-worker iterator: consume Paths from a shared queue and yield Envelopes
         by calling this worker's own `bootstrap(path)`.
