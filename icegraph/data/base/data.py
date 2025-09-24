@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 import os
-from typing import Union, Optional, Literal, Sequence, ClassVar, Dict, Any, List, Type, TypeVar, Callable, cast
+from typing import Union, Optional, Literal, Sequence, ClassVar, Dict, Any, List, Tuple, TypeVar, Callable, cast
 from pathlib import Path
 from abc import ABC
 import functools
@@ -136,6 +136,12 @@ class IGData(Dataset, ABC):
         return np.where((splitmap == split_key))[0]
 
     def _load_splitmap(self) -> NDArray[np.uint8]:
+        """
+        Load the split mapping for the dataset.
+
+        Returns:
+            NDArray[np.uint8]: Array of keys as unsigned int8.
+        """
         cls = type(self)
 
         # split keys are small integers (0,1,2), so uint8 is safe and more compact
@@ -148,6 +154,7 @@ class IGData(Dataset, ABC):
 
     @requires_config
     def _ensure_reader(self):
+        """Load the dataset shard reader, ensures a unique one for each process."""
         pid = os.getpid()
         if self._reader is not None and pid == self._proc_pid:
             return self._reader
@@ -170,6 +177,7 @@ class IGData(Dataset, ABC):
         return self._reader
 
     def close(self) -> None:
+        """Close the instance."""
         if getattr(self, "_finalizer", None) is not None:
             try:
                 self._finalizer()
@@ -180,6 +188,12 @@ class IGData(Dataset, ABC):
     @property
     @requires_config
     def keys(self) -> NDArray:
+        """
+        Load the filtered-by-subset key list.
+
+        Returns:
+            NDArray: An array of keys.
+        """
         if self._keys is None:
             self._keys = self._load_keys()
         return self._keys
@@ -250,7 +264,7 @@ class IGData(Dataset, ABC):
         return self[0].x.size(-1)
 
     @requires_config
-    def get(self, idx: int) -> tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    def get(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Read and decode a single event from the LMDB dataset.
 

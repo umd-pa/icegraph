@@ -17,9 +17,16 @@ else:
     EnvelopeOrSentinel = None
 
 
-class Operator(ABC):
+class Stage(ABC):
+    """
+    Abstract base class for a single stage in the IceGraph data pipeline.
+
+    A Stage consumes input items, processes them, and emits results to an
+    output queue managed by a parent Pipeline.
+    """
 
     def __init__(self):
+        """Initialize an un-wired stage."""
         # must be set via configuration
         self._parent: Optional[Pipeline] = None
         self._out_queue_idx: Optional[int] = None
@@ -31,22 +38,47 @@ class Operator(ABC):
     ### CONFIGURATIONS
 
     def set_parent(self, parent: Pipeline) -> None:
+        """
+        Attach this stage to a parent pipeline.
+
+        Args:
+            parent (Pipeline): The pipeline that manages this stage.
+        """
         self._parent = parent
 
     def assign_queue(self, queue_idx: int) -> None:
+        """
+        Assign the output queue index for this stage.
+
+        Args:
+            queue_idx (int): Index of the output queue in the parent pipeline.
+        """
         self._out_queue_idx = queue_idx
 
     @overload
     def set_in_iter(self, in_iter: Iterator[Pipeline.Envelope]) -> None: ...
     @overload
     def set_in_iter(self, in_iter: Iterator[Path]) -> None: ...
+
     def set_in_iter(self, in_iter: Union[Iterator[Pipeline.Envelope], Iterator[Path]]) -> None:
+        """
+        Set the input iterator for this stage.
+
+        Args:
+            in_iter (Iterator[Pipeline.Envelope] | Iterator[Path]):
+                Input source producing envelopes or file paths.
+        """
         self._in_iter = in_iter
 
     ### EXECUTORS
 
     def execute(self) -> None:
-        """Consume input, process, and emit until the input ends or stop() is called."""
+        """
+        Consume inputs, process them, and emit results downstream.
+
+        Raises:
+            RuntimeError: If the stage is not wired with parent, queue, or input.
+        """
         if self._parent is None or self._out_queue_idx is None or self._in_iter is None:
             raise RuntimeError(
                 f"{type(self).__name__} not wired: set_parent(...), assign_queue(...), "
@@ -67,6 +99,15 @@ class Operator(ABC):
 
     @property
     def _out_q(self) -> Queue[EnvelopeOrSentinel]:
+        """
+        Return the output queue for this stage.
+
+        Returns:
+            Queue[EnvelopeOrSentinel]: The queue to emit processed results to.
+
+        Raises:
+            RuntimeError: If the stage is not wired with parent, queue, or input.
+        """
         if self._parent is None or self._out_queue_idx is None or self._in_iter is None:
             raise RuntimeError(
                 f"{type(self).__name__} not wired: set_parent(...), assign_queue(...), "
@@ -80,8 +121,30 @@ class Operator(ABC):
     def _process(self, arg: Path) -> Optional[Pipeline.Envelope]: ...
     @overload
     def _process(self, arg: Pipeline.Envelope) -> Optional[Pipeline.Envelope]: ...
-    @abstractmethod
-    def _process(self, arg: Union[Path, Pipeline.Envelope]) -> Optional[Pipeline.Envelope]: ...
 
     @abstractmethod
-    def bootstrap(self, infile: Path) -> Optional[Union[Pipeline.Envelope, Path]]: ...
+    def _process(self, arg: Union[Path, Pipeline.Envelope]) -> Optional[Pipeline.Envelope]:
+        """
+        Transform a single input item into an output envelope.
+
+        Args:
+            arg (Path | Pipeline.Envelope): Input item.
+
+        Returns:
+            Optional[Pipeline.Envelope]: Processed envelope, or None to skip output.
+        """
+        ...
+
+    @abstractmethod
+    def bootstrap(self, infile: Path) -> Optional[Union[Pipeline.Envelope, Path]]:
+        """
+        Feed this stage from raw files instead of envelopes (for first-in-line stages).
+
+        Args:
+            infile (Path): Path to a raw input file.
+
+        Returns:
+            Optional[Pipeline.Envelope | Path]: An envelope or path to seed the pipeline,
+            or None if no bootstrap item should be emitted.
+        """
+        ...
