@@ -8,7 +8,6 @@ from abc import ABC
 import functools
 import itertools
 from contextlib import ExitStack
-from multiprocessing.util import Finalize
 
 from torch.utils.data import Dataset
 import torch_geometric as pyg
@@ -71,7 +70,6 @@ class IGData(Dataset, ABC):
         self._stack:        Optional[ExitStack]                 = None
         self._proc_pid:     Optional[int]                       = None
         self._reader:       Optional[LMDBDatasetShardReader]    = None
-        self._finalizer:    Optional[Finalize]                  = None
 
         # grab global config
         self._config: IGConfig = IGConfig.get()
@@ -125,6 +123,76 @@ class IGData(Dataset, ABC):
         """
         return len(self.keys)
 
+    def __del__(self):
+        # best-effort cleanup
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def __getstate__(self):
+        # Instance base state
+        s = self.__dict__.copy()
+
+        # Drop per-process / unpicklables
+        s["_stack"]     = None
+        s["_reader"]    = None
+        s["_finalizer"] = None
+        s["_proc_pid"]  = None
+
+        # If your IGConfig can hold loggers/locks, drop & reacquire in worker
+        s["_config"] = None
+
+        # Snapshot IGData *class-level* config so workers see it
+        cls = type(self)
+        s["_ig_class_snapshot"] = {
+            "_source":        cls._source,
+            "attrs":          cls.attrs,
+            "include_labels": cls.include_labels,
+            "target_labels":  cls.target_labels,
+            "subset":         cls.subset,  # for completeness
+        }
+
+        # Snapshot LMDB reader *class-level* config so new readers work in workers
+        s["_reader_snapshot"] = {
+            "paths":         tuple(str(p) for p in (LMDBDatasetShardReader._lmdb_paths or ())),
+            "max_open_envs": LMDBDatasetShardReader._max_open_envs,
+            "index":         LMDBDatasetShardReader._index_arr,  # numpy is picklable
+        }
+        return s
+
+    def __setstate__(self, s):
+        # Restore the simple instance dict
+        self.__dict__.update(s)
+
+        # Recreate per-process handles lazily
+        self._stack = None
+        self._reader = None
+        self._finalizer = None
+        self._proc_pid = None
+
+        # Reacquire IGConfig if needed
+        if self._config is None:
+            self._config = IGConfig.get()
+
+        # Restore IGData *class-level* config in the worker
+        cls = type(self)
+        snap = s.get("_ig_class_snapshot", {})
+        if snap:
+            cls._source        = snap.get("_source",        cls._source)
+            cls.attrs          = snap.get("attrs",          cls.attrs)
+            cls.include_labels = snap.get("include_labels", cls.include_labels)
+            cls.target_labels  = snap.get("target_labels",  cls.target_labels)
+            # cls.subset is static per subclass, no change needed
+
+        # Restore LMDB reader *class-level* config in the worker
+        rs = s.get("_reader_snapshot", {})
+        if rs:
+            paths = rs.get("paths")
+            LMDBDatasetShardReader._lmdb_paths    = tuple(Path(p) for p in paths) if paths else None
+            LMDBDatasetShardReader._max_open_envs = rs.get("max_open_envs", 4)
+            LMDBDatasetShardReader._index_arr     = rs.get("index", None)
+
     def _load_keys(self) -> NDArray:
         # load the split key for the subset
         split_key = self._config.internal_config.split_int_assignments[self.subset]
@@ -172,18 +240,16 @@ class IGData(Dataset, ABC):
         self._stack = ExitStack()
         self._reader = self._stack.enter_context(LMDBDatasetShardReader())
 
-        # GC/process-exit fallback
-        self._finalizer = Finalize(self, self._stack.close, exitpriority=10)
         return self._reader
 
     def close(self) -> None:
         """Close the instance."""
-        if getattr(self, "_finalizer", None) is not None:
+        if self._stack is not None:
             try:
-                self._finalizer()
-            except Exception:
-                pass
-            self._finalizer = None
+                self._stack.close()
+            finally:
+                self._stack = None
+                self._reader = None
 
     @property
     @requires_config

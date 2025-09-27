@@ -60,24 +60,12 @@ class TrainerParamsConfig(BaseModel):
     hidden_layers: int
     hidden_channels: int
     val_interval_epochs: int
+    save_interval: int
 
 
 class OptimizerConfig(BaseModel):
-    learning_rate: float
-    betas: List[float]
-    eps: float
-    weight_decay: float
-    amsgrad: bool
-
-    @model_validator(mode="after")
-    def validate_betas(self) -> Self:
-        if len(self.betas) != 2:
-            raise ValueError("Optimizer 'betas' must be a list of two floats.")
-        return self
-
-
-class TensorBoardConfig(BaseModel):
-    port: int
+    task: str
+    kwargs: Dict[str, Any]
 
 
 class StrategyConfig(BaseModel):
@@ -85,14 +73,26 @@ class StrategyConfig(BaseModel):
     kwargs: Dict[str, Any]
 
 
+class SchedulerConfig(BaseModel):
+    task: Optional[str]
+    step_mode: Literal['batch', 'epoch', 'warm_restarts']
+    kwargs: Dict[str, Any]
+
+
+class TensorBoardConfig(BaseModel):
+    port: int
+
+
 class TrainingConfig(BaseModel):
     seed: int
     batch_size: int
     num_workers: int
+    prefetch_factor: Optional[int]
     trainer_params: TrainerParamsConfig
     strategy: StrategyConfig
     normalizer: str
     optimizer: OptimizerConfig
+    scheduler: SchedulerConfig
     tensorboard: TensorBoardConfig
 
 

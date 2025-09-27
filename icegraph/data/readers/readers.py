@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 import lmdb
 from pathlib import Path
-from typing import List, Tuple, Union, Sequence, Iterator, Dict, Optional, overload, Self, Any, ClassVar, Generator
+from typing import List, Tuple, Union, Sequence, Iterator, Dict, Optional, overload, Self, Any, ClassVar
 from collections import OrderedDict
 import msgpack
 
@@ -125,7 +125,7 @@ class LMDBDatasetShardReader:
     @staticmethod
     def _open_env(path: Path) -> lmdb.Environment:
         """Open an LMDB environment with desired flags."""
-        return lmdb.open(
+        env: lmdb.Environment = lmdb.open(
             str(path),
             readonly=True,
             lock=False,
@@ -133,6 +133,7 @@ class LMDBDatasetShardReader:
             max_dbs=2,
             readahead=True,
         )
+        return env
 
     def _get_handle(self, file_index: int) -> _Handle:
         """
@@ -305,6 +306,33 @@ class LMDBReader:
             self._env.close()
         except Exception:
             pass
+
+    def __getstate__(self):
+        """
+        Remove unpicklable LMDB objects before pickling.
+        """
+        s = self.__dict__.copy()
+        s.pop("_env", None)
+        s.pop("_data_db", None)
+        s.pop("_attr_db", None)
+        return s
+
+    def __setstate__(self, s):
+        """
+        Re-open the LMDB environment and db handles after unpickling.
+        """
+        self.__dict__.update(s)
+        # Recreate env and DBs lazily and read-only
+        self._env = lmdb.open(
+            str(self.infile),
+            readonly=True,
+            lock=False,
+            subdir=False,
+            max_dbs=2,
+            readahead=True
+        )
+        self._data_db = self._env.open_db(b"data")
+        self._attr_db = self._env.open_db(b"attr")
 
     def attrs(self, group: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """
