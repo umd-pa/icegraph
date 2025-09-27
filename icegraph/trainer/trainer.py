@@ -3,9 +3,13 @@
 
 from typing import Union, Optional, List, Self, Type, Dict
 from pathlib import Path
+import math
 
 import torch
-from torch.optim import Adam
+import torch.optim as optim
+from torch.optim import Optimizer
+import torch.optim.lr_scheduler as lr_scheduler
+from torch.optim.lr_scheduler import LRScheduler
 from torch_geometric.seed import seed_everything
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
@@ -95,13 +99,14 @@ class Trainer(torch.nn.Module):
             else torch.device("cpu")
         )
 
+        self.console = ConsoleCallback()
+
         # grab callbacks
         default_callbacks = [
-            ConsoleCallback(),
             ExportCallback(),
             TensorBoardCallback()
         ]
-        self.callbacks = callbacks or default_callbacks
+        self.callbacks = [*callbacks, self.console] if callbacks else [*default_callbacks, self.console]
 
         # grab normalizer
         # make sure the user didnt pass any normalizers in callbacks
@@ -119,15 +124,31 @@ class Trainer(torch.nn.Module):
         )
         self.model = active_model.to(self.device)
 
-        # define optimizer and the loss function
-        self.optimizer = Adam(
+        # initialize the optimizer
+        optimizer_str: str = self.trainer_config.optimizer
+        if not hasattr(optim, optimizer_str):
+            raise ValueError(f"Optimizer {optimizer_str} not found in torch.optim")
+
+        optimizer: Type[Optimizer] = getattr(optim, optimizer_str)
+        self.optimizer = optimizer(
             active_model.parameters(),
-            lr=self.trainer_config.lr,
-            betas=self.trainer_config.betas,
-            eps=self.trainer_config.eps,
-            weight_decay=self.trainer_config.weight_decay,
-            amsgrad=self.trainer_config.amsgrad
+            **self.trainer_config.optimizer_kwargs
         )
+
+        self.scheduler: Optional[LRScheduler]
+        self.scheduler_step_mode = self.trainer_config.scheduler_step_mode
+        scheduler_str: Optional[str] = self.trainer_config.scheduler
+        if scheduler_str is not None:
+            if not hasattr(lr_scheduler, scheduler_str):
+                raise ValueError(f"LRScheduler {scheduler_str} not found in torch.optim.lr_scheduler")
+
+            scheduler: Type[LRScheduler] = getattr(lr_scheduler, scheduler_str)
+            self.scheduler = scheduler(
+                self.optimizer,
+                **self.trainer_config.scheduler_kwargs
+            )
+        else:
+            self.scheduler = None
 
         # loss function
         self.loss_fn = self.strategy.loss_function()
@@ -143,6 +164,15 @@ class Trainer(torch.nn.Module):
             "val": {"preds": None, "targets": None, "includes": None},
             "test": {"preds": None, "targets": None, "includes": None},
         }
+
+        # global access to current epoch
+        self.current_epoch: Optional[int] = None
+
+        # calculate per-split batch counts
+        batch_size = self._config.user_config.training.batch_size
+        self.train_batch_count = math.ceil(len(self.registry.train_dataset) / batch_size)
+        self.val_batch_count = math.ceil(len(self.registry.val_dataset) / batch_size)
+        self.test_batch_count = math.ceil(len(self.registry.test_dataset) / batch_size)
 
         self._fire("on_init")
 
@@ -266,7 +296,7 @@ class Trainer(torch.nn.Module):
         self.model.train()
 
         # iterate over each batch
-        for batch in Console.progress_bar(dataloader):
+        for idx, batch in enumerate(dataloader):
             self._fire("on_batch_begin", batch)
 
             batch = batch.to(self.device)
@@ -280,10 +310,21 @@ class Trainer(torch.nn.Module):
             loss.backward()
             self.optimizer.step()
 
+            # step the scheduler if there is one
+            if self.scheduler is not None and self.scheduler_step_mode == "batch":
+                self.scheduler.step()
+            if self.scheduler is not None and self.scheduler_step_mode == "warm_restarts":
+                # epoch + progress-in-epoch (PyTorch docs recommend this pattern)
+                t_cur = self.current_epoch + (idx + 1) / self.batch_count
+                self.scheduler.step(t_cur)
+
             # task-agnostic accumulation
             metrics.update(out.detach(), target.detach(), loss.detach(), mask=None)
 
             self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
+
+        if self.scheduler is not None and self.scheduler_step_mode == "epoch":
+                self.scheduler.step()
 
         return metrics.compute()
 
@@ -312,7 +353,7 @@ class Trainer(torch.nn.Module):
         # use no_grad on eval loops
         with torch.no_grad():
             # iterate over each batch
-            for batch in Console.progress_bar(dataloader):
+            for batch in dataloader:
                 self._fire("on_batch_begin", batch)
 
                 batch = batch.to(self.device)
@@ -366,25 +407,25 @@ class Trainer(torch.nn.Module):
         self._fire("on_train_begin")
 
         # iterate over epochs
-        for epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
-            self._fire("on_epoch_begin", epoch)
+        for self._current_epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
+            self._fire("on_epoch_begin", self._current_epoch)
 
             metrics_dict = self._train_batchwise(self.registry.train_dataloader)
 
             if not metrics_dict or all(v != v for v in metrics_dict.values()):  # all NaN
                 raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
 
-            self._train_metrics[epoch + 1] = metrics_dict
+            self._train_metrics[self._current_epoch + 1] = metrics_dict
 
-            self._fire("on_epoch_end", epoch, metrics_dict)
+            self._fire("on_epoch_end", self._current_epoch, metrics_dict)
 
             # save the model after every epoch and run test
-            self.save(epoch=epoch, metrics=metrics_dict)
+            self.save(epoch=self._current_epoch, metrics=metrics_dict)
 
             # only run on specified intervals
             val_interval = self.trainer_config.val_interval
-            if val_interval > 0 and (epoch + 1) % val_interval == 0:
-                self._validate(epoch=epoch)
+            if val_interval > 0 and (self._current_epoch + 1) % val_interval == 0:
+                self._validate(epoch=self._current_epoch)
 
         self._fire("on_train_end")
 

@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from dataclasses import dataclass, asdict
-from typing import List, Tuple, Dict
+from typing import Dict, Any, Optional
 
 from icegraph.config import IGConfig
 
@@ -13,28 +13,31 @@ class TrainerConfig:
     val_interval: int
     hidden_channels: int
     hidden_layers: int
+    save_interval: int
     seed: int
-    lr: float
-    betas: Tuple[float, float]
-    eps: float
-    weight_decay: float
-    amsgrad: bool
+    optimizer: str
+    optimizer_kwargs: Dict[str, Any]
+    scheduler: Optional[str]
+    scheduler_kwargs: Dict[str, Any]
+    scheduler_step_mode: str
 
     @classmethod
     def from_config(cls, config: IGConfig) -> "TrainerConfig":
         p = config.user_config.training.trainer_params
-        opt = config.user_config.training.optimizer.toDict()
+        opt = config.user_config.training.optimizer
+        sch = config.user_config.training.scheduler
         return cls(
             max_epochs=p.max_epochs,
             val_interval=p.val_interval_epochs,
             hidden_channels=p.hidden_channels,
             hidden_layers=p.hidden_layers,
+            save_interval=p.save_interval,
             seed=config.user_config.training.seed,
-            lr=float(opt["learning_rate"]),
-            betas=tuple(map(float, opt["betas"])),
-            eps=float(opt["eps"]),
-            weight_decay=float(opt["weight_decay"]),
-            amsgrad=bool(opt["amsgrad"])
+            optimizer=opt.task,
+            optimizer_kwargs=opt.kwargs.toDict(),
+            scheduler=sch.task,
+            scheduler_kwargs=sch.kwargs.toDict(),
+            scheduler_step_mode=sch.step_mode
         )
 
     def to_dict(self) -> Dict:

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional
+from typing import Union, Optional, Tuple
 from pathlib import Path
 import subprocess
 import atexit
@@ -64,12 +64,15 @@ class TensorBoard:
         """
         return self._writer
 
-    def launch(self, port: Optional[int] = None) -> None:
+    def launch(self, port: Optional[int] = None) -> Tuple[int, int]:
         """
         Launch a TensorBoard instance.
 
         Args:
             port (Optional[int]): Localhost port to serve TensorBoard on. Defaults to value specified in config.
+
+        Returns:
+            (PID, Port)
         """
         if port is None:
             port = self.port
@@ -80,7 +83,8 @@ class TensorBoard:
                 "--logdir", str(self.log_dir),
                 "--port", str(port)
             ])
-        Console.out(f"TensorBoard started with PID {self._tensorboard_proc.pid} at http://localhost:{port}")
+
+        return self._tensorboard_proc.pid, port
 
     def shutdown(self) -> None:
         """

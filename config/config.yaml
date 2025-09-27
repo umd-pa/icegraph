@@ -39,17 +39,20 @@ data:
 
 training:
   seed: 27
+
   # batch size controls how many samples are loaded into memory at a time in each
   # training batch (see torch_geometric.loader.DataLoader batch_size argument)
   batch_size: 2048
   num_workers: 20
+  prefetch_factor: 4
 
   trainer_params:
     max_epochs: 100000
     num_nbrs: 16
     hidden_layers: 5
     hidden_channels: 256
-    val_interval_epochs: 1
+    val_interval_epochs: 10
+    save_interval: 50
 
   normalizer: ZScoreNormalizer
 
@@ -58,12 +61,22 @@ training:
     kwargs:
       k: 2
 
+  scheduler:
+    # pass task: None for no scheduler
+    task: StepLR
+    step_mode: epoch
+    kwargs:
+      step_size: 50
+      gamma: 0.5
+
   optimizer:
-    learning_rate: 5e-4
-    betas: [0.9, 0.999]
-    eps: 1e-8
-    weight_decay: 5e-5
-    amsgrad: False
+    task: Adam
+    kwargs:
+      lr: 0.0005
+      betas: [0.9, 0.999]
+      eps: 0.00000001
+      weight_decay: 0.00005
+      amsgrad: False
 
   tensorboard:
     port: 6006

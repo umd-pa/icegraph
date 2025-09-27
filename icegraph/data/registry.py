@@ -4,6 +4,8 @@
 from typing import Self, Type, TYPE_CHECKING, Union, Sequence, Optional
 from pathlib import Path
 import time
+import os
+import multiprocessing as mp
 
 import torch_geometric as pyg
 import torch
@@ -49,6 +51,13 @@ class DatasetRegistry:
             test_dataset (TestDataset): The test dataset.
             source (Optional[Union[str, Path, Sequence[Union[str, Path]]]]): Path or list of paths to the LMDB file(s) containing the dataset. Does nothing except save the source to the registry for later access.
         """
+        # prefer fork on linux, but unsafe, so use forkserver
+        if mp.get_start_method(allow_none=True) != "fork":
+            mp.set_start_method("fork", force=True)
+
+        # switch away from file descriptors to filesystem-backed
+        torch.multiprocessing.set_sharing_strategy("file_system")
+
         self._train_dataset = train_dataset
         self._validation_dataset = validation_dataset
         self._test_dataset = test_dataset
@@ -63,14 +72,15 @@ class DatasetRegistry:
 
         batch_size = self._config.user_config.training.batch_size
         num_workers = self._config.user_config.training.num_workers
+        prefetch_factor = self._config.user_config.training.prefetch_factor
 
         self.dataloader_kwargs = {
             "batch_size": batch_size,
             "num_workers": num_workers,
-            "multiprocessing_context": torch.multiprocessing.get_context("fork"),
             "pin_memory": torch.cuda.is_available(),
             "persistent_workers": True,
-            "prefetch_factor": 8
+            "prefetch_factor": prefetch_factor,
+            "worker_init_fn": self._dl_worker_init()
         }
 
         # verify the datasets were passed in the correct order
@@ -89,6 +99,20 @@ class DatasetRegistry:
             int: Number of events.
         """
         return sum(map(len, self._datasets))
+
+    @staticmethod
+    def _dl_worker_init():
+        # keep library threadpools from exploding per worker
+        os.environ.setdefault("OMP_NUM_THREADS", "1")
+        os.environ.setdefault("MKL_NUM_THREADS", "1")
+        os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+        os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
+        try:
+            torch.set_num_threads(1)
+            torch.set_num_interop_threads(1)
+        except Exception:
+            pass
 
     def profile(self, target_samples: int = 50_000, warmup_batches: int = 5) -> None:
         """
