@@ -3,6 +3,4 @@
 
 from .models import CoreModel
 
-CoreModel.__module__ = __name__
-
 __all__ = ["CoreModel"]

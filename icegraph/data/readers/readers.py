@@ -1,18 +1,21 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+import struct
 import lmdb
 from pathlib import Path
 from typing import List, Tuple, Union, Sequence, Iterator, Dict, Optional, overload, Self, Any, ClassVar
 from collections import OrderedDict
 import msgpack
+from bisect import bisect_right
 
 import pandas as pd
 import numpy as np
 
 from icegraph.utils.pathutils import PathResolver, PathValidator
-from icegraph.console import Console
 
 import msgpack_numpy as m
 m.patch()  # allow msgpack to work with numpy objects
@@ -26,37 +29,59 @@ class LMDBDatasetShardReader:
     Source LMDB files are pre-set on configuration and are used on all instances of this class.
     """
 
-    _lmdb_paths:        ClassVar[Optional[Tuple[Path, ...]]]    = None
-    _index_arr:         ClassVar[Optional[np.ndarray]]          = None
-    _max_open_envs:     ClassVar[Optional[int]]                 = None
-
-    # one structured dtype
-    _INDEX_DTYPE: ClassVar[np.dtype] = np.dtype([("file_index", np.int32), ("key", ">u8")])
-
     @dataclass
     class _Handle:
         env: lmdb.Environment
         dtxn: lmdb.Transaction
         atxn: lmdb.Transaction
 
-    def __init__(self) -> None:
+        def __del__(self):
+            self.close()
+
+        def close(self):
+            for txn in (self.atxn, self.dtxn):
+                try:
+                    txn.abort()
+                except Exception:
+                    pass
+            try:
+                self.env.close()
+            except Exception:
+                pass
+
+    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]], *, max_open_envs: int = 4) -> None:
         """
         Initialize the shard reader.
         """
-        # cache for open env/txn
-        self._cache: "OrderedDict[Path, LMDBDatasetShardReader._Handle]" = OrderedDict()
+        self._lmdb_paths:       Tuple[Path, ...]        = tuple(PathResolver.normalize_sources(source, ".lmdb"))
+        self._index_arr:        Optional[np.ndarray]    = None  # lazy build on first __getitem__ call
+        self._max_open_envs:    int                     = max_open_envs
 
-        # only allow instantiation after configure
-        if type(self)._lmdb_paths is None:
-            raise RuntimeError("Reader not configured; call configure() first.")
+        # cache for open env/txn
+        self._cache: OrderedDict[Path, LMDBDatasetShardReader._Handle] = OrderedDict()
 
         # attributes cache
-        self._attributes: Optional[Dict[int, Dict[str, Dict[str, Any]]]] = None
+        self._attributes: Optional[Dict[bytes, Dict[str, Dict[str, Any]]]] = None
+
+        # index data type
+        self._ID_BYTES = 32
+        self._INDEX_DTYPE = np.dtype([("shard_id", f"S{self._ID_BYTES}"), ("entries", np.int64)])
+
+        # len cache
+        self._len: Optional[int] = None
+
+        # map from shard id to file path
+        self._shard_id_map: Dict[bytes, Path] = {}
+
+        # for fast bisect right (hot path, cache EVERYTHING)
+        self._shard_ids:    Optional[List[bytes]]   = None
+        self._cum_list:     Optional[List[int]]     = None
+        self._starts_list:  Optional[List[int]]     = None
 
     @overload
-    def __getitem__(self, idx: int) -> Tuple[Dict, int, bytes]: ...
+    def __getitem__(self, idx: int) -> Tuple[Dict, bytes, bytes]: ...
     @overload
-    def __getitem__(self, idx: slice) -> List[Tuple[Dict, int, bytes]]: ...
+    def __getitem__(self, idx: slice) -> List[Tuple[Dict, bytes, bytes]]: ...
 
     def __getitem__(self, idx: Union[int, slice]):
         """
@@ -66,10 +91,10 @@ class LMDBDatasetShardReader:
             idx: Integer index or slice object.
 
         Returns:
-            If idx is int: A tuple (data_dict, file_index, key_bytes).
+            If idx is int: A tuple (data_dict, shard_id, key_bytes).
             If idx is slice: A list of such tuples.
         """
-        cls = type(self)
+        self._ensure_index_struct()
 
         if isinstance(idx, slice):
             start, stop, step = idx.indices(len(self))
@@ -81,36 +106,39 @@ class LMDBDatasetShardReader:
         if idx < 0 or idx >= len(self):
             raise IndexError(f"Index {idx} out of range for dataset of size {len(self)}")
 
-        rec = cls._index_arr[idx]
-        file_index = int(rec["file_index"])
+        shard_id, key = self._gid_to_shard_map(idx)
+
         # convert stored big-endian int64 to bytes for LMDB
-        key_bytes = int(rec["key"]).to_bytes(8, "big", signed=False)
+        key_bytes = struct.pack(">Q", int(key))
 
         # load raw data
-        handle = self._get_handle(file_index)
+        handle = self._get_handle(shard_id)
         raw = handle.dtxn.get(key_bytes)
         if raw is None:
-            raise KeyError(f"Key {key_bytes!r} not found in file {cls._lmdb_paths[file_index]}")
+            raise KeyError(f"Key {key_bytes!r} not found in file {self._shard_id_map[shard_id]}")
 
         # unpack data
         data = msgpack.unpackb(raw, raw=False, use_list=True)
 
-        return data, file_index, key_bytes
+        return data, shard_id, key_bytes
 
     def __len__(self) -> int:
         """Return the total number of records across all shards."""
-        return int(type(self)._index_arr.shape[0])
+        self._ensure_index_struct()
+        if self._len is None:
+            self._len = int(np.sum(self._index_arr["entries"]))
+        return self._len
 
-    def __iter__(self) -> Iterator[Tuple[Dict, int, bytes]]:
+    def __iter__(self) -> Iterator[Tuple[Dict, bytes, bytes]]:
         """
         Iterate through all records in index_map using cached transactions for speed.
 
         Yields:
-            Tuples of (data_dict, file_index, key_bytes) for each record.
+            Tuples of (data_dict, shard_id, key_bytes) for each record.
         """
         for idx in range(len(self)):
-            data, file_index, key = self[idx]
-            yield data, file_index, key
+            data, shard_id, key = self[idx]
+            yield data, shard_id, key
 
     def __enter__(self) -> Self:
         return self
@@ -122,6 +150,43 @@ class LMDBDatasetShardReader:
         except Exception:
             pass
 
+    def __getstate__(self) -> Dict[str, Any]:
+        state = self.__dict__.copy()
+        # Close and drop unpicklable handles
+        try:
+            self.close()
+        except Exception:
+            pass
+
+        state["_cache"] = OrderedDict()
+        state["_attributes"] = None
+
+        return state
+
+    def __setstate__(self, state) -> None:
+        self.__dict__.update(state)
+        # Reinit caches
+        if "_cache" not in self.__dict__:
+            self._cache = OrderedDict()
+
+    def _ensure_index_struct(self) -> None:
+        if self._index_arr is None:
+            self._index_arr = self._build_index_struct()
+
+    def _gid_to_shard_map(self, gid: int) -> Tuple[bytes, int]:
+        # cache minimal data for fast bisect (built once)
+        if self._cum_list is None or self._starts_list is None or self._shard_ids is None:
+            self._cum_list = np.cumsum(self._index_arr["entries"], dtype=np.int64).tolist()
+            self._starts_list = [0] + self._cum_list[:-1]
+            self._shard_ids = self._index_arr["shard_id"].tolist()
+
+        total = self._cum_list[-1]
+        if gid < 0 or gid >= total:
+            raise IndexError("global id out of range")
+
+        row = bisect_right(self._cum_list, gid)
+        return self._shard_ids[row], int(gid - self._starts_list[row])
+
     @staticmethod
     def _open_env(path: Path) -> lmdb.Environment:
         """Open an LMDB environment with desired flags."""
@@ -131,28 +196,23 @@ class LMDBDatasetShardReader:
             lock=False,
             subdir=False,
             max_dbs=2,
-            readahead=True,
+            readahead=False,
         )
         return env
 
-    def _get_handle(self, file_index: int) -> _Handle:
+    def _get_handle(self, shard_id: bytes) -> _Handle:
         """
         Returns a cached handle for the given file index, opening a new environment
         and transaction, and evicts the least recently used handle
         when exceeding the cache capacity.
 
         Args:
-            file_index: Index into self.lmdb_paths.
+            shard_id (bytes): Shard ID.
 
         Returns:
-            A _Handle object with env and txn.
+            A _Handle object with env and txns.
         """
-        cls = type(self)
-
-        if cls._lmdb_paths is None:
-            raise RuntimeError("Reader not configured; call configure() first.")
-
-        path = cls._lmdb_paths[file_index]
+        path = self._shard_id_map[shard_id]
         handle = self._cache.get(path)
         if handle:
             self._cache.move_to_end(path)
@@ -161,99 +221,92 @@ class LMDBDatasetShardReader:
         env = self._open_env(path)
 
         # open transactions
-        dtxn = env.begin(write=False, db=env.open_db(b"data"))
-        atxn = env.begin(write=False, db=env.open_db(b"attr"))
+        dtxn = env.begin(write=False, db=env.open_db(b"data"), buffers=True)
+        atxn = env.begin(write=False, db=env.open_db(b"attr"), buffers=True)
 
         handle = self._Handle(env, dtxn, atxn)
 
+        # add the newest handle to the end of the cache
         self._cache[path] = handle
         self._cache.move_to_end(path)
 
-        if len(self._cache) > cls._max_open_envs:
-            old_path, old_handle = self._cache.popitem(last=False)
-            for t in (old_handle.atxn, old_handle.dtxn):
-                try:
-                    t.abort()
-                except Exception:
-                    pass
-            try:
-                old_handle.env.close()
-            except Exception:
-                pass
+        self._prune_cache()
+
         return handle
 
-    @classmethod
-    def _build_index_struct(cls) -> np.ndarray:
-        if not cls._lmdb_paths:
+    def _prune_cache(self) -> None:
+        # remove LRU cache items if cache fills
+        if len(self._cache) > self._max_open_envs:
+            old_path, old_handle = self._cache.popitem(last=False)
+            old_handle.close()
+
+    def _build_index_struct(self) -> np.ndarray:
+        # quick safety check
+        if not self._lmdb_paths:
             raise FileNotFoundError("No LMDB files found.")
-        Console.out("Indexing LMDB files (building key map)...")
 
-        rows_fi: List[int] = []
-        rows_key: List[int] = []
+        shard_ids: List[bytes] = []
+        entries: List[int] = []
 
-        for fi, path in Console.progress_bar(list(enumerate(cls._lmdb_paths))):
-            env = cls._open_env(path)
-            with env.begin(db=env.open_db(b"data")) as txn, txn.cursor() as cursor:
-                # need to iterate over keys to ensure they line up, doing it via length is MUCH faster but not
-                # necessarily robust enough, might need to save a sidecar file (ugh)
-                for key, _ in cursor:
-                    rows_fi.append(fi)
-                    rows_key.append(int.from_bytes(key, byteorder="big", signed=False))
+        # iterate over each file, grab the length, verify contiguous indices and add to the struct
+        for path in self._lmdb_paths:
+            # grab the env
+            env = self._open_env(path)
+
+            # first grab its shard id
+            with env.begin(db=env.open_db(b"attr")) as atxn:
+                shard_id_b = atxn.get("id".encode("utf-8"))
+                if shard_id_b is None:
+                    raise KeyError(f"Key 'id' not found in LMDB file {path}")
+
+                _id = bytes.fromhex(msgpack.unpackb(shard_id_b, raw=False))
+
+                if len(_id) != self._ID_BYTES:
+                    raise ValueError("Shard ID length mismatch; revise dtype or normalize IDs.")
+
+                shard_ids.append(_id)
+
+                # build the shard id map
+                self._shard_id_map[_id] = path
+
+            with env.begin(db=env.open_db(b"data")) as txn:
+                entries.append(txn.stat()["entries"])
+
             env.close()
 
-        n = len(rows_fi)
-        out = np.empty(n, dtype=cls._INDEX_DTYPE)
-        if n:
-            out["file_index"] = np.asarray(rows_fi, dtype=np.int32)
-            out["key"] = np.asarray(rows_key, dtype=">u8")
+        # allocate empty array
+        out = np.empty(len(self._lmdb_paths), dtype=self._INDEX_DTYPE)
+
+        # fill array
+        out["shard_id"] = np.asarray(shard_ids, dtype=out.dtype["shard_id"])
+        out["entries"] = np.asarray(entries, dtype=out.dtype["entries"])
+
+        # sort by shard id in place
+        out.sort(order="shard_id")
+
         return out
 
-    def _get_attrs(self) -> Dict[int, Dict[str, Dict[str, Any]]]:
-        attrs: Dict[int, Dict[str, Dict[str, Any]]] = {}
+    def _get_attrs(self) -> Dict[bytes, Dict[str, Dict[str, Any]]]:
+        self._ensure_index_struct()
+
+        # cache isolated shard ids for fastest access
+        if self._shard_ids is None:
+            self._shard_ids = self._index_arr["shard_id"].tolist()
+
+        attrs: Dict[bytes, Dict[str, Dict[str, Any]]] = {}
 
         # grab all attributes
-        for fi, path in enumerate(type(self)._lmdb_paths):
+        for shard_id in self._shard_ids:
+            path = self._shard_id_map[shard_id]
             with LMDBReader(path) as reader:
-                attrs[fi] = reader.attrs()
+                attrs[shard_id] = reader.attrs()
 
         return attrs
 
-    def attrs(self) -> Dict[int, Dict[str, Dict[str, Any]]]:
+    def attrs(self) -> Dict[bytes, Dict[str, Dict[str, Any]]]:
         if self._attributes is None:
             self._attributes = self._get_attrs()
         return self._attributes
-
-    @classmethod
-    def configure(
-        cls,
-        source: Union[str, Path, Sequence[Union[str, Path]]],
-        max_open_envs: int = 4,
-        clean: bool = False
-    ) -> None:
-        """
-        Pre-configure the shard reader.
-
-        Args:
-            source: Path or sequence of paths to LMDB files or a directory containing LMDB files.
-            max_open_envs: Maximum number of LMDB environments to keep open concurrently.
-            clean (bool): Whether to reset the configuration with new values.
-        """
-        # clean old configs if required
-        if clean:
-            cls._max_open_envs = None
-            cls._lmdb_paths = None
-
-        if cls._max_open_envs is None:
-            cls._max_open_envs = max_open_envs
-
-        # normalize sources and store
-        new_paths: Tuple[Path] = tuple(PathResolver.normalize_sources(source, ".lmdb"))
-        if cls._lmdb_paths is None:
-            cls._lmdb_paths = new_paths
-        elif cls._lmdb_paths != new_paths:
-            raise RuntimeError("Reader already configured for a different source.")
-
-        cls._index_arr = cls._build_index_struct()
 
     def close(self) -> None:
         """
@@ -261,15 +314,7 @@ class LMDBDatasetShardReader:
         """
         while self._cache:
             _, handle = self._cache.popitem(last=False)
-            for t in (handle.atxn, handle.dtxn):
-                try:
-                    t.abort()
-                except Exception:
-                    pass
-            try:
-                handle.env.close()
-            except Exception:
-                pass
+            handle.close()
 
 
 class LMDBReader:
@@ -306,33 +351,6 @@ class LMDBReader:
             self._env.close()
         except Exception:
             pass
-
-    def __getstate__(self):
-        """
-        Remove unpicklable LMDB objects before pickling.
-        """
-        s = self.__dict__.copy()
-        s.pop("_env", None)
-        s.pop("_data_db", None)
-        s.pop("_attr_db", None)
-        return s
-
-    def __setstate__(self, s):
-        """
-        Re-open the LMDB environment and db handles after unpickling.
-        """
-        self.__dict__.update(s)
-        # Recreate env and DBs lazily and read-only
-        self._env = lmdb.open(
-            str(self.infile),
-            readonly=True,
-            lock=False,
-            subdir=False,
-            max_dbs=2,
-            readahead=True
-        )
-        self._data_db = self._env.open_db(b"data")
-        self._attr_db = self._env.open_db(b"attr")
 
     def attrs(self, group: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """

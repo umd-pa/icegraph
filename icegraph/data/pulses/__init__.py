@@ -3,6 +3,4 @@
 
 from .pulses import Pulses
 
-Pulses.__module__ = __name__
-
 __all__ = ["Pulses"]
