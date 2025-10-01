@@ -3,6 +3,4 @@
 
 from .base import IGMerger
 
-IGMerger.__module__ = __name__
-
 __all__ = ["IGMerger"]

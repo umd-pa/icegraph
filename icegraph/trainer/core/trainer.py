@@ -3,9 +3,13 @@
 
 from typing import Union, Optional, List, Self, Type, Dict
 from pathlib import Path
+import math
 
 import torch
-from torch.optim import Adam
+import torch.optim as optim
+from torch.optim import Optimizer
+import torch.optim.lr_scheduler as lr_scheduler
+from torch.optim.lr_scheduler import LRScheduler
 from torch_geometric.seed import seed_everything
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
@@ -14,13 +18,14 @@ from icegraph.console import Console
 from icegraph.data import DatasetRegistry
 from icegraph.types import ComputedMetrics
 from icegraph.config import IGConfig
-from ._config import TrainerConfig
-from .arch import ModelFactory
+from icegraph.trainer.core._config import TrainerConfig
+from icegraph.trainer.arch import ModelFactory
 from icegraph.utils.pathutils import PathResolver
-from .callbacks.base import Callback, Normalizer
-from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, resolve_normalizer
-from .base.exceptions import EmptyDataLoaderError, TrainerError
-from .protocols import resolve_strategy
+from icegraph.trainer.callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, Callback
+from icegraph.trainer.normalizers import resolve_normalizer, Normalizer
+from icegraph.trainer.base.exceptions import EmptyDataLoaderError, TrainerError
+from icegraph.trainer.interfaces import resolve_strategy
+from icegraph.trainer.interfaces.base import TaskStrategy
 
 __all__ = ["Trainer"]
 
@@ -52,8 +57,7 @@ class Trainer(torch.nn.Module):
 
         Args:
             dataset_registry (DatasetRegistry): Dataset registry containing dataloaders.
-            callbacks (Optional[list[Callback]]): List of callbacks to pass to the trainer. If none are passed,
-                defaults to Console, Checkpoint and TensorBoard callbacks.
+            callbacks (Optional[list[Callback]]): List of callbacks to pass to the trainer.
             trainer_config (TrainerConfig): A TrainerConfig instance with training params.
             outdir (Optional[Union[str, Path]]): Path to save the trained model and any other generated files.
             model (str): The model to be trained and evaluated, must be one of ['gravnet'].
@@ -86,7 +90,7 @@ class Trainer(torch.nn.Module):
         self.strategy_kwargs = self._config.user_config.training.strategy.kwargs.toDict()
 
         strategy_spec = resolve_strategy(strategy_selection, call=False)
-        self.strategy = strategy_spec(**self.strategy_kwargs)
+        self.strategy: TaskStrategy = strategy_spec(**self.strategy_kwargs)
 
         # get the device selection
         self.device: torch.device = (
@@ -95,12 +99,14 @@ class Trainer(torch.nn.Module):
             else torch.device("cpu")
         )
 
+        self.console = ConsoleCallback()
+
         # grab callbacks
         default_callbacks = [
-            ConsoleCallback(),
-            ExportCallback()
+            ExportCallback(),
+            TensorBoardCallback()
         ]
-        self.callbacks = callbacks or default_callbacks
+        self.callbacks = [*callbacks, self.console] if callbacks else [*default_callbacks, self.console]
 
         # grab normalizer
         # make sure the user didnt pass any normalizers in callbacks
@@ -118,15 +124,31 @@ class Trainer(torch.nn.Module):
         )
         self.model = active_model.to(self.device)
 
-        # define optimizer and the loss function
-        self.optimizer = Adam(
+        # initialize the optimizer
+        optimizer_str: str = self.trainer_config.optimizer
+        if not hasattr(optim, optimizer_str):
+            raise ValueError(f"Optimizer {optimizer_str} not found in torch.optim")
+
+        optimizer: Type[Optimizer] = getattr(optim, optimizer_str)
+        self.optimizer = optimizer(
             active_model.parameters(),
-            lr=self.trainer_config.lr,
-            betas=self.trainer_config.betas,
-            eps=self.trainer_config.eps,
-            weight_decay=self.trainer_config.weight_decay,
-            amsgrad=self.trainer_config.amsgrad
+            **self.trainer_config.optimizer_kwargs
         )
+
+        self.scheduler: Optional[LRScheduler]
+        self.scheduler_step_mode = self.trainer_config.scheduler_step_mode
+        scheduler_str: Optional[str] = self.trainer_config.scheduler
+        if scheduler_str is not None:
+            if not hasattr(lr_scheduler, scheduler_str):
+                raise ValueError(f"LRScheduler {scheduler_str} not found in torch.optim.lr_scheduler")
+
+            scheduler: Type[LRScheduler] = getattr(lr_scheduler, scheduler_str)
+            self.scheduler = scheduler(
+                self.optimizer,
+                **self.trainer_config.scheduler_kwargs
+            )
+        else:
+            self.scheduler = None
 
         # loss function
         self.loss_fn = self.strategy.loss_function()
@@ -138,10 +160,19 @@ class Trainer(torch.nn.Module):
         self._test_metrics: Dict[int, ComputedMetrics] = {}
 
         # setup stash dict
-        self._last_eval = {
+        self._last_eval: Dict[str, Dict[str, Optional[torch.Tensor]]] = {
             "val": {"preds": None, "targets": None, "includes": None},
             "test": {"preds": None, "targets": None, "includes": None},
         }
+
+        # global access to current epoch
+        self.current_epoch: Optional[int] = None
+
+        # calculate per-split batch counts
+        batch_size = self._config.user_config.training.batch_size
+        self.train_batch_count = math.ceil(len(self.registry.train_dataset) / batch_size)
+        self.val_batch_count = math.ceil(len(self.registry.val_dataset) / batch_size)
+        self.test_batch_count = math.ceil(len(self.registry.test_dataset) / batch_size)
 
         self._fire("on_init")
 
@@ -177,41 +208,22 @@ class Trainer(torch.nn.Module):
                     except Exception:
                         pass
 
-    def register_callback(self, callback: Type[Callback]) -> None:
-        """Register a callback."""
-        if not issubclass(callback, Callback):
-            raise TypeError("callback must be a subclass of 'Callback'")
-        self.callbacks.append(callback())
+    @property
+    def last_eval(self) -> Dict[str, Dict[str, Optional[torch.Tensor]]]:
+        """Getter for the last eval stash dict."""
+        return self._last_eval
 
-        # make sure user didnt pass a normalizer
+    def register_callback(self, callback: Callback) -> None:
+        """Register a callback."""
+        if not isinstance(callback, Callback):
+            raise TypeError("callback must be a subclass of 'Callback'")
+        self.callbacks.append(callback)
+
+        # make sure user didnt pass a normalizer callback
         self._ensure_single_normalizer()
 
         # need to initialize this new callback as it wasn't caught in trainer's __init__
         self.callbacks[-1].on_init(self)
-
-    @property
-    def val_predictions(self) -> Optional[torch.Tensor]:
-        return self._last_eval["val"]["preds"]
-
-    @property
-    def val_targets(self) -> Optional[torch.Tensor]:
-        return self._last_eval["val"]["targets"]
-
-    @property
-    def val_includes(self) -> Optional[torch.Tensor]:
-        return self._last_eval["val"]["includes"]
-
-    @property
-    def test_predictions(self) -> Optional[torch.Tensor]:
-        return self._last_eval["test"]["preds"]
-
-    @property
-    def test_targets(self) -> Optional[torch.Tensor]:
-        return self._last_eval["test"]["targets"]
-
-    @property
-    def test_includes(self) -> Optional[torch.Tensor]:
-        return self._last_eval["test"]["includes"]
 
     def _ensure_single_normalizer(self) -> None:
         _normalizers: List[Normalizer] = [cb for cb in self.callbacks + [self.normalizer] if isinstance(cb, Normalizer)]
@@ -284,7 +296,7 @@ class Trainer(torch.nn.Module):
         self.model.train()
 
         # iterate over each batch
-        for batch in Console.progress_bar(dataloader):
+        for idx, batch in enumerate(dataloader):
             self._fire("on_batch_begin", batch)
 
             batch = batch.to(self.device)
@@ -298,10 +310,21 @@ class Trainer(torch.nn.Module):
             loss.backward()
             self.optimizer.step()
 
+            # step the scheduler if there is one
+            if self.scheduler is not None and self.scheduler_step_mode == "batch":
+                self.scheduler.step()
+            if self.scheduler is not None and self.scheduler_step_mode == "warm_restarts":
+                # epoch + progress-in-epoch (PyTorch docs recommend this pattern)
+                t_cur = self.current_epoch + (idx + 1) / self.batch_count
+                self.scheduler.step(t_cur)
+
             # task-agnostic accumulation
             metrics.update(out.detach(), target.detach(), loss.detach(), mask=None)
 
             self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
+
+        if self.scheduler is not None and self.scheduler_step_mode == "epoch":
+                self.scheduler.step()
 
         return metrics.compute()
 
@@ -330,7 +353,7 @@ class Trainer(torch.nn.Module):
         # use no_grad on eval loops
         with torch.no_grad():
             # iterate over each batch
-            for batch in Console.progress_bar(dataloader):
+            for batch in dataloader:
                 self._fire("on_batch_begin", batch)
 
                 batch = batch.to(self.device)
@@ -375,36 +398,19 @@ class Trainer(torch.nn.Module):
         """Getter for testing metrics."""
         return self._test_metrics
 
-    def _train(self, **kwargs) -> None:
+    def _train(self, epoch: int) -> None:
         """
-        Train the model for the configured number of epochs.
-
-        Loops over epochs, logs MSE/RMSE.
+        Run a single training epoch.
         """
-        self._fire("on_train_begin")
+        self._fire("on_train_begin", epoch)
+        metrics_dict = self._train_batchwise(self.registry.train_dataloader)
 
-        # iterate over epochs
-        for epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
-            self._fire("on_epoch_begin", epoch)
+        if not metrics_dict or all(v != v for v in metrics_dict.values()):  # all NaN
+            raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
 
-            metrics_dict = self._train_batchwise(self.registry.train_dataloader)
+        self._train_metrics[self._current_epoch + 1] = metrics_dict
 
-            if not metrics_dict or all(v != v for v in metrics_dict.values()):  # all NaN
-                raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
-
-            self._train_metrics[epoch + 1] = metrics_dict
-
-            self._fire("on_epoch_end", epoch, metrics_dict)
-
-            # save the model after every epoch and run test
-            self.save(epoch=epoch, metrics=metrics_dict)
-
-            # only run on specified intervals
-            val_interval = self.trainer_config.val_interval
-            if val_interval > 0 and (epoch + 1) % val_interval == 0:
-                self._validate(epoch=epoch)
-
-        self._fire("on_train_end")
+        self._fire("on_train_end", epoch, metrics_dict)
 
     def _validate(self, epoch: int) -> None:
         """
@@ -450,5 +456,24 @@ class Trainer(torch.nn.Module):
         """
         Execute the full pipeline: training, validation at set intervals, final testing, and teardown.
         """
-        self._train()
-        self._test(self.trainer_config.max_epochs - 1)
+        # fire on_execute hook
+        self._fire("on_execute")
+
+        # iterate over epochs
+        for self._current_epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
+            self._fire("on_epoch_begin", self._current_epoch)
+
+            self._train(epoch=self._current_epoch)
+
+            # only run on specified intervals
+            val_interval = self.trainer_config.val_interval
+            if val_interval > 0 and (self._current_epoch + 1) % val_interval == 0:
+                self._validate(epoch=self._current_epoch)
+
+            # run test once at the end of training
+            if (self._current_epoch + 1) == self.trainer_config.max_epochs:
+                self._test(epoch=self._current_epoch)
+
+            self._fire("on_epoch_end", self._current_epoch)
+
+        self._fire("on_teardown")

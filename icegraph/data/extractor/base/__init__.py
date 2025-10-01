@@ -3,6 +3,4 @@
 
 from .base import Extractor
 
-Extractor.__module__ = __name__
-
 __all__ = ["Extractor"]

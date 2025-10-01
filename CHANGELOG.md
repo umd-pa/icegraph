@@ -1,5 +1,14 @@
 # Changelog
 
+### Version [0.9.1] --- October 1st, 2025:
+- Refactored trainer directory for clarity.
+- Removed `var.__module__ = __name__` from all `__init__.py` files.
+- Added terminal dashboard for training progress.
+- Renamed `Operator` to `Stage` for clarity.
+- Renamed `IGData` to `DataModule` for clarity.
+- Made most callbacks task agnostic.
+- Made program forkserver/spawn compatible, fork is unstable with CUDA.
+
 ### Version [0.9.0] --- September 22nd, 2025:
 - `Trainer` now runs on a protocol based architecture.
 - Implemented `icegraph.data.processor.ClassNormalizer` which handles automatic enumeration of classes for training.

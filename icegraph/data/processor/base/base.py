@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from icegraph.data.base import Operator
+from icegraph.data.base import Stage
 
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline
@@ -17,13 +17,11 @@ else:
     Pipeline = None
 
 
-class Processor(Operator):
-    """
-    Base class for streaming DataFrame processors.
-    """
+class Processor(Stage):
+    """Base class for streaming DataFrame processors."""
 
     # prerequisite flag
-    PRE_REQS: Optional[List[Type[Operator]]] = None
+    PRE_REQS: Optional[List[Type[Stage]]] = None
 
     def bootstrap(self, infile: Path) -> Optional[Pipeline.Envelope]:
         if self._parent is None:
@@ -36,6 +34,4 @@ class Processor(Operator):
         return self._parent.Envelope(df=df, fh=fh)
 
     @abstractmethod
-    def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
-        """Take envelope, return envelope with transformed data (or None to drop)."""
-        ...
+    def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]: ...

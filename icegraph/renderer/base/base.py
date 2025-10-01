@@ -247,7 +247,6 @@ class IGDistributionPlot(ABC):
         Args:
             save_path (Path): The path where the HTML plot file will be saved.
         """
-        Console.out(f"Saving {self.plot_type} plot: {save_path!s}")
         self._fig.write_html(save_path, config={
             "toImageButtonOptions": {
                 "filename": save_path.with_suffix("").name

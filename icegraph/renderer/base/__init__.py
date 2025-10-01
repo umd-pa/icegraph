@@ -3,7 +3,4 @@
 
 from .base import IGBasicPlot, IGDistributionPlot
 
-IGBasicPlot.__module__ = __name__
-IGDistributionPlot.__module__ = __name__
-
 __all__ = ["IGBasicPlot", "IGDistributionPlot"]

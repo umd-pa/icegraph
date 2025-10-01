@@ -20,8 +20,16 @@ def _run_icetray_pipeline(
     mls_config_path: str,
 ) -> None:
     """
-    This function runs entirely in the child process.
-    All heavy IceCube imports stay inside to avoid touching them in the parent.
+    Run an IceTray pipeline in a child process and write extracted features to HDF5.
+
+    Args:
+        file_batch (List[str]): Ordered list of I3 files, including GCD.
+        out_path (str): Destination HDF5 file path.
+        frame_keys (Dict[str, str]): Mapping for frame object names (e.g., 'mctree', 'weight_dict').
+        mls_config_path (str): Path to ml_suite YAML/TOML configuration.
+
+    Raises:
+        IceCubeImportError: If IceCube modules are unavailable in the worker environment.
     """
     # Lazy imports (child-only)
     with suppress_output():
@@ -89,16 +97,26 @@ def _run_icetray_pipeline(
 
 def worker_main(task_q: Queue, status_q: Queue) -> None:
     """
-    Receive tasks, run the tray, report status.
-    Expected task: dict with keys:
-      - infile: str (path)
-      - gcd_path: str (path)
-      - out_dir: str (dir for output file)
-      - frame_keys: dict
-      - mls_config_path: str
-      - job_id: str/int (for routing)
-    Sentinel: None to exit.
-    """
+        Consume tasks from a queue, run the IceTray pipeline, and report status.
+
+        Args:
+            task_q (Queue): Incoming tasks. Each task is a dict with:
+                - 'infile' (str): Input I3 file path.
+                - 'gcd_path' (str): GCD file path.
+                - 'out_dir' (str): Output directory for the resulting HDF5.
+                - 'frame_keys' (dict): Frame key mapping (e.g., mctree, weight_dict, truth_dict, bg_mctree).
+                - 'mls_config_path' (str): ml_suite configuration path.
+                - 'job_id' (str|int): Identifier used in status messages.
+                Use `None` as a sentinel to stop the worker.
+            status_q (Queue): Outgoing status updates. Emits dicts with:
+                - 'status' ('started'|'finished'|'error'|'stopped')
+                - 'job_id' (optional)
+                - 'infile'/'outfile' (optional)
+                - 'error'/'traceback' (on failure)
+
+        Returns:
+            None
+        """
     # Keep the worker light on threads (optional)
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")

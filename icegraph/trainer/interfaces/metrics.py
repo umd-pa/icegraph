@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Self
+from typing import Optional, Self
 
 import torch
 
@@ -36,7 +36,7 @@ class RegressionMetrics(Metrics):
         if self.n_elems == 0:
             return {"loss": float("nan"), "rmse": float("nan")}
         mse = self.loss_sum / self.n_elems
-        return {"loss": mse, "rmse": mse ** 0.5}
+        return {"loss:mse": mse, "rmse": mse ** 0.5}
 
     def merge_(self, other: Self) -> None:
         self.sse_sum += other.sse_sum
@@ -68,10 +68,10 @@ class MulticlassMetrics(Metrics):
 
     def _compute(self) -> ComputedMetrics:
         if self.n_samples == 0:
-            return {"loss": float("nan"), "acc": float("nan"), f"top{self.k}_acc": float("nan")}
+            return {"loss:mse": float("nan"), "acc": float("nan"), f"top{self.k}_acc": float("nan")}
 
         return {
-            "loss": self.loss_sum / self.n_samples,
+            "loss:mse": self.loss_sum / self.n_samples,
             "acc": self.correct / self.n_samples,
             f"top{self.k}_acc": self.topk_correct / self.n_samples if self.k else float("nan")
         }

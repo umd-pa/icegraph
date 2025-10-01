@@ -3,6 +3,4 @@
 
 from .base import Processor
 
-Processor.__module__ = __name__
-
 __all__ = ["Processor"]
