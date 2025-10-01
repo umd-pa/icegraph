@@ -18,13 +18,14 @@ from icegraph.console import Console
 from icegraph.data import DatasetRegistry
 from icegraph.types import ComputedMetrics
 from icegraph.config import IGConfig
-from ._config import TrainerConfig
-from .arch import ModelFactory
+from icegraph.trainer.core._config import TrainerConfig
+from icegraph.trainer.arch import ModelFactory
 from icegraph.utils.pathutils import PathResolver
-from .callbacks.base import Callback, Normalizer
-from .callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, resolve_normalizer
-from .base.exceptions import EmptyDataLoaderError, TrainerError
-from .protocols import resolve_strategy
+from icegraph.trainer.callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, Callback
+from icegraph.trainer.normalizers import resolve_normalizer, Normalizer
+from icegraph.trainer.base.exceptions import EmptyDataLoaderError, TrainerError
+from icegraph.trainer.interfaces import resolve_strategy
+from icegraph.trainer.interfaces.base import TaskStrategy
 
 __all__ = ["Trainer"]
 
@@ -56,8 +57,7 @@ class Trainer(torch.nn.Module):
 
         Args:
             dataset_registry (DatasetRegistry): Dataset registry containing dataloaders.
-            callbacks (Optional[list[Callback]]): List of callbacks to pass to the trainer. If none are passed,
-                defaults to Console, Checkpoint and TensorBoard callbacks.
+            callbacks (Optional[list[Callback]]): List of callbacks to pass to the trainer.
             trainer_config (TrainerConfig): A TrainerConfig instance with training params.
             outdir (Optional[Union[str, Path]]): Path to save the trained model and any other generated files.
             model (str): The model to be trained and evaluated, must be one of ['gravnet'].
@@ -90,7 +90,7 @@ class Trainer(torch.nn.Module):
         self.strategy_kwargs = self._config.user_config.training.strategy.kwargs.toDict()
 
         strategy_spec = resolve_strategy(strategy_selection, call=False)
-        self.strategy = strategy_spec(**self.strategy_kwargs)
+        self.strategy: TaskStrategy = strategy_spec(**self.strategy_kwargs)
 
         # get the device selection
         self.device: torch.device = (
@@ -398,36 +398,19 @@ class Trainer(torch.nn.Module):
         """Getter for testing metrics."""
         return self._test_metrics
 
-    def _train(self, **kwargs) -> None:
+    def _train(self, epoch: int) -> None:
         """
-        Train the model for the configured number of epochs.
-
-        Loops over epochs, logs MSE/RMSE.
+        Run a single training epoch.
         """
-        self._fire("on_train_begin")
+        self._fire("on_train_begin", epoch)
+        metrics_dict = self._train_batchwise(self.registry.train_dataloader)
 
-        # iterate over epochs
-        for self._current_epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
-            self._fire("on_epoch_begin", self._current_epoch)
+        if not metrics_dict or all(v != v for v in metrics_dict.values()):  # all NaN
+            raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
 
-            metrics_dict = self._train_batchwise(self.registry.train_dataloader)
+        self._train_metrics[self._current_epoch + 1] = metrics_dict
 
-            if not metrics_dict or all(v != v for v in metrics_dict.values()):  # all NaN
-                raise EmptyDataLoaderError("No data in dataloader; cannot train/validate.")
-
-            self._train_metrics[self._current_epoch + 1] = metrics_dict
-
-            self._fire("on_epoch_end", self._current_epoch, metrics_dict)
-
-            # save the model after every epoch and run test
-            self.save(epoch=self._current_epoch, metrics=metrics_dict)
-
-            # only run on specified intervals
-            val_interval = self.trainer_config.val_interval
-            if val_interval > 0 and (self._current_epoch + 1) % val_interval == 0:
-                self._validate(epoch=self._current_epoch)
-
-        self._fire("on_train_end")
+        self._fire("on_train_end", epoch, metrics_dict)
 
     def _validate(self, epoch: int) -> None:
         """
@@ -473,5 +456,24 @@ class Trainer(torch.nn.Module):
         """
         Execute the full pipeline: training, validation at set intervals, final testing, and teardown.
         """
-        self._train()
-        self._test(self.trainer_config.max_epochs - 1)
+        # fire on_execute hook
+        self._fire("on_execute")
+
+        # iterate over epochs
+        for self._current_epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
+            self._fire("on_epoch_begin", self._current_epoch)
+
+            self._train(epoch=self._current_epoch)
+
+            # only run on specified intervals
+            val_interval = self.trainer_config.val_interval
+            if val_interval > 0 and (self._current_epoch + 1) % val_interval == 0:
+                self._validate(epoch=self._current_epoch)
+
+            # run test once at the end of training
+            if (self._current_epoch + 1) == self.trainer_config.max_epochs:
+                self._test(epoch=self._current_epoch)
+
+            self._fire("on_epoch_end", self._current_epoch)
+
+        self._fire("on_teardown")

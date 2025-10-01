@@ -12,7 +12,7 @@ from icegraph.console import Console
 from icegraph.config import IGConfig
 from icegraph.console._streams import suppress_stderr
 from icegraph.utils import is_port_available
-from .base.exceptions import PortUnavailableError
+from icegraph.trainer.base.exceptions import PortUnavailableError
 
 __all__ = ["TensorBoard"]
 

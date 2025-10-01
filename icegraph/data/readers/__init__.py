@@ -3,7 +3,4 @@
 
 from .readers import LMDBDatasetShardReader, LMDBReader
 
-LMDBDatasetShardReader.__module__ = __name__
-LMDBReader.__module__ = __name__
-
 __all__ = ["LMDBDatasetShardReader", "LMDBReader"]

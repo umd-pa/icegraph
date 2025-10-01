@@ -3,7 +3,4 @@
 
 from .exceptions import IceGraphError, IceCubeImportError
 
-IceGraphError.__module__ = __name__
-IceCubeImportError.__module__ = __name__
-
 __all__ = ["IceGraphError", "IceCubeImportError"]

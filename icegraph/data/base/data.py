@@ -2,12 +2,10 @@
 # Developed by Taylor St Jean
 
 import os
-from typing import Union, Optional, Literal, Sequence, ClassVar, Dict, Any, List, Tuple, TypeVar, Callable, cast
+from typing import Union, Optional, Literal, Sequence, Dict, Any, List, Tuple, TypeVar, Callable, cast
 from pathlib import Path
-from abc import ABC
 import functools
 import itertools
-from contextlib import ExitStack
 
 from torch.utils.data import Dataset
 import torch_geometric as pyg
@@ -17,59 +15,45 @@ import numpy as np
 from numpy.typing import NDArray
 
 from icegraph.config import IGConfig
-from icegraph.data.base.exceptions import NotConfiguredError, DataError, MissingFieldError
+from icegraph.data.base.exceptions import DataError, MissingFieldError
 from icegraph.data.readers import LMDBDatasetShardReader
-from icegraph.utils import stable_hash_cbor
 
-__all__ = ["IGData"]
+__all__ = ["DataModule"]
 
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-def requires_config(func):
-    @functools.wraps(func)
-    def w(self, *a, **k):
-        if getattr(self, "_source", None) is None:
-            raise NotConfiguredError("IGData must be configured before use.")
-        return func(self, *a, **k)
-    return w
 
-
-class IGData(Dataset, ABC):
+class DataModule(Dataset):
     """
     The base dataset class for loading and managing IceCube data stored in LMDB format.
 
     This class handles the truth table, feature loading, and optional selection filtering
-    for training, validation, or test subsets. Subclasses must set the class attribute `subset`
-    to one of: "train", "validation", or "test".
+    for training, validation, or test subsets.
     """
-
-    # subset defined in each subclass
-    subset:             ClassVar[Optional[Literal["train","validation","test"]]]            = None
-
-    # shared class vars
-    _source:            ClassVar[Optional[Union[str, Path, Sequence[Union[str, Path]]]]]    = None
-
-    # dataset attributes
-    attrs:              ClassVar[Optional[Dict[int, Dict[str, Dict[str, Any]]]]]            = None
-    include_labels:     ClassVar[Optional[List[str]]]                                       = None
-    target_labels:      ClassVar[Optional[List[str]]]                                       = None
 
     dataloader = property(
         lambda self: functools.partial(pyg.loader.DataLoader, self),
         doc="A convenience property that returns a partially-applied torch geometric DataLoader constructor for this dataset."
     )
 
-    @requires_config
-    def __init__(self) -> None:
+    def __init__(
+            self,
+            source: Union[str, Path, Sequence[Union[str, Path]]],
+            subset: Literal['train', 'validation', 'test']
+    ) -> None:
         """
-        Initialize an IGData object from an LMDB file.
+        Initialize a DataModule object from an LMDB source.
         """
         super().__init__()
 
-        self._stack:        Optional[ExitStack]                 = None
-        self._proc_pid:     Optional[int]                       = None
-        self._reader:       Optional[LMDBDatasetShardReader]    = None
+        # data source and subset assignment
+        self._source:       Union[str, Path, Sequence[Union[str, Path]]]    = source
+        self.subset:        Literal['train', 'validation', 'test']          = subset
+
+        # reader attrs
+        self._proc_pid:     Optional[int]           = None
+        self._reader:       LMDBDatasetShardReader
 
         # grab global config
         self._config: IGConfig = IGConfig.get()
@@ -77,24 +61,10 @@ class IGData(Dataset, ABC):
         # get the key list
         self._keys: Optional[np.ndarray] = None
 
-    def __init_subclass__(cls, **kwargs) -> None:
-        """
-        Validate that subclasses of IGData define a proper `subset` attribute.
+        # keys cache
+        self.include_labels:    Optional[List[str]] = None
+        self.target_labels:     Optional[List[str]] = None
 
-        Ensures that any subclass sets the class-level `subset` to one of
-        the allowed split names ("train", "validation", or "test"), and that
-        it consists only of alphabetic characters.
-
-        Raises:
-            DataError: If `subset` is not defined on the subclass or if `subset` is not an alphabetic string.
-        """
-        super().__init_subclass__(**kwargs)
-        if cls.subset is None:
-            raise DataError(f"{cls.__name__}.subset must be set to 'train'|'validation'|'test'")
-        if not isinstance(cls.subset, str) or not cls.subset.isalpha():
-            raise DataError(f"`subset` on {cls.__name__!r} must be alphabetic string, got {cls.subset!r}")
-
-    @requires_config
     def __getitem__(self, idx: int) -> PyGData:
         """
         Retrieve a single sample by index.
@@ -113,7 +83,6 @@ class IGData(Dataset, ABC):
 
         return data
 
-    @requires_config
     def __len__(self) -> int:
         """
         Return the number of events in the subset.
@@ -129,69 +98,6 @@ class IGData(Dataset, ABC):
             self.close()
         except Exception:
             pass
-
-    def __getstate__(self):
-        # Instance base state
-        s = self.__dict__.copy()
-
-        # Drop per-process / unpicklables
-        s["_stack"]     = None
-        s["_reader"]    = None
-        s["_finalizer"] = None
-        s["_proc_pid"]  = None
-
-        # If your IGConfig can hold loggers/locks, drop & reacquire in worker
-        s["_config"] = None
-
-        # Snapshot IGData *class-level* config so workers see it
-        cls = type(self)
-        s["_ig_class_snapshot"] = {
-            "_source":        cls._source,
-            "attrs":          cls.attrs,
-            "include_labels": cls.include_labels,
-            "target_labels":  cls.target_labels,
-            "subset":         cls.subset,  # for completeness
-        }
-
-        # Snapshot LMDB reader *class-level* config so new readers work in workers
-        s["_reader_snapshot"] = {
-            "paths":         tuple(str(p) for p in (LMDBDatasetShardReader._lmdb_paths or ())),
-            "max_open_envs": LMDBDatasetShardReader._max_open_envs,
-            "index":         LMDBDatasetShardReader._index_arr,  # numpy is picklable
-        }
-        return s
-
-    def __setstate__(self, s):
-        # Restore the simple instance dict
-        self.__dict__.update(s)
-
-        # Recreate per-process handles lazily
-        self._stack = None
-        self._reader = None
-        self._finalizer = None
-        self._proc_pid = None
-
-        # Reacquire IGConfig if needed
-        if self._config is None:
-            self._config = IGConfig.get()
-
-        # Restore IGData *class-level* config in the worker
-        cls = type(self)
-        snap = s.get("_ig_class_snapshot", {})
-        if snap:
-            cls._source        = snap.get("_source",        cls._source)
-            cls.attrs          = snap.get("attrs",          cls.attrs)
-            cls.include_labels = snap.get("include_labels", cls.include_labels)
-            cls.target_labels  = snap.get("target_labels",  cls.target_labels)
-            # cls.subset is static per subclass, no change needed
-
-        # Restore LMDB reader *class-level* config in the worker
-        rs = s.get("_reader_snapshot", {})
-        if rs:
-            paths = rs.get("paths")
-            LMDBDatasetShardReader._lmdb_paths    = tuple(Path(p) for p in paths) if paths else None
-            LMDBDatasetShardReader._max_open_envs = rs.get("max_open_envs", 4)
-            LMDBDatasetShardReader._index_arr     = rs.get("index", None)
 
     def _load_keys(self) -> NDArray:
         # load the split key for the subset
@@ -210,49 +116,36 @@ class IGData(Dataset, ABC):
         Returns:
             NDArray[np.uint8]: Array of keys as unsigned int8.
         """
-        cls = type(self)
-
         # split keys are small integers (0,1,2), so uint8 is safe and more compact
         splitmap = np.fromiter(
-            itertools.chain.from_iterable(attr["allocation"]["splitmap"] for attr in cls.attrs.values()),
+            itertools.chain.from_iterable(attr["allocation"]["splitmap"] for attr in self.attrs.values()),
             dtype=np.uint8
         )
 
         return splitmap
 
-    @requires_config
     def _ensure_reader(self):
         """Load the dataset shard reader, ensures a unique one for each process."""
         pid = os.getpid()
-        if self._reader is not None and pid == self._proc_pid:
+        if getattr(self, "_reader", None) is not None and pid == self._proc_pid:
             return self._reader
-
-        # close old stack if any
-        if self._stack is not None:
-            try:
-                self._stack.close()
-            finally:
-                self._stack = None
-                self._reader = None
 
         # create per-process reader
         self._proc_pid = pid
-        self._stack = ExitStack()
-        self._reader = self._stack.enter_context(LMDBDatasetShardReader())
+        self._reader = LMDBDatasetShardReader(self._source)
 
         return self._reader
 
     def close(self) -> None:
         """Close the instance."""
-        if self._stack is not None:
-            try:
-                self._stack.close()
-            finally:
-                self._stack = None
-                self._reader = None
+        self._reader.close()
 
     @property
-    @requires_config
+    def attrs(self) -> Dict[bytes, Dict[str, Dict[str, Any]]]:
+        self._ensure_reader()
+        return self._reader.attrs()
+
+    @property
     def keys(self) -> NDArray:
         """
         Load the filtered-by-subset key list.
@@ -264,41 +157,7 @@ class IGData(Dataset, ABC):
             self._keys = self._load_keys()
         return self._keys
 
-    @classmethod
-    def configure(cls, source: Union[str, Path, Sequence[Union[str, Path]]]) -> None:
-        """
-        Set the dataset configurations.
-
-        Args:
-            source (Union[str, Path, Sequence[Union[str, Path]]]): Path to the input file(s) (LMDB) or a directory.
-        """
-        if cls._source is None:
-            cls._source = source
-
-        # configure the reader class
-        LMDBDatasetShardReader.configure(
-            source=cls._source,
-            max_open_envs=4,
-            clean=True
-        )
-
-        # load metadata
-        with LMDBDatasetShardReader() as reader:
-            cls.attrs = reader.attrs()
-
-        # cache target an included labels for quick access on hot paths
-        cls.include_labels = cls.attrs[0]["global"]["include_labels"]
-        cls.target_labels = cls.attrs[0]["global"]["target_labels"]
-
-        # verify config hash
-        config = cls.attrs[0]["global"]["config"]
-        config_hash = cls.attrs[0]["global"]["config_hash"]
-
-        if config_hash != stable_hash_cbor(config):
-            raise RuntimeError("Source config hash does not match expected hash. One or more files may be corrupted.")
-
     @property
-    @requires_config
     def num_target_labels(self) -> int:
         """
         Returns the dimensionality of the target (label) for each graph sample.
@@ -319,7 +178,6 @@ class IGData(Dataset, ABC):
             )
 
     @property
-    @requires_config
     def num_node_features(self) -> int:
         """
        Returns the dimensionality of the input feature list for each graph sample.
@@ -329,7 +187,6 @@ class IGData(Dataset, ABC):
        """
         return self[0].x.size(-1)
 
-    @requires_config
     def get(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Read and decode a single event from the LMDB dataset.
@@ -340,7 +197,10 @@ class IGData(Dataset, ABC):
         Raises:
             MissingFieldError, DataError
         """
-        cls = type(self)
+        if self.target_labels is None:
+            self.target_labels = list(self.attrs.values())[0]["global"]["target_labels"]
+        if self.include_labels is None:
+            self.include_labels = list(self.attrs.values())[0]["global"]["include_labels"]
 
         # initialize the data and attribute dict
         data_dict = {}
@@ -366,7 +226,7 @@ class IGData(Dataset, ABC):
 
         # --- labels ---
         labels_vals = []
-        for name in cls.target_labels:
+        for name in self.target_labels:
             if name not in data:
                 raise MissingFieldError(f"Label '{name}' not found in record at index {idx}")
             labels_vals.append(data[name])
@@ -406,8 +266,8 @@ class IGData(Dataset, ABC):
         # --- included labels (val/test only) ---
         if self.subset in ["validation", "test"]:
             inc_vals = []
-            for name in cls.include_labels:
-                if name in cls.target_labels:
+            for name in self.include_labels:
+                if name in self.target_labels:
                     continue
                 if name not in data:
                     raise MissingFieldError(f"Included label '{name}' not found in record at index {idx}")

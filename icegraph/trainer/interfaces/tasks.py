@@ -2,8 +2,7 @@
 # Developed by Taylor St Jean
 
 import sys
-
-from typing import Tuple, Optional, Union, Callable, Sequence, TYPE_CHECKING
+from typing import Tuple, Optional, Union, Callable
 
 from torch import nn
 import torch_scatter
@@ -11,7 +10,7 @@ import torch
 from torch_geometric.data import Batch
 
 from .base import TaskStrategy
-from .base.exceptions import InvalidStrategyError
+from .exceptions import InvalidStrategyError
 from .metrics import RegressionMetrics, MulticlassMetrics
 
 
@@ -110,7 +109,7 @@ class MulticlassStrategy(TaskStrategy):
 
     def out_channels(self, trainer) -> int:
         # for classification, need to count total number opf classes in training split (will be same as val/test)
-        attrs = trainer.registry.train_dataset.attrs
+        attrs = trainer.registry.attrs
         try:
             indices = set()
             for i, data in attrs.items():

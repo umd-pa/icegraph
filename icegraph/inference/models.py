@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, TypeVar
 import torch
 
 if TYPE_CHECKING:
-    from icegraph.trainer.callbacks.base import Normalizer
+    from icegraph.trainer.normalizers import Normalizer
 else:
     Trainer = Normalizer = None
 

@@ -15,6 +15,7 @@ from .base import Writer
 from icegraph.console import Console
 from .base.exceptions import WriterError
 from icegraph._version import __version__
+from icegraph.utils.hashutils import stable_hash_cbor
 
 # allow msgpack to pack numpy objects
 import msgpack_numpy as m
@@ -136,6 +137,14 @@ class LMDBWriter(Writer):
                 value = msgpack.packb(row._asdict(), use_bin_type=True)
                 txn = self._safe_put(txn, key, value)
 
+        # write a deterministic id
+        with self._env.begin(write=True, db=self._attr_db) as txn:
+            # pack the assigned df id
+            _id = msgpack.packb(self._assign_id(df), use_bin_type=True)
+
+            # put to db
+            txn.put("id".encode("utf-8"), _id)
+
     def write_iterable(self, iter_dfs: Iterable[pd.DataFrame]) -> None:
         """
         Write multiple DataFrames to an LMDB file.
@@ -164,6 +173,12 @@ class LMDBWriter(Writer):
 
                     # increment idx
                     idx += 1
+
+    @staticmethod
+    def _assign_id(df: pd.DataFrame) -> str:
+        # include index + column metadata
+        payload = df.to_dict(orient="split")
+        return stable_hash_cbor(payload)
 
     def save(self) -> None:
         """

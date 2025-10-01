@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Self
+from typing import Optional, Self
 
 import torch
 

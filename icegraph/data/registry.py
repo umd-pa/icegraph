@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Self, Type, TYPE_CHECKING, Union, Sequence, Optional
+from typing import Self, Union, Sequence, Optional, Dict, Any, List, Type
 from pathlib import Path
 import time
 import os
@@ -12,84 +12,78 @@ import torch
 import numpy as np
 
 from icegraph.config import IGConfig
-from icegraph.data import TrainingDataset, ValidationDataset, TestDataset
-from icegraph.data.base import IGData
+from icegraph.data.base import DataModule
 from icegraph.console import Console
+from icegraph.data.readers import LMDBDatasetShardReader
 
 __all__ = ["DatasetRegistry"]
+
+
+def dl_worker_init(_worker_id: int):
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+    try:
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+    except Exception:
+        pass
 
 
 class DatasetRegistry:
     """
     A container class for managing access to training, validation, and test datasets.
-
-    Attributes:
-        _train_dataset (TrainingDataset): The training dataset instance.
-        _validation_dataset (ValidationDataset): The validation dataset instance.
-        _test_dataset (TestDataset): The test dataset instance.
     """
-
-    _dataset_specs: dict[str, tuple[str, Type]] = {
-        "train_dataset": ("train", TrainingDataset),
-        "val_dataset": ("validation", ValidationDataset),
-        "test_dataset": ("test", TestDataset),
-    }
 
     def __init__(
             self,
-            train_dataset: TrainingDataset,
-            validation_dataset: ValidationDataset,
-            test_dataset: TestDataset,
-            source: Optional[Union[str, Path, Sequence[Union[str, Path]]]] = None
+            module: Type,
+            source: Union[str, Path, Sequence[Union[str, Path]]]
     ) -> None:
         """
         Initialize the DatasetRegistry with training, validation, and test datasets.
 
         Args:
-            train_dataset (TrainingDataset): The training dataset.
-            validation_dataset (ValidationDataset): The validation dataset.
-            test_dataset (TestDataset): The test dataset.
-            source (Optional[Union[str, Path, Sequence[Union[str, Path]]]]): Path or list of paths to the LMDB file(s) containing the dataset. Does nothing except save the source to the registry for later access.
+            module (object): Module object to use.
+            source (Union[str, Path, Sequence[Union[str, Path]]]): Path or list of paths to the LMDB file(s) containing the dataset.
         """
-        # prefer fork on linux, but unsafe, so use forkserver
-        if mp.get_start_method(allow_none=True) != "fork":
-            mp.set_start_method("fork", force=True)
+        # cache source for use downstream
+        self.source = source
 
-        # switch away from file descriptors to filesystem-backed
-        torch.multiprocessing.set_sharing_strategy("file_system")
+        # global attrs cache
+        self._global_attrs:     Dict[str, Any]
+        self._attrs:            Dict[bytes, Dict[str, Dict[str, Any]]]
 
-        self._train_dataset = train_dataset
-        self._validation_dataset = validation_dataset
-        self._test_dataset = test_dataset
+        # build the datasets
+        self._train_dataset =       module(source, subset="train")
+        self._validation_dataset =  module(source, subset="validation")
+        self._test_dataset =        module(source, subset="test")
 
         self._datasets = [self._train_dataset, self._validation_dataset, self._test_dataset]
-
-        # register each for later access
-        self.source = source
 
         # get training params from config
         self._config = IGConfig.get()
 
-        batch_size = self._config.user_config.training.batch_size
-        num_workers = self._config.user_config.training.num_workers
-        prefetch_factor = self._config.user_config.training.prefetch_factor
+        # build kwargs for the dataloaders
+        batch_size =        self._config.user_config.training.batch_size
+        num_workers =       self._config.user_config.training.num_workers
+        prefetch_factor =   self._config.user_config.training.prefetch_factor
 
         self.dataloader_kwargs = {
             "batch_size": batch_size,
             "num_workers": num_workers,
             "pin_memory": torch.cuda.is_available(),
-            "persistent_workers": True,
-            "prefetch_factor": prefetch_factor,
-            "worker_init_fn": self._dl_worker_init()
+            "multiprocessing_context": mp.get_context("forkserver"),
+            "persistent_workers": num_workers > 0,
+            "prefetch_factor": prefetch_factor if num_workers > 0 else None,
+            "worker_init_fn": dl_worker_init
         }
 
-        # verify the datasets were passed in the correct order
-        if self._train_dataset.subset != "train":
-            raise ValueError("Expected train_dataset.subset == 'train'")
-        if self._validation_dataset.subset != "validation":
-            raise ValueError("Expected val_dataset.subset == 'validation'")
-        if self._test_dataset.subset != "test":
-            raise ValueError("Expected test_dataset.subset == 'test'")
+        # dataloader caches
+        self._train_dataloader:         Optional[pyg.loader.DataLoader] = None
+        self._validation_dataloader:    Optional[pyg.loader.DataLoader] = None
+        self._test_dataloader:          Optional[pyg.loader.DataLoader] = None
 
     def __len__(self) -> int:
         """
@@ -101,18 +95,25 @@ class DatasetRegistry:
         return sum(map(len, self._datasets))
 
     @staticmethod
-    def _dl_worker_init():
-        # keep library threadpools from exploding per worker
-        os.environ.setdefault("OMP_NUM_THREADS", "1")
-        os.environ.setdefault("MKL_NUM_THREADS", "1")
-        os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-        os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+    def _verify_global_attrs(attrs: List[Dict[str, Any]]) -> None:
+        """Verify global attributes are consistent across shards."""
+        first_seen = None
+        for shard_attr in attrs:
+            if first_seen is None:
+                first_seen = shard_attr
+                continue
 
-        try:
-            torch.set_num_threads(1)
-            torch.set_num_interop_threads(1)
-        except Exception:
-            pass
+            if shard_attr != first_seen:
+                raise AttributeError(f"Attributes are not consistent across shards. Expected: {first_seen}, Got: {shard_attr}")
+
+    def _load_attrs(self) -> None:
+        with LMDBDatasetShardReader(self.source) as reader:
+            attrs = reader.attrs()
+            global_attrs = [attr["global"] for attr in attrs.values()]
+            self._verify_global_attrs(global_attrs)
+
+            self._global_attrs = global_attrs[0]  # if all are consistent (we check for this) this is safe
+            self._attrs = attrs
 
     def profile(self, target_samples: int = 50_000, warmup_batches: int = 5) -> None:
         """
@@ -183,46 +184,68 @@ class DatasetRegistry:
         Console.out(f"Effective loader throughput: {samples_per_sec:.1f} samples/s")
         Console.out(f"Effective data throughput: {mb_per_sec:.2f} MB/s (off-clock measurement)")
 
-    # --- Static property stubs for type checking and autocompletion ---
-    if TYPE_CHECKING:
-        @property
-        def train_dataset(self) -> TrainingDataset: ...
+    @property
+    def global_attrs(self) -> Dict[str, Any]:
+        if getattr(self, "_global_attrs", None) is None:
+            self._load_attrs()
+        return self._global_attrs
 
-        @property
-        def val_dataset(self) -> ValidationDataset: ...
+    @property
+    def attrs(self) -> Dict[bytes, Dict[str, Dict[str, Any]]]:
+        if getattr(self, "_attrs", None) is None:
+            self._load_attrs()
+        return self._attrs
 
-        @property
-        def test_dataset(self) -> TestDataset: ...
+    @property
+    def train_dataset(self) -> DataModule:
+        """Getter for the training dataset."""
+        return self._train_dataset
+
+    @property
+    def val_dataset(self) -> DataModule:
+        """Getter for the validation dataset."""
+        return self._validation_dataset
+
+    @property
+    def test_dataset(self) -> DataModule:
+        """Getter for the test dataset."""
+        return self._test_dataset
 
     @property
     def train_dataloader(self) -> pyg.loader.DataLoader:
         """
         Returns a Torch Geometric dataloader for the training split.
         """
-        return self.train_dataset.dataloader(
-            **self.dataloader_kwargs,
-            shuffle=True
-        )
+        if self._train_dataloader is None:
+            self._train_dataloader = self.train_dataset.dataloader(
+                **self.dataloader_kwargs,
+                shuffle=True
+            )
+        return self._train_dataloader
 
     @property
     def val_dataloader(self) -> pyg.loader.DataLoader:
         """
         Returns a Torch Geometric dataloader for the validation split.
         """
-        return self.val_dataset.dataloader(
-            **self.dataloader_kwargs,
-            shuffle=False  # dont need shuffle on eval sets
-        )
+        if self._validation_dataloader is None:
+            self._validation_dataloader = self.val_dataset.dataloader(
+                **self.dataloader_kwargs,
+                shuffle=False  # dont need shuffle on eval sets
+            )
+        return self._validation_dataloader
 
     @property
     def test_dataloader(self) -> pyg.loader.DataLoader:
         """
         Returns a Torch Geometric dataloader for the test split.
         """
-        return self.test_dataset.dataloader(
-            **self.dataloader_kwargs,
-            shuffle=False  # dont need shuffle on eval sets
-        )
+        if self._test_dataloader is None:
+            self._test_dataloader = self.test_dataset.dataloader(
+                **self.dataloader_kwargs,
+                shuffle=False  # dont need shuffle on eval sets
+            )
+        return self._test_dataloader
 
     @classmethod
     def load_from_lmdb(
@@ -238,42 +261,4 @@ class DatasetRegistry:
         Returns:
             Self: An instance of the class initialized with training, validation, and test datasets.
         """
-        # configure the base data class
-        IGData.configure(source)
-
-        return cls(TrainingDataset(), ValidationDataset(), TestDataset(), source=source)
-
-# --- Dynamically define accessors for splits ---
-def _make_dataset_property(attr_name: str, subset_name: str, dataset_cls: Type) -> property:
-    """
-    Create a property accessor for a dataset corresponding to a specific data split.
-
-    This function returns a @property that retrieves an internal attribute like
-    `self._train_dataset`, `self._validation_dataset`, or `self._test_dataset` based on
-    the naming convention defined in _dataset_specs.
-
-    Args:
-        attr_name (str): Name of the public property (e.g., "training_dataset").
-        subset_name (str): The split name used in the internal attribute (e.g., "train").
-        dataset_cls (Type): The class of the dataset (e.g., TrainingDataset).
-
-    Returns:
-        property: A dynamically constructed @property for accessing the specified dataset.
-    """
-    def getter(self):
-        return getattr(self, f"_{subset_name}_dataset")
-
-    getter.__name__ = attr_name
-    getter.__doc__ = f"""
-    Accessor for the {subset_name} dataset.
-
-    Returns:
-        {dataset_cls.__name__}: The dataset corresponding to the '{subset_name}' split.
-    """
-    return property(getter)
-
-# Create a property for each dataset type (train, validation, test)
-# using naming rules from the _dataset_specs mapping.
-for public_name, (subset_name, dataset_cls) in DatasetRegistry._dataset_specs.items():
-    setattr(DatasetRegistry, public_name, _make_dataset_property(public_name, subset_name, dataset_cls))
-
+        return cls(DataModule, source)

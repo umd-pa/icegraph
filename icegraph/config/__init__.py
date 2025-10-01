@@ -3,6 +3,4 @@
 
 from .config import IGConfig
 
-IGConfig.__module__ = __name__
-
 __all__ = ["IGConfig"]
