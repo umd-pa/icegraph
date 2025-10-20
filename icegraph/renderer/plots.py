@@ -27,7 +27,16 @@ except ImportError:
 
 OMKey = _OMKey
 
-__all__ = ["CDFPlot", "PDFPlot", "ChargeDistributionPlot", "ParityPlot", "BiasPlot", "ConfusionMatrixPlot", "ROCPlot"]
+__all__ = [
+    "CDFPlot",
+    "PDFPlot",
+    "ChargeDistributionPlot",
+    "ParityPlot",
+    "BiasPlot",
+    "ConfusionMatrixPlot",
+    "ROCPlot",
+    "PRPlot"
+]
 
 
 class CDFPlot(IGDistributionPlot):
@@ -515,3 +524,101 @@ class ROCPlot(IGBasicPlot):
 
         auc = float(np.trapz(true_pos_rate, false_pos_rate))
         return false_pos_rate, true_pos_rate, auc
+
+
+class PRPlot(IGBasicPlot):
+
+    def _populate_plot(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
+        y_pred = x.astype(float)
+        y_true = y.astype(int)
+        N, C = y_pred.shape
+
+        if C == 2:
+            # use column 1 as positive class
+            scores = y_pred[:, 1].astype(float)
+            y_bin = (y_true == 1).astype(int)
+            recall, precision, ap, prevalence = self._pr_curve_binary(scores, y_bin)
+            self._fig.add_trace(go.Scatter(
+                x=recall, y=precision, mode='lines',
+                line=dict(color=self._accent_1, width=3),
+                fill="tozeroy", fillcolor=self._accent_1_opaque_fill,
+                name=f"C1 PR (AP = {ap:.3f})"
+            ))
+            # No skill baseline
+            self._fig.add_trace(go.Scatter(
+                x=[0, 1], y=[prevalence, prevalence], mode="lines",
+                line=dict(color=self._dark_gray, dash='dash', width=2),
+                name="No Skill", showlegend=True
+            ))
+        else:
+            # Multiclass one-vs-rest curves
+            for c in range(C):
+                scores_c = y_pred[:, c].astype(float)
+                y_bin = (y_true == c).astype(int)
+                recall, precision, ap, prevalence = self._pr_curve_binary(scores_c, y_bin)
+                self._fig.add_trace(go.Scatter(
+                    x=recall, y=precision, mode="lines",
+                    line=dict(width=3),
+                    name=f"C{c} PR (AP = {ap:.3f})"
+                ))
+            overall_prev = np.mean([np.mean(y_true == c) for c in range(C)])
+            self._fig.add_trace(go.Scatter(
+                x=[0, 1], y=[overall_prev, overall_prev], mode="lines",
+                line=dict(color=self._dark_gray, dash='dash', width=2),
+                name="No Skill", showlegend=True
+            ))
+
+        self._fig.update_layout(
+            xaxis_title="Recall",
+            yaxis_title="Precision",
+            legend=dict(
+                x=0.98, y=0.02, xanchor="right", yanchor="bottom",
+                bgcolor=self._legend_background_color, bordercolor=self._legend_border_color,
+                borderwidth=1, orientation="v"
+            ),
+            xaxis=dict(range=[0, 1]),
+            yaxis=dict(range=[0, 1]),
+        )
+
+    @staticmethod
+    def _pr_curve_binary(scores: np.ndarray, y_bin: np.ndarray) -> Tuple[np.ndarray, np.ndarray, float, float]:
+        """
+        Binary Precision–Recall for given scores and targets.
+        Returns (recall, precision, AP, prevalence).
+        - scores: higher means more likely positive
+        - y_bin: {0,1}
+        """
+        scores = np.asarray(scores, dtype=float)
+        y_bin = np.asarray(y_bin, dtype=int)
+
+        pos_count = int(y_bin.sum())
+        neg_count = int(y_bin.size - pos_count)
+        prevalence = (pos_count / y_bin.size) if y_bin.size > 0 else np.nan
+
+        if pos_count == 0 or neg_count == 0:
+            recall = np.array([0.0, 1.0])
+            precision = np.array([1.0, prevalence if np.isfinite(prevalence) else 1.0])
+            return recall, precision, float("nan"), prevalence
+
+        # Sort by descending score
+        order = np.argsort(-scores, kind="mergesort")
+        y_sorted = y_bin[order]
+
+        # Cumulative TP/FP
+        tp_cum = np.cumsum(y_sorted)
+        fp_cum = np.cumsum(1 - y_sorted)
+
+        change_idx = np.flatnonzero(np.r_[scores[1:] != scores[:-1], True])
+
+        tp = tp_cum[change_idx]
+        fp = fp_cum[change_idx]
+
+        recall = tp / pos_count
+        precision = tp / np.maximum(tp + fp, 1)
+
+        recall = np.r_[0.0, recall, 1.0]
+        precision = np.r_[1.0, precision, prevalence]  # end tends to prevalence
+
+        ap = float(np.sum((recall[1:] - recall[:-1]) * precision[1:]))
+
+        return recall, precision, ap, prevalence

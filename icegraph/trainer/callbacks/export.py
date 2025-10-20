@@ -73,7 +73,7 @@ class ExportCallback(Callback):
     # run both on validation and test, not on train
     on_validation_end = on_test_end = _export
 
-    def on_epoch_end(self, trainer, epoch, metrics) -> None:
+    def on_epoch_end(self, trainer, epoch) -> None:
         # if current interval is a save interval, save a persistent copy
         if (epoch + 1) % trainer.trainer_config.save_interval == 0:
             export_model = self._generate_model(trainer)
