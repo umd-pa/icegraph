@@ -135,4 +135,5 @@ main.py
 runpytest.sh
 initicetray.sh
 build_dagman.py
+console_test.py
 
