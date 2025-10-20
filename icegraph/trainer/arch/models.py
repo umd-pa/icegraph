@@ -65,6 +65,8 @@ class GravNet(nn.Module):
         """
         for block in self.blocks:
             x = block["gravnetconv"](x, batch)
+
+            # run activation
             x = self.activation(block["linear"](x))
 
         x = global_mean_pool(x, batch)

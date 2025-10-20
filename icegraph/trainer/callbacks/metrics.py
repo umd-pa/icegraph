@@ -8,7 +8,7 @@ import torch
 
 from .callback import Callback
 from icegraph.types import ComputedMetrics, MetricsPlotMethod
-from icegraph.renderer import ParityPlot, BiasPlot, ConfusionMatrixPlot, ROCPlot
+from icegraph.renderer import ParityPlot, BiasPlot, ConfusionMatrixPlot, ROCPlot, PRPlot
 
 __all__ = [
     "RegressionMetricsCallback",
@@ -192,6 +192,9 @@ class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
     _ALIASES: Dict[str, List[str]] = {
         "cm": [
             "confusion-matrix"
+        ],
+        "pr": [
+            "precision-recall"
         ]
     }
 
@@ -205,7 +208,8 @@ class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
         # dispatch dict
         self._dispatch: Dict[str, MetricsPlotMethod] = {
             "cm": self._build_confusion_matrix,
-            "roc": self._build_roc_plot
+            "roc": self._build_roc_plot,
+            "pr": self._build_pr_plot
         }
 
     def on_init(self, trainer: Trainer) -> None:
@@ -252,6 +256,25 @@ class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
 
         roc = ROCPlot()
         roc.plot(
+            preds,
+            targs,
+            save_path=save_path,
+            layout_kwargs=layout_kwargs
+        )
+        trainer.console.log(f"New plot saved to: {save_path}")
+
+    def _build_pr_plot(self, trainer: Trainer, epoch: int, dataset: str, **kwargs) -> None:
+        preds = trainer.last_eval[dataset]["preds"]
+        targs = trainer.last_eval[dataset]["targets"]
+
+        layout_kwargs = {
+            "title": f"{self._target_label} Precision Recall [Epoch {epoch + 1} - {dataset.title()}]"
+        }
+
+        save_path = self._plot_dir(trainer) / f"{self._target_label}.PR.{epoch + 1}.html"
+
+        pr = PRPlot()
+        pr.plot(
             preds,
             targs,
             save_path=save_path,
