@@ -1,4 +1,4 @@
-![image](https://github.com/umd-pa/icegraph/tree/main/img/icegraph light.png)
+![image](<https://github.com/umd-pa/icegraph/tree/main/img/icegraph light.png>)
 
 [![CodeQL](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql)
 
