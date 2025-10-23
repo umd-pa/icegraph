@@ -1,4 +1,4 @@
-# IceGraph
+![image](https://github.com/umd-pa/icegraph/tree/main/img/icegraph light.png)
 
 [![CodeQL](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql)
 
@@ -22,7 +22,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-WARNING: You may have to modify the OS version and architecture within the install.sh script depending on your configuration.
+WARNING: You may have to modify the OS version and architecture within the install.sh script depending on your system configuration.
 
 This software must be run within the IceTray environment.
 
