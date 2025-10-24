@@ -13,7 +13,9 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch_geometric.seed import seed_everything
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP  # DDP
 
+from icegraph.trainer.distributed import ddp
 from icegraph.console import Console
 from icegraph.data import DatasetRegistry
 from icegraph.types import ComputedMetrics
@@ -28,6 +30,17 @@ from icegraph.trainer.interfaces import resolve_strategy
 from icegraph.trainer.interfaces.base import TaskStrategy
 
 __all__ = ["Trainer"]
+
+_RANK0_ONLY_HOOKS = {
+    "on_execute",
+    "on_epoch_begin",
+    "on_epoch_end",
+    "on_validation_begin",
+    "on_validation_end",
+    "on_test_begin",
+    "on_test_end",
+    "on_save",
+}
 
 
 class Trainer(torch.nn.Module):
@@ -66,8 +79,7 @@ class Trainer(torch.nn.Module):
         """
         super().__init__()
 
-        # grab global config and generate local trainer config
-        Console.banner("Trainer")
+        self._dist = ddp.init("nccl")
 
         self._config = IGConfig.get()
         self.trainer_config = trainer_config or TrainerConfig.from_config(self._config)
@@ -80,7 +92,9 @@ class Trainer(torch.nn.Module):
         self.log_dir = self.outdir / "logs"
 
         # set global seed for reproducibility
-        self._set_seed(self.trainer_config.seed)
+        base_seed = self.trainer_config.seed
+        rank_off = (self._dist["rank"] if self._dist else 0)
+        self._set_seed(base_seed + rank_off)
 
         # load datasets and device
         self.registry = dataset_registry
@@ -92,12 +106,11 @@ class Trainer(torch.nn.Module):
         strategy_spec = resolve_strategy(strategy_selection, call=False)
         self.strategy: TaskStrategy = strategy_spec(**self.strategy_kwargs)
 
-        # get the device selection
-        self.device: torch.device = (
-            torch.device("cuda")
-            if torch.cuda.is_available() and device == "cuda"
-            else torch.device("cpu")
-        )
+        # get the device selection (DDP)
+        if self._dist and torch.cuda.is_available():
+            self.device = torch.device(f"cuda:{self._dist['local_rank']}")
+        else:
+            self.device = torch.device("cuda" if (torch.cuda.is_available() and device == "cuda") else "cpu")
 
         self.console = ConsoleCallback()
 
@@ -123,6 +136,16 @@ class Trainer(torch.nn.Module):
             model, in_channels, self.trainer_config.hidden_channels, out_channels, self.trainer_config.hidden_layers
         )
         self.model = active_model.to(self.device)
+
+        if self._dist:
+            self.model = DDP(
+                self.model,
+                device_ids=[self.device.index] if self.device.type == "cuda" else None,
+                output_device=(self.device.index if self.device.type == "cuda" else None),
+                broadcast_buffers=False,
+                gradient_as_bucket_view=True,
+                find_unused_parameters=False,  # set True only if you truly skip params in forward
+            )
 
         # initialize the optimizer
         optimizer_str: str = self.trainer_config.optimizer
@@ -184,6 +207,8 @@ class Trainer(torch.nn.Module):
             self._close_resources()
         finally:
             self._fire("on_teardown")
+            if self._dist:
+                ddp.cleanup()
 
     def _close_resources(self) -> None:
         """Close dataset resources."""
@@ -236,7 +261,7 @@ class Trainer(torch.nn.Module):
             names = ", ".join(type(cb).__name__ for cb in _normalizers)
             raise TrainerError(f"Multiple normalizers found ({names}). Exactly one normalizer is allowed.")
 
-    def _fire(self, hook_name: str, *args, **kwargs):
+    def _fire(self, hook_name: str, *args, **kwargs) -> None:
         """
         Invoke a hook on every registered callback.
 
@@ -245,9 +270,11 @@ class Trainer(torch.nn.Module):
             *args: Positional arguments to forward into the callback.
             **kwargs: Keyword arguments to forward into the callback.
         """
-        for cb in self.callbacks + [self.normalizer]:
-            fn = getattr(cb, hook_name)
-            fn(self, *args, **kwargs)
+        rank0_only = hook_name in _RANK0_ONLY_HOOKS
+        if rank0_only and self._dist and not ddp.is_main_process():
+            return
+        for cb in (*self.callbacks, self.normalizer):
+            getattr(cb, hook_name)(self, *args, **kwargs)
 
     @staticmethod
     def _set_seed(seed: int) -> None:
@@ -299,14 +326,13 @@ class Trainer(torch.nn.Module):
         for idx, batch in enumerate(dataloader):
             self._fire("on_batch_begin", batch)
 
-            batch = batch.to(self.device)
+            batch = batch.to(self.device, non_blocking=True)
             self._fire("on_batch_transfer", batch)
 
             out, target = self._forward_and_target(batch)
-
-            self.optimizer.zero_grad()
             loss = self.loss_fn(out, target)
 
+            self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
@@ -319,9 +345,9 @@ class Trainer(torch.nn.Module):
                 self.scheduler.step(t_cur)
 
             # task-agnostic accumulation
-            metrics.update(out.detach(), target.detach(), loss.detach(), mask=None)
+            metrics.update(out.detach(), target.detach(), loss.detach())
 
-            self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
+            self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.detach(), metrics)
 
         if self.scheduler is not None and self.scheduler_step_mode == "epoch":
                 self.scheduler.step()
@@ -351,30 +377,29 @@ class Trainer(torch.nn.Module):
         includes: list[torch.Tensor] = []
 
         # use no_grad on eval loops
-        with torch.no_grad():
+        with torch.inference_mode():
             # iterate over each batch
             for batch in dataloader:
                 self._fire("on_batch_begin", batch)
 
-                batch = batch.to(self.device)
+                batch = batch.to(self.device, non_blocking=True)
                 self._fire("on_batch_transfer", batch)
 
                 out, target = self._forward_and_target(batch)
                 out, target, mask = self.strategy.filter_eval(out, target)
-
                 loss = self.loss_fn(out, target)
 
                 metrics.update(out.detach(), target.detach(), loss.detach(), mask=mask)
 
-                self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.item(), metrics)
+                self._fire("on_batch_end", batch, out.detach(), target.detach(), loss.detach(), metrics)
 
                 if collect:
-                    outs.append(out.detach().cpu().clone())
-                    targets.append(target.detach().cpu().clone())
+                    outs.append(out.detach().to("cpu", non_blocking=True))
+                    targets.append(target.detach().to("cpu", non_blocking=True))
 
                     # grab includes if present
                     if hasattr(batch, "include_labels"):
-                        includes.append(batch.include_labels.detach().cpu().clone())
+                        includes.append(batch.include_labels.detach().to("cpu", non_blocking=True))
 
             if collect:
                 self._last_eval[stash]["preds"] = torch.cat(outs, dim=0) if outs else None
@@ -456,24 +481,34 @@ class Trainer(torch.nn.Module):
         """
         Execute the full pipeline: training, validation at set intervals, final testing, and teardown.
         """
-        # fire on_execute hook
+        # fire on_execute callback hook
         self._fire("on_execute")
 
         # iterate over epochs
-        for self._current_epoch in range(self.trainer_config.max_epochs):  # type: ignore[arg-type]
+        for self._current_epoch in range(self.trainer_config.max_epochs):
+            # sampler epoch
+            if self._dist and getattr(self, "_train_sampler", None) is not None:
+                self._train_sampler.set_epoch(self._current_epoch)
+            else:
+                sampler = getattr(self.registry, "sampler", None)
+                if sampler is not None:
+                    sampler.set_epoch(self._current_epoch)
+
             self._fire("on_epoch_begin", self._current_epoch)
 
+            # train on all ranks
             self._train(epoch=self._current_epoch)
 
-            # only run on specified intervals
+            # validate only on main rank
             val_interval = self.trainer_config.val_interval
-            if val_interval > 0 and (self._current_epoch + 1) % val_interval == 0:
+            if (not self._dist or ddp.is_main_process()) and val_interval > 0 and (
+                    self._current_epoch + 1) % val_interval == 0:
                 self._validate(epoch=self._current_epoch)
 
-            # run test once at the end of training
-            if (self._current_epoch + 1) == self.trainer_config.max_epochs:
+            # test only once at end, on main rank
+            if (not self._dist or ddp.is_main_process()) and (self._current_epoch + 1) == self.trainer_config.max_epochs:
                 self._test(epoch=self._current_epoch)
 
             self._fire("on_epoch_end", self._current_epoch)
 
-        self._fire("on_teardown")
+            ddp.barrier()  # keep ranks in lockstep (no-op if not DDP)

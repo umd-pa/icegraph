@@ -11,9 +11,11 @@ import torch_geometric as pyg
 import torch
 import numpy as np
 
+
 from icegraph.config import IGConfig
 from icegraph.data.base import DataModule
 from icegraph.console import Console
+from .samplers import DistributedBlockShuffleSampler
 from icegraph.data.readers import LMDBDatasetShardReader
 
 __all__ = ["DatasetRegistry"]
@@ -69,15 +71,19 @@ class DatasetRegistry:
         batch_size =        self._config.user_config.training.batch_size
         num_workers =       self._config.user_config.training.num_workers
         prefetch_factor =   self._config.user_config.training.prefetch_factor
+        seed =              self._config.user_config.training.seed
+
+        self.sampler = DistributedBlockShuffleSampler(len(self._train_dataset), batch_size * 2, seed=seed, drop_last=True)
 
         self.dataloader_kwargs = {
             "batch_size": batch_size,
             "num_workers": num_workers,
             "pin_memory": torch.cuda.is_available(),
-            "multiprocessing_context": mp.get_context("forkserver"),
+            "multiprocessing_context": mp.get_context("fork"),
             "persistent_workers": num_workers > 0,
             "prefetch_factor": prefetch_factor if num_workers > 0 else None,
-            "worker_init_fn": dl_worker_init
+            "worker_init_fn": dl_worker_init,
+            "drop_last": True
         }
 
         # dataloader caches
@@ -219,7 +225,8 @@ class DatasetRegistry:
         if self._train_dataloader is None:
             self._train_dataloader = self.train_dataset.dataloader(
                 **self.dataloader_kwargs,
-                shuffle=True
+                sampler=self.sampler,
+                shuffle=False
             )
         return self._train_dataloader
 

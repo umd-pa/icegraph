@@ -203,7 +203,7 @@ class ConsoleCallback(Callback):
             return
 
         self.layout = self._build_layout(trainer)
-        self.live = Live(self.layout, console=self.console, refresh_per_second=4)
+        self.live = Live(self.layout, console=self.console, refresh_per_second=10)
         self.live.start()
 
     def on_train_begin(self, trainer: Trainer, epoch: int) -> None:
@@ -213,7 +213,7 @@ class ConsoleCallback(Callback):
             return
 
         desc = f"Train Epoch {epoch + 1}/{trainer.trainer_config.max_epochs}"
-        total = trainer.train_batch_count
+        total = len(trainer.registry.train_dataloader)
 
         self.reset_progress_bar(desc, total)
 
@@ -231,7 +231,7 @@ class ConsoleCallback(Callback):
             return
 
         desc = f"  Val Epoch {epoch + 1}/{trainer.trainer_config.max_epochs}"
-        total = trainer.val_batch_count
+        total = len(trainer.registry.val_dataloader)
 
         self.reset_progress_bar(desc, total)
 
@@ -241,7 +241,7 @@ class ConsoleCallback(Callback):
             return
 
         desc = f" Test Epoch {epoch + 1}/{trainer.trainer_config.max_epochs}"
-        total = trainer.test_batch_count
+        total = len(trainer.registry.test_dataloader)
 
         self.reset_progress_bar(desc, total)
 

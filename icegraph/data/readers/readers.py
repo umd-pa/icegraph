@@ -25,8 +25,7 @@ __all__ = ["LMDBDatasetShardReader", "LMDBReader"]
 
 class LMDBDatasetShardReader:
     """
-    Provides access to one or more LMDB files from the same dataset written using 8-byte big endian integer keys.
-    Source LMDB files are pre-set on configuration and are used on all instances of this class.
+    Provides access to one or more LMDB files from the same dataset written using 8-byte big endian integer keys
     """
 
     @dataclass
@@ -49,7 +48,7 @@ class LMDBDatasetShardReader:
             except Exception:
                 pass
 
-    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]], *, max_open_envs: int = 4) -> None:
+    def __init__(self, source: Union[str, Path, Sequence[Union[str, Path]]], *, max_open_envs: int = 256) -> None:
         """
         Initialize the shard reader.
         """
@@ -173,6 +172,9 @@ class LMDBDatasetShardReader:
         if self._index_arr is None:
             self._index_arr = self._build_index_struct()
 
+            diff = set(self._shard_id_map.keys()) ^ set(self._index_arr["shard_id"].tolist())
+            assert diff == set(), f"Shard ID map and index struct do not match. Symmetric diffs: {diff}"
+
     def _gid_to_shard_map(self, gid: int) -> Tuple[bytes, int]:
         # cache minimal data for fast bisect (built once)
         if self._cum_list is None or self._starts_list is None or self._shard_ids is None:
@@ -196,7 +198,7 @@ class LMDBDatasetShardReader:
             lock=False,
             subdir=False,
             max_dbs=2,
-            readahead=False,
+            readahead=True,
         )
         return env
 
@@ -245,11 +247,11 @@ class LMDBDatasetShardReader:
         if not self._lmdb_paths:
             raise FileNotFoundError("No LMDB files found.")
 
-        shard_ids: List[bytes] = []
-        entries: List[int] = []
+        # allocate empty array
+        out = np.empty(len(self._lmdb_paths), dtype=self._INDEX_DTYPE)
 
         # iterate over each file, grab the length, verify contiguous indices and add to the struct
-        for path in self._lmdb_paths:
+        for i, path in enumerate(self._lmdb_paths):
             # grab the env
             env = self._open_env(path)
 
@@ -264,22 +266,14 @@ class LMDBDatasetShardReader:
                 if len(_id) != self._ID_BYTES:
                     raise ValueError("Shard ID length mismatch; revise dtype or normalize IDs.")
 
-                shard_ids.append(_id)
-
+                out["shard_id"][i] = _id
                 # build the shard id map
-                self._shard_id_map[_id] = path
+                self._shard_id_map[out["shard_id"][i]] = path
 
             with env.begin(db=env.open_db(b"data")) as txn:
-                entries.append(txn.stat()["entries"])
+                out["entries"][i] = txn.stat()["entries"]
 
             env.close()
-
-        # allocate empty array
-        out = np.empty(len(self._lmdb_paths), dtype=self._INDEX_DTYPE)
-
-        # fill array
-        out["shard_id"] = np.asarray(shard_ids, dtype=out.dtype["shard_id"])
-        out["entries"] = np.asarray(entries, dtype=out.dtype["entries"])
 
         # sort by shard id in place
         out.sort(order="shard_id")
@@ -296,7 +290,7 @@ class LMDBDatasetShardReader:
         attrs: Dict[bytes, Dict[str, Dict[str, Any]]] = {}
 
         # grab all attributes
-        for shard_id in self._shard_ids:
+        for i, shard_id in enumerate(self._shard_ids):
             path = self._shard_id_map[shard_id]
             with LMDBReader(path) as reader:
                 attrs[shard_id] = reader.attrs()
