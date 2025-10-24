@@ -1,6 +1,12 @@
 # Changelog
 
-### Version [0.9.1] --- October 1st, 2025:
+#### Version [0.9.2] --- October 24th, 2025:
+- Implemented DDP, see `icegraph.trainer.distributed`.
+- Added precision-recall (PR) plotter for classification tasks and linked to `icegraph.trainer.callbacks.MulticlassMetricsCallback`.
+- Fixed a major bug in the LMDBDatasetShardReader, now is safe under fork/forkserver/spawn and does not reinstantiate on every call.
+- Added a simple logo.
+
+#### Version [0.9.1] --- October 1st, 2025:
 - Refactored trainer directory for clarity.
 - Removed `var.__module__ = __name__` from all `__init__.py` files.
 - Added terminal dashboard for training progress.
