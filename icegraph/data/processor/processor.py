@@ -20,6 +20,7 @@ from .schemas import generate_vector_mapping
 from icegraph.geometry import Detector
 from .base.exceptions import ProcessorError
 from .base import Processor
+from icegraph.data.base import Stage
 from icegraph.utils import Statistics
 
 if TYPE_CHECKING:
@@ -99,6 +100,7 @@ class FeatureProcessor(Processor, HelperMixin):
             self._detector_tls.det = det
         return det
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # load required data from envelope
         df = self._load_from_hdf(env, self.target_key)
@@ -259,6 +261,7 @@ class TruthProcessor(Processor, HelperMixin):
         # get keys
         self.target_key = self._config.user_config.table_names.truth
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # load the required data
         df = self._load_from_hdf(env, self.target_key)
@@ -285,6 +288,7 @@ class EdgeProcessor(Processor, HelperMixin):
 
     PRE_REQS = [FeatureProcessor]
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         df = self._get_edge_index(env.df)
 
@@ -335,6 +339,7 @@ class StandardSplitAllocator(Processor, HelperMixin):
 
     PRE_REQS = [TruthProcessor]
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # grab weights and seed
         weights = self._config.user_config.data.splits.weights
@@ -421,6 +426,7 @@ class StratifiedSplitAllocator(Processor, HelperMixin):
             if assigned_split == self.split:
                 self.delta[c] -= 1.0
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # grab target labels and weights from config
         target_labels = self._config.user_config.data.target_labels
@@ -486,6 +492,7 @@ class StatisticsProcessor(Processor, HelperMixin):
 
     PRE_REQS = [FeatureProcessor, (StandardSplitAllocator, StratifiedSplitAllocator)]
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # grab necessary values from envelope
         feature_cols = env.attrs["global"]["feature_names"]
@@ -535,6 +542,7 @@ class ClassNormalizer(Processor, HelperMixin):
         # per-process cache of global classmap
         self._classmap: DefaultDict[str, List[str]] = defaultdict(list)
 
+    @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         target_labels = env.attrs["global"]["target_labels"]
 

@@ -16,7 +16,6 @@ from torch_geometric.loader import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP  # DDP
 
 from icegraph.trainer.distributed import ddp
-from icegraph.console import Console
 from icegraph.data import DatasetRegistry
 from icegraph.types import ComputedMetrics
 from icegraph.config import IGConfig
@@ -106,7 +105,7 @@ class Trainer(torch.nn.Module):
         strategy_spec = resolve_strategy(strategy_selection, call=False)
         self.strategy: TaskStrategy = strategy_spec(**self.strategy_kwargs)
 
-        # get the device selection (DDP)
+        # get the device selection
         if self._dist and torch.cuda.is_available():
             self.device = torch.device(f"cuda:{self._dist['local_rank']}")
         else:

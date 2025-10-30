@@ -1,30 +1,31 @@
 # file and dir paths
 io:
-  default_dir: "/data/i3store/users/tstjean/data/processed/22646"
+  default_dir: "/data/i3store/users/tstjean/data/processed/23122"
   gcd_path: ""
 
 # frame keys (for feature extraction)
-frame_keys:
-  header: I3EventHeader
-  mctree: I3MCTree_preMuonProp
-  bg_mctree: I3MCTree
-  weight_dict: I3MCWeightDict
-  truth_dict: I3MCWeightDict
+frames:
+  corsika: true
+
+  frame_keys:
+    header: I3EventHeader
+    mctree: I3MCTree_preMuonProp
+    truth_dict: CorsikaWeightMap
+    corsika_weight_map: CorsikaWeightMap
 
 # table names in the intermediate hdf5 file
 table_names:
   features: ml_suite_features
-  truth: I3MCWeightDict
+  truth: CorsikaWeightMap
 
 data:
   # truth labels to use for training
   target_labels:
-    - InteractionType
+    - PrimaryEnergy
 
   # any non-target labels to include (not used in training), useful for plotting
   # these labels will be served to callbacks by the trainer during validation and test steps
-  include_labels:
-    - PrimaryNeutrinoEnergy
+  include_labels: []
 
   splits:
     weights: {train: 60, val: 20, test: 20}
@@ -35,12 +36,12 @@ data:
       []
     apply_log_scaling_y:
         # !!! must be columns present under data.target_labels or data.include_labels
-      - PrimaryNeutrinoEnergy
+      - PrimaryEnergy
 
 training:
   seed: 2729
 
-  # batch size controls how many samples are loaded into memory at a time in each
+  # batch size controls how many samples are passed at a time for each
   # training batch (see torch_geometric.loader.DataLoader batch_size argument)
   batch_size: 2048
   num_workers: 6
@@ -57,7 +58,7 @@ training:
   normalizer: ZScoreNormalizer
 
   strategy:
-    task: MulticlassStrategy
+    task: RegressionStrategy
     kwargs:
       k: 2
 

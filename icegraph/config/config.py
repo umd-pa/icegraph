@@ -115,8 +115,8 @@ class IGConfig:
         try:
             raw = self._load_file(self.user_config_path)
             _ = FullConfig(**raw)
-        except ValidationError as e:
-            print(e)
+        except ValidationError:
+            raise
 
     @staticmethod
     def _load_file(path: Path) -> dict:

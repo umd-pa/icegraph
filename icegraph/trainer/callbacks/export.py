@@ -56,19 +56,24 @@ class ExportCallback(Callback):
             trainer.console.log(f"Failed to save model: {e}")
 
         # Save best model if improved
-        if metrics is not None:
-            loss_key = next((k for k in metrics if k.startswith("loss")), None)
-            loss = metrics[loss_key]
-            if loss < self._best_loss:
-                trainer.console.log(
-                    f"New best {loss_key.split(':')[1].upper()} {loss:.4f} < {self._best_loss:.4f}; "
-                    f"saving model to {best_path}"
-                )
-                self._best_loss = loss
-                try:
-                    torch.save(export_model, best_path)
-                except Exception as e:
-                    trainer.console.log(f"Failed to save model: {e}")
+        if metrics is None:
+            return
+
+        loss_key = next((k for k in metrics if k.startswith("loss")), None)
+        loss = metrics[loss_key]
+
+        if loss >= self._best_loss:
+            return
+
+        trainer.console.log(
+            f"New best {loss_key.split(':')[1].upper()} {loss:.4f} < {self._best_loss:.4f}; "
+            f"saving model to {best_path}"
+        )
+        self._best_loss = loss
+        try:
+            torch.save(export_model, best_path)
+        except Exception as e:
+            trainer.console.log(f"Failed to save model: {e}")
 
     # run both on validation and test, not on train
     on_validation_end = on_test_end = _export
