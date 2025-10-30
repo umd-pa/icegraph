@@ -9,7 +9,7 @@ from pathlib import Path
 from wcwidth import wcswidth
 import re
 
-from rich.progress import track
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, MofNCompleteColumn
 from rich.console import Console as RichConsole
 
 from .objects import Spinner
@@ -192,7 +192,6 @@ class Console:
         """
         total = kwargs.pop("total", None)
 
-        # If total isn't given, track() will try len(_iter) if available
         if total is None and hasattr(_iter, "__len__"):
             try:
                 total = len(_iter)  # type: ignore
@@ -209,13 +208,18 @@ class Console:
 
         console = RichConsole(file=sys.stdout, force_terminal=True, force_interactive=True)
 
-        return track(
-            _iter,
-            total=total,
-            description=" ".join(parts) + delimiter,
-            console=console,
-            update_period=0.1
-        )
+        with Progress(
+                TextColumn(" ".join(parts) + delimiter),
+                BarColumn(),
+                MofNCompleteColumn(),
+                TimeRemainingColumn(),
+                console=console,
+                transient=False,
+        ) as progress:
+            task = progress.add_task("", total=total)
+            for x in _iter:
+                yield x
+                progress.advance(task)
 
     @classmethod
     def spinner(cls) -> 'Spinner':

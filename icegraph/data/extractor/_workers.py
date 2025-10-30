@@ -14,10 +14,11 @@ from icegraph.console._streams import suppress_output
 
 
 def _run_icetray_pipeline(
-    file_batch: List[str],
-    out_path: str,
-    frame_keys: Dict[str, str],
-    mls_config_path: str,
+        file_batch: List[str],
+        out_path: str,
+        frame_keys: Dict[str, str],
+        mls_config_path: str,
+        corsika: bool = False
 ) -> None:
     """
     Run an IceTray pipeline in a child process and write extracted features to HDF5.
@@ -27,6 +28,7 @@ def _run_icetray_pipeline(
         out_path (str): Destination HDF5 file path.
         frame_keys (Dict[str, str]): Mapping for frame object names (e.g., 'mctree', 'weight_dict').
         mls_config_path (str): Path to ml_suite YAML/TOML configuration.
+        corsika (bool): Whether data is corsika.
 
     Raises:
         IceCubeImportError: If IceCube modules are unavailable in the worker environment.
@@ -56,14 +58,20 @@ def _run_icetray_pipeline(
     tray = I3Tray()
     tray.Add("I3Reader", Filenamelist=file_batch)
 
+    mclabeler_kwargs = {
+        "event_properties_name": None,
+        "mctree_name": frame_keys["mctree"]
+    }
+
+    if not corsika:
+        mclabeler_kwargs["weight_dict_name"]            = frame_keys["weight_dict"]
+        mclabeler_kwargs["bg_mctree_name"]              = frame_keys["bg_mctree"]
+    else:
+        mclabeler_kwargs["corsika_weight_map_name"]     = frame_keys["corsika_weight_map"]
+        mclabeler_kwargs["mcpe_pid_map_name"]           = None
+
     # MC labels
-    tray.Add(
-        MCLabeler,
-        event_properties_name=None,
-        mctree_name=frame_keys["mctree"],
-        weight_dict_name=frame_keys["weight_dict"],
-        bg_mctree_name=frame_keys["bg_mctree"],
-    )
+    tray.Add(MCLabeler, **mclabeler_kwargs)
 
     # Feature extraction
     tray.Add(ml_suite.EventFeatureExtractorModule, cfg_file=str(mls_config_path))
@@ -77,9 +85,9 @@ def _run_icetray_pipeline(
             ("classification", ClassificationConverter()),
             "classification_emuon_entry",
             "classification_emuon_deposited",
-            frame_keys["truth_dict"],
+            frame_keys["truth_dict"]
         ],
-        SubEventStreams=["InIceSplit"],
+        SubEventStreams=["InIceSplit"]
     )
 
     with suppress_output():
@@ -137,11 +145,12 @@ def worker_main(task_q: Queue, status_q: Queue) -> None:
             out_path = str(out_dir / infile.with_suffix(".hdf5").name)
 
             file_batch = [gcd_path, str(infile)]
-            frame_keys = dict(task["frame_keys"])
+            frame_keys: Dict[str, str] = dict(task["frame_keys"])
             mls_config_path = str(task["mls_config_path"])
+            corsika = bool(task["corsika"])
 
             status_q.put({"status": "started", "job_id": job_id, "infile": str(infile)})
-            _run_icetray_pipeline(file_batch, out_path, frame_keys, mls_config_path)
+            _run_icetray_pipeline(file_batch, out_path, frame_keys, mls_config_path, corsika)
             status_q.put({
                 "status": "finished",
                 "job_id": job_id,

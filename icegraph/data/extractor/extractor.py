@@ -11,6 +11,7 @@ import pandas as pd
 
 from icegraph.utils.hashutils import stable_hash_cbor
 from .base import Extractor
+from icegraph.data.base import Stage
 
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline
@@ -60,12 +61,14 @@ class FeatureExtractor(Extractor):
         self._task_q = None
         self._status_q = None
 
+    @Stage.profile()
     def _process(self, infile: Path) -> Optional[Pipeline.Envelope]:
         # Prepare args
-        frame_keys = self._config.user_config.frame_keys.toDict()
+        frame_keys = self._config.user_config.frames.frame_keys.toDict()
         mls_config = str(self._config.ml_suite_config_file)
         gcd_path = str(self._config.gcd_path)
         out_dir = str(self._parent.local_working_dir)
+        corsika = bool(self._config.user_config.frames.corsika)
 
         # Launch/ensure worker
         self._ensure_worker()
@@ -79,6 +82,7 @@ class FeatureExtractor(Extractor):
             "out_dir": out_dir,
             "frame_keys": frame_keys,
             "mls_config_path": mls_config,
+            "corsika": corsika
         })
 
         # Wait for status 'finished' or 'error' for this job
@@ -103,17 +107,15 @@ class FeatureExtractor(Extractor):
 
         # Build the env
         env = self._parent.Envelope(df=pd.DataFrame(), fh=self._parent.FileHandle(src=Path(outfile)))
-        env = self._register_metadata(env, infile)
+        self._register_metadata(env, infile)
         return env
 
-    def _register_metadata(self, env: Pipeline.Envelope, infile: Path) -> Pipeline.Envelope:
+    def _register_metadata(self, env: Pipeline.Envelope, infile: Path) -> None:
         mls_config = self._config.ml_suite_config
 
         env.attrs["global"]["config"] = mls_config
         env.attrs["global"]["config_hash"] = stable_hash_cbor(mls_config)
         env.attrs["origin"]["name"] = str(infile)
-
-        return env
 
     def close(self) -> None:
         self._shutdown_worker()

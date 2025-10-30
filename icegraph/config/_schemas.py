@@ -12,12 +12,29 @@ class IOConfig(BaseModel):
 
 
 # === frame_keys ===
-class FrameKeysConfig(BaseModel):
+class FrameKeys(BaseModel):
     header: str
     mctree: str
-    bg_mctree: str
-    weight_dict: str
     truth_dict: str
+    bg_mctree: Optional[str] = None
+    weight_dict: Optional[str] = None
+    corsika_weight_map: Optional[str] = None
+
+
+# === frames ===
+class FrameConfig(BaseModel):
+    corsika: bool
+    frame_keys: FrameKeys
+
+    @model_validator(mode="after")
+    def check_dependencies(self):
+        if self.corsika:
+            if not self.frame_keys.corsika_weight_map:
+                raise ValueError("When corsika = True: corsika_weight_map is required.")
+        else:
+            if not self.frame_keys.bg_mctree or not self.frame_keys.weight_dict:
+                raise ValueError("When corsika = False: bg_mctree, weight_dict, and truth_dict are required.")
+        return self
 
 
 # === table_names ===
@@ -126,7 +143,7 @@ class FeatureExtractionConfig(BaseModel):
 # === Root config ===
 class FullConfig(BaseModel):
     io: IOConfig
-    frame_keys: FrameKeysConfig
+    frames: FrameConfig
     table_names: TableNamesConfig
     data: DataConfig
     training: TrainingConfig
