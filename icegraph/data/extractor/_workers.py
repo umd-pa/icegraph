@@ -90,6 +90,7 @@ def _run_icetray_pipeline(
         SubEventStreams=["InIceSplit"]
     )
 
+    # suppress garbage output from icetray
     with suppress_output():
         tray.Execute()
 
@@ -125,7 +126,7 @@ def worker_main(task_q: Queue, status_q: Queue) -> None:
         Returns:
             None
         """
-    # Keep the worker light on threads (optional)
+    # cap per worker thread count
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
