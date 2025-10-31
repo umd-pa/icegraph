@@ -341,6 +341,9 @@ class LMDBReader:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def close(self) -> None:
         try:
             self._env.close()
         except Exception:
