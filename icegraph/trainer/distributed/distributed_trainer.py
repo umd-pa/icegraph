@@ -75,7 +75,7 @@ class DistributedTrainer:
             import socket
 
             s = socket.socket()
-            s.bind(("", 0))
+            s.bind(("127.0.0.1", 0))
             self._port = str(s.getsockname()[1])
             s.close()
 
