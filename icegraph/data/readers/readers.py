@@ -11,6 +11,8 @@ from typing import List, Tuple, Union, Sequence, Iterator, Dict, Optional, overl
 from collections import OrderedDict
 import msgpack
 from bisect import bisect_right
+import atexit
+from contextlib import suppress
 
 import pandas as pd
 import numpy as np
@@ -200,6 +202,10 @@ class LMDBDatasetShardReader:
             max_dbs=2,
             readahead=True,
         )
+
+        # register close atexit
+        atexit.register(lambda: env.close())
+
         return env
 
     def _get_handle(self, shard_id: bytes) -> _Handle:

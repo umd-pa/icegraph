@@ -50,11 +50,9 @@ class ConsoleCallback(Callback):
             lines = Group(*self.lines[-display_lines:])
             return ConsoleCallback._panel("Logs", lines)
 
-    def __init__(
-            self,
-            *,
-            log_max_lines: int = 2000,
-    ) -> None:
+    def __init__(self, *, log_max_lines: int = 2000, **_) -> None:
+        super().__init__()
+
         self.console = RichConsole()
         self.is_terminal = self.console.is_terminal
 

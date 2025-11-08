@@ -5,12 +5,13 @@ from typing import Self, Union, Sequence, Optional, Dict, Any, List, Type
 from pathlib import Path
 import time
 import os
+from contextlib import suppress
 import multiprocessing as mp
 
 import torch_geometric as pyg
 import torch
 import numpy as np
-
+from torch.utils.data import DistributedSampler
 
 from icegraph.config import IGConfig
 from icegraph.data.base import DataModule
@@ -68,22 +69,19 @@ class DatasetRegistry:
         self._config = IGConfig.get()
 
         # build kwargs for the dataloaders
-        batch_size =        self._config.user_config.training.batch_size
-        num_workers =       self._config.user_config.training.num_workers
-        prefetch_factor =   self._config.user_config.training.prefetch_factor
-        seed =              self._config.user_config.training.seed
-
-        self.sampler = DistributedBlockShuffleSampler(len(self._train_dataset), batch_size * 2, seed=seed, drop_last=True)
+        self.batch_size =       self._config.user_config.training.batch_size
+        num_workers =           self._config.user_config.training.num_workers
+        prefetch_factor =       self._config.user_config.training.prefetch_factor
+        self.seed =             self._config.user_config.training.seed
 
         self.dataloader_kwargs = {
-            "batch_size": batch_size,
+            "batch_size": self.batch_size,
             "num_workers": num_workers,
             "pin_memory": torch.cuda.is_available(),
             "multiprocessing_context": mp.get_context("fork"),
             "persistent_workers": num_workers > 0,
             "prefetch_factor": prefetch_factor if num_workers > 0 else None,
-            "worker_init_fn": dl_worker_init,
-            "drop_last": True
+            "worker_init_fn": dl_worker_init
         }
 
         # dataloader caches
@@ -99,6 +97,14 @@ class DatasetRegistry:
             int: Number of events.
         """
         return sum(map(len, self._datasets))
+
+    def _init_block_shuffle_sampler(self, dataset: DataModule) -> DistributedBlockShuffleSampler:
+        sampler = DistributedBlockShuffleSampler(len(dataset), self.batch_size * 2, seed=self.seed, drop_last=True)
+        return sampler
+
+    def _init_sampler(self, dataset: DataModule) -> DistributedSampler:
+        sampler = DistributedSampler(dataset, shuffle=False, drop_last=False)
+        return sampler
 
     @staticmethod
     def _verify_global_attrs(attrs: List[Dict[str, Any]]) -> None:
@@ -225,7 +231,7 @@ class DatasetRegistry:
         if self._train_dataloader is None:
             self._train_dataloader = self.train_dataset.dataloader(
                 **self.dataloader_kwargs,
-                sampler=self.sampler,
+                sampler=self._init_block_shuffle_sampler(self.train_dataset),
                 shuffle=False
             )
         return self._train_dataloader
@@ -238,6 +244,7 @@ class DatasetRegistry:
         if self._validation_dataloader is None:
             self._validation_dataloader = self.val_dataset.dataloader(
                 **self.dataloader_kwargs,
+                sampler=self._init_sampler(self.val_dataset),
                 shuffle=False  # dont need shuffle on eval sets
             )
         return self._validation_dataloader
@@ -250,6 +257,7 @@ class DatasetRegistry:
         if self._test_dataloader is None:
             self._test_dataloader = self.test_dataset.dataloader(
                 **self.dataloader_kwargs,
+                sampler=self._init_sampler(self.test_dataset),
                 shuffle=False  # dont need shuffle on eval sets
             )
         return self._test_dataloader
@@ -269,3 +277,34 @@ class DatasetRegistry:
             Self: An instance of the class initialized with training, validation, and test datasets.
         """
         return cls(DataModule, source)
+
+    def close(self) -> None:
+        for attr in ("train_dataset", "val_dataset", "test_dataset"):
+            if (data_module := getattr(self, attr, None)) and hasattr(data_module, "close"):
+                with suppress(Exception):
+                    data_module.close()
+
+        # dataloaders
+        for attr in ("train_dataloader", "val_dataloader", "test_dataloader"):
+            loader = getattr(self, attr, None)
+            if loader is None:
+                continue
+
+            # need to shut down persistent workers manually via private API
+            # https://discuss.pytorch.org/t/what-are-the-dis-advantages-of-persistent-workers/102110/10
+            iterator = getattr(loader, "_iterator", None)
+            if iterator is not None and hasattr(iterator, "_shutdown_workers"):
+                with suppress(Exception):
+                    iterator._shutdown_workers()
+                with suppress(Exception):
+                    delattr(loader, "_iterator")
+
+            # stop pin memory thread if present
+            pin = getattr(loader, "_pin_memory_thread", None)
+            if pin is not None and getattr(pin, "is_alive", lambda: False)():
+                done = getattr(pin, "done_event", None)
+                if done is not None:
+                    with suppress(Exception):
+                        done.set()
+                with suppress(Exception):
+                    pin.join(timeout=1)

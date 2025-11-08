@@ -11,7 +11,9 @@ __all__ = ["TensorBoardCallback"]
 
 class TensorBoardCallback(Callback):
 
-    def __init__(self) -> None:
+    def __init__(self, **_) -> None:
+        super().__init__()
+
         self._tb: Optional[TensorBoard] = None
 
     def on_init(self, trainer) -> None:
