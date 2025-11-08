@@ -3,6 +3,8 @@
 
 from typing import Type, Dict, Any
 
+import torch
+
 from .models import GravNet
 from icegraph.trainer.base.exceptions import UnknownModelError
 
@@ -18,7 +20,7 @@ class ModelFactory:
         cls._registry[name] = model_cls
 
     @classmethod
-    def create(cls, name: str, *args: Any, **kwargs: Any) -> Any:
+    def create(cls, name: str, *args: Any, **kwargs: Any) -> torch.nn.Module:
         """
         Instantiate a registered model.
         Raises UnknownModelError if the name is unknown.

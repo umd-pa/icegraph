@@ -34,9 +34,6 @@ class RegressionStrategy(TaskStrategy):
     def make_metrics(self) -> RegressionMetrics:
         return RegressionMetrics()
 
-    def post_init_check(self, model: torch.nn.Module) -> None:
-        pass
-
     def adapt_targets(self, batch: Batch, out: torch.Tensor) -> torch.Tensor:
         y = batch.y
 
@@ -78,9 +75,6 @@ class MulticlassStrategy(TaskStrategy):
     def loss_function(self) -> nn.Module:
         # weights moved to correct device in post_init_check()
         return nn.CrossEntropyLoss(reduction=self._enforced_reduction)
-
-    def post_init_check(self, model: torch.nn.Module) -> None:
-        pass
 
     def make_metrics(self) -> MulticlassMetrics:
         # return a metrics object each run/epoch

@@ -216,7 +216,7 @@ class DataModule(Dataset):
         except (IndexError, KeyError) as e:
             raise DataError(f"Failed to retrieve record at index {idx}: {e}")
 
-        # --- features ---
+        # features
         try:
             data_dict["x"] = torch.tensor(data["features"], dtype=torch.float32)
         except KeyError:
@@ -224,7 +224,7 @@ class DataModule(Dataset):
         if data_dict["x"].ndim == 1:
             data_dict["x"] = data_dict["x"].unsqueeze(0)  # [F] -> [1, F]
 
-        # --- labels ---
+        # labels
         labels_vals = []
         for name in self.target_labels:
             if name not in data:
@@ -232,7 +232,7 @@ class DataModule(Dataset):
             labels_vals.append(data[name])
         data_dict["y"] = torch.tensor(labels_vals, dtype=torch.float32).unsqueeze(0)  # [1, L]
 
-        # --- edges ---
+        # edges
         try:
             data_dict["edge_index"] = torch.tensor(data["edge_index"], dtype=torch.long)
         except KeyError:
@@ -263,7 +263,7 @@ class DataModule(Dataset):
                 f"but edge_attr has {data_dict['edge_attr'].shape[0]} at index {idx}"
             )
 
-        # --- included labels (val/test only) ---
+        # included labels (val/test only)
         if self.subset in ["validation", "test"]:
             inc_vals = []
             for name in self.include_labels:

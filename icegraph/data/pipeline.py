@@ -9,7 +9,7 @@ os.environ.setdefault("HDF5_USE_FILE_LOCKING", "TRUE")
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import List, ClassVar, Optional, Iterator, Sequence, Union, TypeVar, Tuple, \
+from typing import List, ClassVar, Optional, Iterator, Sequence, Union, Tuple, \
     TypeAlias, Self, Dict, Any, Type
 from queue import Queue, Empty, Full
 from pathlib import Path
@@ -39,7 +39,7 @@ import faulthandler, signal
 # Enable built-in fatal-signal handling (covers SIGSEGV etc.)
 faulthandler.enable(all_threads=True)
 
-# Optional: also dump stacks on SIGUSR2 / SIGTERM (do NOT try SIGSEGV here)
+# also dump stacks on SIGUSR2 / SIGTERM (do NOT try SIGSEGV here)
 for sig_name in ("SIGUSR2", "SIGTERM"):
     sig = getattr(signal, sig_name, None)
     if sig is None:
@@ -164,15 +164,26 @@ class Pipeline:
         Attributes:
             df: The payload DataFrame.
             fh: The temporary file handle associated with this item.
+            metrics: Dict storing per stage metrics.
             attrs: Arbitrary nested attributes (auto-nesting).
         """
         df: pd.DataFrame
         fh: Pipeline.FileHandle
+        metrics: Dict[int, float] = field(default_factory=dict)
         attrs: Dict[str, Dict[str, Any]] = field(default_factory=nested_dict)
+
+        def finalize(self) -> Self:
+            # Close the temp file under locks, then yield self
+            with self.fh.lock_exclusive():
+                self.fh.close()
+            # remove the lock file
+            self.fh.remove_lock()
+
+            return self
 
     def __init__(self):
         """Construct an empty pipeline with default queues and temp dirs."""
-        # warm operators
+        # warm stages
         self._extractor:    Optional[Type[Extractor]]         = None
         self._processors:   Optional[List[Type[Processor]]]   = None
         self._writer:       Optional[Type[Writer]]            = None
@@ -246,10 +257,7 @@ class Pipeline:
 
     def iter_output(self) -> Iterator[Envelope]:
         """
-        Yield envelopes from the final stage, performing safe cleanup.
-
-        Acquires an exclusive file lock and a global HDF5 lock to close
-        the temp file, then removes the sidecar lock. Yields until a sentinel
+        Yield envelopes from the final stage, performing safe cleanup. Yields until a sentinel
         item arrives or the stop event is set.
         """
         if not self.queues:
@@ -261,16 +269,11 @@ class Pipeline:
         item: Pipeline.Envelope
         for item in iter_queue:
             try:
-                # Close the temp file under locks, then yield the DataFrame
-                with item.fh.lock_exclusive(), self.HDF5_LOCK:
-                    item.fh.close()
-                # remove the lock file
-                item.fh.remove_lock()
-                yield item
-
+                with self.HDF5_LOCK:
+                    yield item.finalize()
             finally:
-                # Mark the exact queue item as done
                 self.queues[-1].task_done()
+
 
     def start_output_printer(self, *, name="output-printer") -> Thread:
         """
@@ -341,6 +344,9 @@ class Pipeline:
         self.file_list = tuple(PathResolver.normalize_sources(
             source, ".hdf5" if self._extractor is None else ".i3.zst"
         ))
+
+        # console output
+        Console.out(f"Loading from source: {Console.source_repr(self.source)}")
 
         if outdir is not None:
             self.outdir = Path(outdir)

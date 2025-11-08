@@ -1,5 +1,18 @@
 # Changelog
 
+### Version [0.10.0] --- November 8th, 2025:
+- Rework DDP, now handled via `icegraph.trainer.distributed.DistributedTrainer`.
+- Refactored `Trainer` for a cleaner initialization.
+- Added compatibility with Corsika datasets.
+- Added a lightweight file inspector for LMDB.
+- Processing pipeline now profiles stages and saves stage metrics to the envelope.
+- Callbacks are now passed as `Trainer.CallbackSpec` for cleaner API and backend.
+- All callback registration and hook call functionality has been moved to a new mixin `icegraph.trainer.callbacks.base.CallbackRegistryMixin` 
+- Some config file schema cleanup.
+- Dataset dataloader samplers are now initialized lazily to avoid init before DDP.
+- Removed `post_init_check()` method from `TaskStrategy` (method unused).
+- Other changes/bug fixes.
+
 #### Version [0.9.2] --- October 24th, 2025:
 - Implemented DDP, see `icegraph.trainer.distributed`.
 - Added precision-recall (PR) plotter for classification tasks and linked to `icegraph.trainer.callbacks.MulticlassMetricsCallback`.

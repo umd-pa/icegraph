@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import time
+import functools
 from abc import abstractmethod, ABC
 from typing import TYPE_CHECKING, Optional, Union, overload, Iterator
 from queue import Queue
@@ -114,6 +116,32 @@ class Stage(ABC):
                 f"and set_in_iter(...) must be called before execution."
             )
         return self._parent.queues[self._out_queue_idx]
+
+    @staticmethod
+    def profile():
+        """
+        Decorator factory, helper wrapper that measures runtime (ms) of a function that takes an Envelope.
+        Stores it in env.metrics[stage_idx].
+        """
+
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(self, *args, **kwargs):
+                # run and profile func
+                start = time.perf_counter()
+                env: Pipeline.Envelope = func(self, *args, **kwargs)
+                end = time.perf_counter()
+
+                # calc elapsed time, save to metrics
+                elapsed_ms = (end - start) * 1000
+                stage_name = self.__class__.__name__
+                env.metrics[stage_name] = elapsed_ms
+
+                return env
+
+            return wrapper
+
+        return decorator
 
     ### STUBS
 
