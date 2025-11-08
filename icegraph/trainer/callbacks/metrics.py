@@ -28,7 +28,15 @@ class PlotConfigurationMixin:
     _plotters:  List[Tuple[MetricsPlotMethod, Dict]]
     _dispatch:  Dict[str, MetricsPlotMethod]
 
-    def _parse_options(self, options: Union[Dict[str, Dict], List[str]]) -> Dict[str, Dict]:
+    def _register_options(self, options: List[Union[Tuple[str, Dict], str]]) -> None:
+        options = self._parse_options(options)
+
+        for option, kwargs in options.items():
+            if option not in self._dispatch.keys():
+                raise KeyError(f"Option '{option}' is not supported.")
+            self._plotters.append((self._dispatch[option], kwargs))
+
+    def _parse_options(self, options: List[Union[Tuple[str, Dict], str]]) -> Dict[str, Dict]:
         # build lookup dict
         alias_lookup = {
             alias: canonical
@@ -36,23 +44,20 @@ class PlotConfigurationMixin:
             for alias in aliases
         }
 
-        # normalize dict keys in place
-        if isinstance(options, list):
-            options = {o: {} for o in options}
-        for k, v in list(options.items()):
+        # normalize to dict
+        normed_options = {}
+        for option in options:
+            if isinstance(option, str):
+                k = option; v = {}
+            elif isinstance(option, Tuple):
+                k = option[0]; v = option[1]
+            else:
+                raise TypeError(f"Option passed with invalid type: {type(option)}")
+
             norm_key = alias_lookup.get(k, k)
-            if norm_key != k:
-                options[norm_key] = options.pop(k)
+            normed_options[norm_key] = v
 
-        return options
-
-    def configure_plots(self, options: Union[Dict[str, Dict], List[str]]) -> None:
-        options = self._parse_options(options)
-
-        for option, kwargs in options.items():
-            if option not in self._dispatch.keys():
-                raise KeyError(f"Option '{option}' is not supported.")
-            self._plotters.append((self._dispatch[option], kwargs))
+        return normed_options
 
     @staticmethod
     def _plot_dir(trainer: Trainer) -> Path:
@@ -63,10 +68,12 @@ class PlotConfigurationMixin:
 
 class RegressionMetricsCallback(Callback, PlotConfigurationMixin):
 
-    _COMPATIBLE = ["regression"]
+    COMPATIBLE = ["regression"]
     _ALIASES: Dict[str, List[str]] = {}
 
-    def __init__(self) -> None:
+    def __init__(self, *, options: Optional[List[Union[Tuple[str, Dict], str]]] = None, **_) -> None:
+        super().__init__()
+
         self._y_asinh_mask:     Optional[List[str]] = None
         self._target_labels:    Optional[List[str]] = None
         self._include_labels:   Optional[List[str]] = None
@@ -79,6 +86,9 @@ class RegressionMetricsCallback(Callback, PlotConfigurationMixin):
             "bias": self._build_bias_plot,
             "parity": self._build_parity_plot
         }
+
+        if options:
+            self._register_options(options)
 
     def on_init(self, trainer: Trainer) -> None:
         self._y_asinh_mask =    trainer.registry.global_attrs["apply_log_scaling_y"]
@@ -188,7 +198,7 @@ class RegressionMetricsCallback(Callback, PlotConfigurationMixin):
 
 class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
 
-    _COMPATIBLE = ["multiclass"]
+    COMPATIBLE = ["multiclass"]
     _ALIASES: Dict[str, List[str]] = {
         "cm": [
             "confusion-matrix"
@@ -198,7 +208,9 @@ class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
         ]
     }
 
-    def __init__(self) -> None:
+    def __init__(self, *, options: Optional[List[Union[Tuple[str, Dict], str]]] = None, **_) -> None:
+        super().__init__()
+
         self._target_label:     Optional[str]       = None
         self._include_labels:   Optional[List[str]] = None
 
@@ -211,6 +223,9 @@ class MulticlassMetricsCallback(Callback, PlotConfigurationMixin):
             "roc": self._build_roc_plot,
             "pr": self._build_pr_plot
         }
+
+        if options:
+            self._register_options(options)
 
     def on_init(self, trainer: Trainer) -> None:
         self._target_label = trainer.registry.global_attrs["target_labels"][0]  # should be only one for multiclass

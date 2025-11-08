@@ -60,16 +60,6 @@ class TaskStrategy(ABC):
         ...
 
     @abstractmethod
-    def post_init_check(self, model: torch.nn.Module) -> None:
-        """
-        Run validation checks after model initialization.
-
-        Args:
-            model (torch.nn.Module): The model being trained.
-        """
-        ...
-
-    @abstractmethod
     def adapt_targets(self, batch: torch.Batch, out: torch.Tensor) -> torch.Tensor:
         """
         Adapt raw batch targets to align with model outputs.

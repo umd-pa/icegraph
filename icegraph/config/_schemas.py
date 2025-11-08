@@ -1,8 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import List, Optional, Dict, Self, Literal, Any
-from pydantic import BaseModel, Field, validator, model_validator
+from typing import List, Optional, Dict, Self, Literal, Any, ClassVar
+from pydantic import BaseModel, Field, model_validator
 
 
 # === io ===

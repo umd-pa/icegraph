@@ -21,7 +21,8 @@ else:
 
 
 class ExportCallback(Callback):
-    def __init__(self) -> None:
+    def __init__(self, **_) -> None:
+        super().__init__()
         self._best_loss: float = float("inf")
 
     @staticmethod

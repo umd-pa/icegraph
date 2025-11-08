@@ -8,6 +8,7 @@ from torch_geometric.data import Batch
 import torch
 
 from icegraph.types import ComputedMetrics
+from .meta import RequireKwargs
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -17,10 +18,14 @@ else:
 __all__ = ["Callback"]
 
 
-class Callback(ABC):
+class Callback(ABC, metaclass=RequireKwargs):
     """
     Abstract base class defining hooks into the Trainer lifecycle.
     """
+
+    def __init__(self, *args, **kwargs) -> None:
+        # kwargs are required in __init__ signature of this class and all subclasses
+        super().__init__()
 
     def on_init(self, trainer: Trainer) -> None:
         """
