@@ -466,12 +466,12 @@ class Pipeline:
             self._threads.append(t)
 
         # start test printer
-        if debug is True:
+        if debug:
             printer_thread = self.start_output_printer()
             self._threads.append(printer_thread)
 
         # use writer if debug is false and there is a writer
-        if self._writer is not None and debug is False:
+        if self._writer is not None and not debug:
             writer_thread = self._start_writer()
             self._threads.append(writer_thread)
 
@@ -599,7 +599,6 @@ class Pipeline:
         Per-worker iterator: consume Paths from a shared queue and yield Envelopes
         by calling this worker's own `bootstrap(path)`.
         """
-        from queue import Empty
         while True:
             if stop is not None and stop.is_set():
                 break

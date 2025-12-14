@@ -15,9 +15,9 @@ class ModelFactory:
     _registry: Dict[str, Type] = {}
 
     @classmethod
-    def register(cls, name: str, model_cls: Type) -> None:
+    def register(cls, model_cls: Type) -> None:
         """Register a model class under a given key."""
-        cls._registry[name] = model_cls
+        cls._registry[model_cls.__name__] = model_cls
 
     @classmethod
     def create(cls, name: str, *args: Any, **kwargs: Any) -> torch.nn.Module:
@@ -30,4 +30,4 @@ class ModelFactory:
         return cls._registry[name](*args, **kwargs)
 
 
-ModelFactory.register("gravnet", GravNet)
+ModelFactory.register(GravNet)

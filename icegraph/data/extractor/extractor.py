@@ -66,7 +66,7 @@ class FeatureExtractor(Extractor):
         # Prepare args
         frame_keys = self._config.user_config.frames.frame_keys.toDict()
         mls_config = str(self._config.ml_suite_config_file)
-        gcd_path = str(self._config.gcd_path)
+        gcd_path = str(self._config.paths["gcd"])
         out_dir = str(self._parent.local_working_dir)
         corsika = bool(self._config.user_config.frames.corsika)
 

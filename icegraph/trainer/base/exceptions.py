@@ -12,6 +12,10 @@ class UnknownModelError(TrainerError):
     """Raised when the user attempts to use a model that is not registered in the ModelFactory."""
 
 
+class UnknownNormalizerError(TrainerError):
+    """Raised when the user attempts to use a normalizer that is not registered in the NormalizerFactory."""
+
+
 class EmptyDataLoaderError(TrainerError):
     """Raised when the trainer encounters a PyG DataLoader with no data."""
 

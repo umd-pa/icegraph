@@ -1,12 +1,15 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Literal, Sequence
+from typing import Literal, Tuple, Any
 import math
 
 import torch
+from torch import Tensor
 
-from .normalizer import Normalizer
+from .normalizer import Normalizer, NormTarget
+from .scaling import AsinhScalingMixin
+from icegraph.utils import Statistics
 
 __all__ = ["ZScoreNormalizer"]
 
@@ -14,7 +17,7 @@ __all__ = ["ZScoreNormalizer"]
 LN10 = math.log(10.0)
 
 
-class ZScoreNormalizer(Normalizer):
+class ZScoreNormalizer(Normalizer, AsinhScalingMixin):
     """
     Z-score normalizer with optional asinh(base-10) pre-transform per column.
 
@@ -23,208 +26,114 @@ class ZScoreNormalizer(Normalizer):
     then standardize: (y - off) * scale where scale = 1/std_y
     """
 
-    def __init__(self, **kwargs) -> None:
-        # store per-field means/scales in transformed space, plus masks and cofactors
-        _param_list = [
-            "_x_off", "_x_scale", "_x_asinh_mask", "_x_c",
-            "_y_off", "_y_scale", "_y_asinh_mask", "_y_c",
-        ]
-        super().__init__(_param_list, **kwargs)
+    def _offset_constructor(self, stats: Statistics, c: Tensor, asinh_mask: Tensor) -> Tensor:
+        mu = torch.as_tensor(stats.mean, dtype=torch.float32)
+        std = torch.as_tensor(stats.stddev(unbiased=False), dtype=torch.float32)
 
-    @staticmethod
-    def _asinh10_torch(x: torch.Tensor, c: torch.Tensor) -> torch.Tensor:
-        # y = asinh(x/c) / ln(10)
-        return torch.asinh(x / c) / LN10
+        offset = mu.clone()
 
-    @staticmethod
-    def _inv_asinh10_torch(y: torch.Tensor, c: torch.Tensor) -> torch.Tensor:
-        # x = c * sinh(y * ln(10))
-        return c * torch.sinh(y * LN10)
+        # if any labels are asinh transformed, calculate offset in transformed space
+        if asinh_mask.any():
+            # calculate offset in transformed space
+            xfrm_offset = (
+                    torch.asinh(mu / c) / LN10
+                    - (mu * std ** 2) / (2 * LN10 * (mu ** 2 + c ** 2) ** (3 / 2))
+            )
 
-    def normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
-        if not torch.is_floating_point(tensor):
-            tensor = tensor.float()
-        self._ensure_on_device(tensor.device)
+            # overwrite masked indices with transformed space values
+            offset[asinh_mask] = xfrm_offset[asinh_mask]
 
-        if field == "y":
-            squeezed = False
-            if tensor.ndim == 1:
-                tensor = tensor.unsqueeze(1)
-                squeezed = True
+        return offset
 
-            # optional asinh(base-10) on masked label columns
-            mask = self._params["_y_asinh_mask"]
-            if mask is not None and torch.any(mask):
-                cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
-                if cols.numel() > 0:
-                    c = self._params["_y_c"][cols]
-                    tensor[:, cols] = self._asinh10_torch(tensor[:, cols], c)
+    @property
+    def _x_off(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_x_off"
 
-            # z-score
-            tensor = tensor.add_(-self._params["_y_off"]).mul_(self._params["_y_scale"])
+        def build():
+            return self._offset_constructor(
+                self._x_stats, self._x_c.cpu(), self._x_asinh_mask.cpu()
+            )
 
-            if squeezed or tensor.shape[1] == 1:
-                tensor = tensor.squeeze(1)
-            return tensor
+        return self._cached(build, key)
 
-        elif field == "x":
-            # expect [N, F]
-            mask = self._params["_x_asinh_mask"]
-            if mask is not None and torch.any(mask):
-                cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
-                if cols.numel() > 0:
-                    c = self._params["_x_c"][cols]
-                    tensor[:, cols] = self._asinh10_torch(tensor[:, cols], c)
+    @property
+    def _y_off(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_y_off"
 
-            tensor = tensor.add_(-self._params["_x_off"]).mul_(self._params["_x_scale"])
-            return tensor
+        return self._cached(lambda: self._offset_constructor(
+            self._y_stats, self._y_c.cpu(), self._y_asinh_mask.cpu()
+        ), key)
 
-        else:
-            raise ValueError("field must be 'x' or 'y'")
+    def _scale_constructor(self, stats: Statistics, c: Tensor, asinh_mask: Tensor) -> Tensor:
+        mu = torch.as_tensor(stats.mean, dtype=torch.float32)
+        std = torch.as_tensor(stats.stddev(unbiased=False), dtype=torch.float32)
 
-    def inverse_normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
-        if not torch.is_floating_point(tensor):
-            tensor = tensor.float()
-        self._ensure_on_device(tensor.device)
+        inv_scale = std.clone()
 
-        if field == 'y':
-            squeezed = False
-            if tensor.ndim == 1:
-                tensor = tensor.unsqueeze(1)
-                squeezed = True
+        # if any labels are asinh transformed, calculate scaling factor in transformed space
+        if asinh_mask.any():
+            # calculate inverse scale factor in transformed space
+            xfrm_inv_scale = std / (LN10 * (mu ** 2 + c ** 2).sqrt())
 
-            # undo z-score
-            tensor = tensor.div_(self._params["_y_scale"]).add_(self._params["_y_off"])
+            # overwrite masked indices with transformed space values
+            inv_scale[asinh_mask] = xfrm_inv_scale[asinh_mask]
 
-            # undo asinh on masked columns
-            mask = self._params["_y_asinh_mask"]
-            if mask is not None and torch.any(mask):
-                cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
-                if cols.numel() > 0:
-                    c = self._params["_y_c"][cols]
-                    tensor[:, cols] = self._inv_asinh10_torch(tensor[:, cols], c)
+        scale = inv_scale.clamp(min=self._eps).reciprocal()
+        return scale
 
-            if squeezed or tensor.shape[1] == 1:
-                tensor = tensor.squeeze(1)
-            return tensor
+    @property
+    def _x_scale(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_x_scale"
 
-        elif field == 'x':
-            tensor = tensor.div_(self._params["_x_scale"]).add_(self._params["_x_off"])
+        return self._cached(lambda: self._scale_constructor(
+            self._x_stats, self._x_c.cpu(), self._x_asinh_mask.cpu()
+        ), key)
 
-            mask = self._params["_x_asinh_mask"]
-            if mask is not None and torch.any(mask):
-                cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
-                if cols.numel() > 0:
-                    c = self._params["_x_c"][cols]
-                    tensor[:, cols] = self._inv_asinh10_torch(tensor[:, cols], c)
-            return tensor
+    @property
+    def _y_scale(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_y_scale"
 
-        else:
-            raise ValueError("field must be 'x' or 'y'")
+        return self._cached(lambda: self._scale_constructor(
+            self._y_stats, self._y_c.cpu(), self._y_asinh_mask.cpu()
+        ), key)
+    
+    def _select_norm_parameters(self, target: NormTarget) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        # choose and stash norm parameters
+        mask        = self._y_asinh_mask    if target == "labels" else self._x_asinh_mask
+        cofactors   = self._y_c             if target == "labels" else self._x_c
+        offset      = self._y_off           if target == "labels" else self._x_off
+        scale       = self._y_scale         if target == "labels" else self._x_scale
 
-    def _configure(self, trainer) -> None:
-        """
-        Configure z-score parameters in the correct transform space.
-        """
-        eps = self._eps
-        device = torch.device("cpu")
+        return mask, cofactors, offset, scale
 
-        g = trainer.registry.global_attrs
-        apply_asinh_y_names: Sequence[str] = g.get("apply_asinh_scaling_y", g.get("apply_log_scaling_y", []))
-        apply_asinh_x_names: Sequence[str] = g.get("apply_asinh_scaling_x", [])
+    def _normalize(self, tensor: Tensor, target: NormTarget) -> Tensor:
+        mask, cofactors, offset, scale = self._select_norm_parameters(target)
 
-        # Features mask
-        f_cols = self.f_stats.columns
-        x_mask_list = [name in apply_asinh_x_names for name in f_cols]
-        x_mask = torch.tensor(x_mask_list, dtype=torch.bool)
+        # asinh transform specified columns
+        if mask.any():
+            cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
+            if cols.numel() > 0:
+                tensor[:, cols] = self._asinh10_torch(tensor[:, cols], cofactors[cols])
 
-        # Labels mask (ordered by the active target label order)
-        target_labels = g["target_labels"]
-        if not target_labels:
-            y_mask = None
-        else:
-            y_mask_list = [name in apply_asinh_y_names for name in target_labels]
-            y_mask = torch.tensor(y_mask_list, dtype=torch.bool)
+        # apply z-score scaling
+        tensor = tensor.add_(-offset).mul_(scale)
 
-        # features
-        f_c_np = self.f_stats.asinh_cofactor()  # shape [F]
-        f_c = torch.as_tensor(f_c_np, dtype=torch.float32, device=device)
+        return tensor
 
-        # labels (align stats to target label order)
-        if target_labels:
-            l_stats = self.l_stats.aligned_to(list(target_labels))
-            l_c_np = l_stats.asinh_cofactor()
-            l_c = torch.as_tensor(l_c_np, dtype=torch.float32, device=device)
-        else:
-            l_c = None
+    def _inverse_normalize(self, tensor: Tensor, target: NormTarget) -> Tensor:
+        mask, cofactors, offset, scale = self._select_norm_parameters(target)
 
-        # helper to compute transformed-space mean/std via delta-method
-        def transformed_moments(mu: torch.Tensor, sigma: torch.Tensor, c: torch.Tensor) -> tuple[
-            torch.Tensor, torch.Tensor]:
-            # mean_y ≈ asinh(mu/c)/ln10 - mu*sigma^2 / (2 ln10 (mu^2+c^2)^(3/2))
-            # std_y  ≈ sigma / (ln10 * sqrt(mu^2 + c^2))
-            mu2 = mu * mu
-            c2 = c * c
-            denom_root = torch.sqrt(mu2 + c2).clamp_min(1e-30)
-            std_y = sigma / (LN10 * denom_root)
-            corr = (mu * (sigma * sigma)) / (2.0 * LN10 * (mu2 + c2) * denom_root)
-            mean_y = torch.asinh(mu / c) / LN10 - corr
-            return mean_y, std_y
+        # undo z-score scaling
+        tensor = tensor.div_(scale).add_(offset)
 
-        f_mu = torch.as_tensor(self.f_stats.mean, dtype=torch.float32, device=device)
-        f_sigma = torch.as_tensor(self.f_stats.stddev(unbiased=False), dtype=torch.float32, device=device)
-        f_sigma = torch.nan_to_num(f_sigma, nan=0.0)
+        # undo asinh transform on specified columns
+        if mask.any():
+            cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
+            if cols.numel() > 0:
+                tensor[:, cols] = self._inv_asinh10_torch(tensor[:, cols], cofactors[cols])
 
-        # defaults: raw-space z-score
-        x_off = f_mu.clone()
-        x_std = f_sigma.clone()
-
-        # apply asinh moments on masked columns
-        if torch.any(x_mask):
-            cols = torch.nonzero(x_mask, as_tuple=False).squeeze(1)
-            mu_t, std_t = transformed_moments(f_mu[cols], f_sigma[cols], f_c[cols])
-            x_off[cols] = mu_t
-            x_std[cols] = std_t
-
-        x_std = torch.clamp(x_std, min=eps)
-        x_scale = 1.0 / x_std
-
-        if not target_labels:
-            y_off = y_scale = y_mask_tensor = y_c_tensor = None
-        else:
-            l_mu = torch.as_tensor(l_stats.mean, dtype=torch.float32, device=device)
-            l_sigma = torch.as_tensor(l_stats.stddev(unbiased=False), dtype=torch.float32, device=device)
-            l_sigma = torch.nan_to_num(l_sigma, nan=0.0)
-
-            # defaults: raw-space z-score
-            y_off = l_mu.clone()
-            y_std = l_sigma.clone()
-
-            if y_mask is not None and torch.any(y_mask):
-                cols = torch.nonzero(y_mask, as_tuple=False).squeeze(1)
-                mu_t, std_t = transformed_moments(l_mu[cols], l_sigma[cols], l_c[cols])
-                y_off[cols] = mu_t
-                y_std[cols] = std_t
-
-            y_std = torch.clamp(y_std, min=eps)
-            y_scale = 1.0 / y_std
-
-            y_mask_tensor = y_mask
-            y_c_tensor = l_c
-
-        # stash everything
-        self._params["_x_off"] = x_off
-        self._params["_x_scale"] = x_scale
-        self._params["_x_asinh_mask"] = x_mask
-        self._params["_x_c"] = f_c
-
-        if target_labels:
-            self._params["_y_off"] = y_off
-            self._params["_y_scale"] = y_scale
-            self._params["_y_asinh_mask"] = y_mask_tensor
-            self._params["_y_c"] = y_c_tensor
-        else:
-            self._params["_y_off"] = None
-            self._params["_y_scale"] = None
-            self._params["_y_asinh_mask"] = None
-            self._params["_y_c"] = None
+        return tensor
