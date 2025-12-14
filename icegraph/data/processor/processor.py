@@ -495,12 +495,12 @@ class StatisticsProcessor(Processor, HelperMixin):
     @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # grab necessary values from envelope
-        feature_cols = env.attrs["global"]["feature_names"]
+        f_cols = env.attrs["global"]["feature_names"]
         splitmap = np.array(env.attrs["allocation"]["splitmap"])
         target_labels = env.attrs["global"]["target_labels"]
         df = env.df
 
-        # get split labels from ints for human readability
+        # get split labels from ints for readability
         split_int_assignments = self._config.internal_config.split_int_assignments
         int_to_split_str: Dict[int, str] = dict(map(reversed, split_int_assignments.items()))
 
@@ -513,17 +513,15 @@ class StatisticsProcessor(Processor, HelperMixin):
             sub_df = df[splitmap == split]
 
             # build stats from all dense arrays in split
-            stats: Optional[Statistics] = None
-            for array in sub_df["features"].to_numpy():
-                s = Statistics.from_dense_array(array, feature_cols)
-                stats = s if stats is None else stats.merge(s)
+            f_data = np.vstack([array for array in sub_df["features"].to_numpy()])
 
-            # add to main dict as a dict
-            f_stats[split_name] = stats.to_dict() if stats else {}
+            f_stats[split_name] = Statistics.from_dense_array(f_data, f_cols).to_struct()
 
-            l_stats[split_name] = (
-                Statistics.from_dataframe(sub_df[target_labels]).to_dict() if not sub_df.empty else {}
-            )
+            l_df = sub_df[target_labels]
+            l_data = l_df.to_numpy(dtype=np.float64, copy=True)
+            l_cols = l_df.columns.tolist()
+
+            l_stats[split_name] = Statistics.from_dense_array(l_data, l_cols).to_struct()
 
         env.attrs["stat"]["feature_stats"] = f_stats
         env.attrs["stat"]["label_stats"] = l_stats

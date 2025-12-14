@@ -60,7 +60,7 @@ class Detector:
         Raises:
             GeometryFrameNotFound: If the I3Geometry frame cannot be found in the file.
         """
-        gcd_file = dataio.I3File(str(self._config.gcd_path))
+        gcd_file = dataio.I3File(str(self._config.paths["gcd"]))
 
         geometry: Any | None = None
         # loop through frames until we find the geometry
@@ -71,7 +71,7 @@ class Detector:
 
         # if geometry was not found, raise an exception
         if not geometry:
-            raise GeometryFrameNotFound(f"I3Geometry does not exist in GCD file: {self._config.gcd_path}")
+            raise GeometryFrameNotFound(f"I3Geometry does not exist in GCD file: {self._config.paths['gcd']}")
 
         self._gcd_geometry = geometry.omgeo
 

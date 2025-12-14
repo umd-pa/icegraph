@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 from pathlib import Path
-from typing import Union, Optional, Self, Dict
+from typing import Union, Optional, Self, Dict, Any
 import tempfile
 import os
 
@@ -34,28 +34,32 @@ class IGConfig:
         Args:
             config_path (Union[str, Path]): Path to the user's main configuration file.
         """
-        self.user_config_path = Path(config_path)
-
-        # paths
-        self.base_dir = Path(__file__).resolve().parent.parent.parent
-        self.src_dir = Path(__file__).resolve().parent.parent
-
-        # config directories
-        self.config_dir = self.base_dir / "config"
-        self.internal_config_dir = self.src_dir / "config" / "defaults"  # internal-use configuration files
-
-        # internal config file paths
-        self.internal_config_file = self.internal_config_dir / "internal.config.yaml"
-
         # cache attributes
         self._user_config_cache: Optional[DotMap] = None
         self._internal_config_cache: Optional[DotMap] = None
 
-        # fallback GCD file
-        self.gcd_path = Path(
-            self.user_config.io.gcd_path or
-            "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
-        )
+        self.paths = {"user_config": Path(config_path)}
+        self.paths.update(self._load_paths())
+
+    def _load_paths(self) -> Dict[str, Path]:
+
+        src_path = Path(__file__).resolve().parent.parent
+
+        paths: Dict[str, Path] = {
+            "base": Path(__file__).resolve().parent.parent.parent,
+            "src": src_path,
+            "internal_config": src_path / "config" / "defaults"/ "internal.config.yaml",
+            "gcd": Path(
+                self.user_config.io.gcd_path or
+                "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz"
+            )
+        }
+
+        return paths
+
+    @classmethod
+    def from_dict(cls, _dict: Dict[str, Any]) -> Self:
+        return cls.__new__(cls)
 
     @staticmethod
     def get_xdg_cache_dir() -> Path:
@@ -70,7 +74,7 @@ class IGConfig:
             DotMap: Parsed user configuration.
         """
         if self._user_config_cache is None:
-            raw = self._load_file(self.user_config_path)
+            raw = self._load_file(self.paths["user_config"])
             self._user_config_cache = DotMap(raw)
         return self._user_config_cache
 
@@ -83,7 +87,7 @@ class IGConfig:
             DotMap: Parsed feature mapping configuration.
         """
         if self._internal_config_cache is None:
-            raw = self._load_file(self.internal_config_file)
+            raw = self._load_file(self.paths["internal_config"])
             self._internal_config_cache = DotMap(raw)
         return self._internal_config_cache
 
@@ -113,8 +117,8 @@ class IGConfig:
         Input configuration validation.
         """
         try:
-            raw = self._load_file(self.user_config_path)
-            _ = FullConfig(**raw)
+            raw = self._load_file(self.paths["user_config"])
+            FullConfig(**raw)
         except ValidationError:
             raise
 

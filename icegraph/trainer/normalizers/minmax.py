@@ -1,160 +1,112 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Literal
+from typing import Tuple
 
 import torch
+from torch import Tensor
 
-from icegraph.console import Console
-from .normalizer import Normalizer
+from .normalizer import Normalizer, NormTarget
+from .scaling import AsinhScalingMixin
+from icegraph.utils import Statistics
 
 __all__ = ["MinMaxNormalizer"]
 
 
-class MinMaxNormalizer(Normalizer):
+class MinMaxNormalizer(Normalizer, AsinhScalingMixin):
     """
-    Normalization callback for scaling input features and target labels to the [0, 1] range
-    using precomputed minimum and maximum statistics. Supports optional log-scaling of
-    selected target labels prior to normalization.
+    MinMax normalizer for scaling input features and target labels to [0, 1] range.
     """
 
-    def __init__(self, **kwargs) -> None:
-        """
-        Initialize the MinMaxNormalizer with empty offsets/scales for features and labels.
-        """
-        _param_list = ["_x_off", "_x_scale", "_y_off", "_y_scale", "_y_logmask"]
+    def _offset_constructor(self, stats: Statistics, c: Tensor, asinh_mask: Tensor) -> Tensor:
+        minimum = torch.as_tensor(stats.minimum, dtype=torch.float32)
 
-        # call to super
-        super().__init__(_param_list, **kwargs)
+        # apply asinh scaling
+        offset = self.apply_raw_masked_scaling(minimum, c, asinh_mask)
 
-    def normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
-        """
-        Apply min-max normalization to a tensor.
+        return offset
 
-        Args:
-            tensor (Tensor): Feature or label tensor.
-            field (Literal['x', 'y']): Whether this tensor represents labels.
+    @property
+    def _x_off(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_x_off"
 
-        Returns:
-            Tensor: Normalized tensor (same shape).
-        """
-        if not torch.is_floating_point(tensor):
-            tensor = tensor.float()
+        return self._cached(lambda: self._offset_constructor(
+            self._x_stats, self._x_c.cpu(), self._x_asinh_mask.cpu()
+        ), key)
 
-        if field == "y":
-            # always work in [B, L] then squeeze back if needed
-            squeezed = False
-            if tensor.ndim == 1:
-                tensor = tensor.unsqueeze(1)
-                squeezed = True
+    @property
+    def _y_off(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_y_off"
 
-            y_logmask = self._params["_y_logmask"]
+        return self._cached(lambda: self._offset_constructor(
+            self._y_stats, self._y_c.cpu(), self._y_asinh_mask.cpu()
+        ), key)
 
-            # (optional) log1p selected columns
-            if y_logmask is not None and torch.any(y_logmask):
-                cols = torch.nonzero(y_logmask, as_tuple=False).squeeze(1)
-                # handle single-column mask robustly
-                if cols.numel() > 0:
-                    tensor[:, cols] = torch.log1p(tensor[:, cols])
+    def _scale_constructor(self, stats: Statistics, c: Tensor, asinh_mask: Tensor) -> Tensor:
+        minimum = torch.as_tensor(stats.minimum, dtype=torch.float32)
+        maximum = torch.as_tensor(stats.maximum, dtype=torch.float32)
 
-            # min-max normalize
-            tensor = tensor.add_(-self._params["_y_off"]).mul_(self._params["_y_scale"])
+        # get the minimum (offset) and maximum with asinh scaling
+        minimum = self.apply_raw_masked_scaling(minimum, c, asinh_mask)
+        maximum = self.apply_raw_masked_scaling(maximum, c, asinh_mask)
 
-            if squeezed or tensor.shape[1] == 1:
-                tensor = tensor.squeeze(1)
+        scale = (maximum - minimum).clamp_min(self._eps).reciprocal()
 
-        elif field == 'x':
-            tensor = tensor.add_(-self._params["_x_off"]).mul_(self._params["_x_scale"])
+        return scale
 
-        else:
-            raise ValueError("field must be 'x' or 'y'")
+    @property
+    def _x_scale(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_x_scale"
+
+        return self._cached(lambda: self._scale_constructor(
+            self._x_stats, self._x_c.cpu(), self._x_asinh_mask.cpu()
+        ), key)
+
+    @property
+    def _y_scale(self) -> Tensor:
+        # use the function name for the cache key
+        key = "_y_scale"
+
+        return self._cached(lambda: self._scale_constructor(
+            self._y_stats, self._y_c.cpu(), self._y_asinh_mask.cpu()
+        ), key)
+
+    def _select_norm_parameters(self, target: NormTarget) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        # choose and stash norm parameters
+        mask        = self._y_asinh_mask    if target == "labels" else self._x_asinh_mask
+        cofactors   = self._y_c             if target == "labels" else self._x_c
+        offset      = self._y_off           if target == "labels" else self._x_off
+        scale       = self._y_scale         if target == "labels" else self._x_scale
+
+        return mask, cofactors, offset, scale
+
+    def _normalize(self, tensor: Tensor, target: NormTarget) -> Tensor:
+        mask, cofactors, offset, scale = self._select_norm_parameters(target)
+
+        # asinh transform specified columns
+        if mask.any():
+            cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
+            if cols.numel() > 0:
+                tensor[:, cols] = self._asinh10_torch(tensor[:, cols], cofactors[cols])
+
+        # apply minmax scaling
+        tensor = tensor.add_(-offset).mul_(scale)
 
         return tensor
 
-    def inverse_normalize(self, tensor: torch.Tensor, field: Literal['x', 'y']) -> torch.Tensor:
-        """
-        Apply inverse of min-max normalization to a tensor.
+    def _inverse_normalize(self, tensor: Tensor, target: NormTarget) -> Tensor:
+        mask, cofactors, offset, scale = self._select_norm_parameters(target)
 
-        Args:
-            tensor (Tensor): Feature or label tensor.
-            field (Literal['x', 'y']): Whether this tensor represents features or labels.
+        # undo minmax scaling
+        tensor = tensor.div_(scale).add_(offset)
 
-        Returns:
-            Tensor: De-normalized tensor (same shape).
-        """
-        # ensure float dtype and params on the same device
-        if not torch.is_floating_point(tensor):
-            tensor = tensor.float()
-        self._ensure_on_device(tensor.device)
-
-        if field == 'y':
-            # always work in [B, L] then squeeze back if needed
-            squeezed = False
-            if tensor.ndim == 1:
-                tensor = tensor.unsqueeze(1)
-                squeezed = True
-
-            y_logmask = self._params["_y_logmask"]
-
-            # undo min-max: y = y / scale + off   (scale was stored as 1/(max-min))
-            tensor = tensor.div_(self._params["_y_scale"]).add_(self._params["_y_off"])
-
-            # undo optional log1p on selected columns
-            if y_logmask is not None and torch.any(y_logmask):
-                cols = torch.nonzero(y_logmask, as_tuple=False).squeeze(1)
-                if cols.numel() > 0:
-                    tensor[:, cols] = torch.expm1(tensor[:, cols])
-
-            if squeezed or tensor.shape[1] == 1:
-                tensor = tensor.squeeze(1)
-
-        elif field == 'x':
-            # undo min-max for features
-            tensor = tensor.div_(self._params["_x_scale"]).add_(self._params["_x_off"])
-
-        else:
-            raise ValueError("field must be 'x' or 'y'")
+        # undo asinh transform on specified columns
+        if mask.any():
+            cols = torch.nonzero(mask, as_tuple=False).squeeze(1)
+            if cols.numel() > 0:
+                tensor[:, cols] = self._inv_asinh10_torch(tensor[:, cols], cofactors[cols])
 
         return tensor
-
-    def _configure(self, trainer) -> None:
-        """
-        Configure min/max-based normalization parameters from dataset statistics.
-        """
-        target_labels = trainer.registry.global_attrs["target_labels"]
-        log_labels = trainer.registry.global_attrs["apply_log_scaling_y"]
-
-        # Features
-        f_min = torch.as_tensor(self.f_stats.min, dtype=torch.float32)
-        f_max = torch.as_tensor(self.f_stats.max, dtype=torch.float32)
-        self._params["_x_off"] = f_min
-        self._params["_x_scale"] = (f_max - f_min).clamp_min(self._eps).reciprocal()
-
-        if not target_labels:
-            self._params["_y_off"] = self._params["_y_scale"] = self._params["_y_logmask"] = None
-            return
-
-        # Labels (ordered to match trainer.target_labels)
-        idx = [self.l_stats.columns.index(n) for n in target_labels]
-        t_min = torch.as_tensor(self.l_stats.min, dtype=torch.float32)[idx]
-        t_max = torch.as_tensor(self.l_stats.max, dtype=torch.float32)[idx]
-
-        logmask = torch.tensor([n in log_labels for n in target_labels], dtype=torch.bool)
-
-        # Disable log for labels with negative mins
-        bad_mask = logmask & (t_min < 0)
-        if torch.any(bad_mask):
-            bad = [n for n, b in zip(target_labels, bad_mask.tolist()) if b]
-            Console.out(f"Warning: negative values in log-scaled labels {bad}; disabling log.", severity=2)
-            logmask &= ~bad_mask
-
-        # Define y_min/y_max in (optional) log-space
-        y_min = t_min.clone()
-        y_max = t_max.clone()
-        if torch.any(logmask):
-            y_min[logmask] = torch.log1p(y_min[logmask])
-            y_max[logmask] = torch.log1p(y_max[logmask])
-
-        self._params["_y_off"] = y_min
-        self._params["_y_scale"] = (y_max - y_min).clamp_min(self._eps).reciprocal()
-        self._params["_y_logmask"] = logmask

@@ -24,7 +24,7 @@ from icegraph.trainer.arch import ModelFactory
 from icegraph.utils.pathutils import PathResolver
 from icegraph.trainer.callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback, Callback
 from icegraph.trainer.callbacks.base import CallbackRegistryMixin
-from icegraph.trainer.normalizers import resolve_normalizer, Normalizer
+from icegraph.trainer.normalizers import NormalizerFactory, Normalizer
 from icegraph.trainer.base.exceptions import EmptyDataLoaderError
 from icegraph.trainer.interfaces import resolve_strategy
 from icegraph.trainer.interfaces.base import TaskStrategy
@@ -113,8 +113,9 @@ class Trainer(CallbackRegistryMixin, torch.nn.Module):
         # set global seed for reproducibility
         self._init_seed()
 
-        # register callbacks
-        self._init_default_callbacks()
+        # register callbacks if required
+        if default_callbacks:
+            self._init_default_callbacks()
 
         # initialize the console
         self.console = self._init_console()
@@ -179,11 +180,13 @@ class Trainer(CallbackRegistryMixin, torch.nn.Module):
         # pull hidden layers and channels from config (not controlled by strategy)
         hidden_channels = self.trainer_config.hidden_channels
         hidden_layers = self.trainer_config.hidden_layers
+        k = self.trainer_config.num_nbrs
 
         # get the model and move to accelerator
         active_model = ModelFactory.create(
-            "gravnet", in_channels, hidden_channels, out_channels, hidden_layers
+            "GravNet", in_channels, hidden_channels, out_channels, hidden_layers, k
         )
+        active_model.init_model()
         model = active_model.to(self.device)
 
         # if ddp is enabled, the model needs to be wrapped by torch DDP
@@ -241,7 +244,7 @@ class Trainer(CallbackRegistryMixin, torch.nn.Module):
         """Initialize the normalizer."""
         # grab normalizer
         norm_selection = self._config.user_config.training.normalizer
-        normalizer = resolve_normalizer(norm_selection)
+        normalizer = NormalizerFactory.create(norm_selection, attrs=self.registry.global_attrs, device=self.device)
         self.register_callback(normalizer)
 
         return normalizer

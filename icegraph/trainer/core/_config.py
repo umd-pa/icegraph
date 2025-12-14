@@ -13,6 +13,7 @@ class TrainerConfig:
     val_interval: int
     hidden_channels: int
     hidden_layers: int
+    num_nbrs: int
     save_interval: int
     seed: int
     optimizer: str
@@ -31,6 +32,7 @@ class TrainerConfig:
             val_interval=p.val_interval_epochs,
             hidden_channels=p.hidden_channels,
             hidden_layers=p.hidden_layers,
+            num_nbrs=p.num_nbrs,
             save_interval=p.save_interval,
             seed=config.user_config.training.seed,
             optimizer=opt.task,

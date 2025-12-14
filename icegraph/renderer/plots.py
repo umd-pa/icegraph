@@ -197,16 +197,21 @@ class AnalysisMixin:
         lower = np.asarray(lower, float)
         upper = np.asarray(upper, float)
         valid = np.isfinite(lower) & np.isfinite(upper)
-        i, n = 0, lower.size
+
+        # n - number of bins
+        # i, j - incremented indices
+        i, n = 0, lower.size - 1  # last entry is duplicated, so we cant treat it as a bin
         while i < n:
             if not valid[i]:
-                i += 1;
+                i += 1
                 continue
             j = i
             while j < n and valid[j]:
                 j += 1
+
             x_lo, y_lo = self.stairs(edges[i:j + 1], lower[i:j])
             x_up, y_up = self.stairs(edges[i:j + 1], upper[i:j])
+
             fig.add_trace(go.Scatter(
                 x=np.concatenate([x_lo, x_up[::-1]]),
                 y=np.concatenate([y_lo, y_up[::-1]]),
@@ -215,15 +220,21 @@ class AnalysisMixin:
                 hoverinfo='skip', showlegend=False,
                 legendgroup=legendgroup
             ))
+
             # outlines
-            fig.add_trace(go.Scatter(x=x_lo, y=y_lo, mode='lines',
-                                     line=dict(color=outline_color, width=1, dash='dot'),
-                                     showlegend=False, hoverinfo='skip',
-                                     legendgroup=legendgroup))
-            fig.add_trace(go.Scatter(x=x_up, y=y_up, mode='lines',
-                                     line=dict(color=outline_color, width=1, dash='dot'),
-                                     showlegend=False, hoverinfo='skip',
-                                     legendgroup=legendgroup))
+            fig.add_trace(go.Scatter(
+                x=x_lo, y=y_lo, mode='lines',
+                line=dict(color=outline_color, width=1, dash='dot'),
+                showlegend=False, hoverinfo='skip',
+                legendgroup=legendgroup
+            ))
+            fig.add_trace(go.Scatter(
+                x=x_up, y=y_up, mode='lines',
+                line=dict(color=outline_color, width=1, dash='dot'),
+                showlegend=False, hoverinfo='skip',
+                legendgroup=legendgroup
+            ))
+
             i = j
 
 

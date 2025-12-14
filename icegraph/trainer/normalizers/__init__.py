@@ -8,16 +8,7 @@ from .normalizer import Normalizer
 from .zscore import ZScoreNormalizer
 from .minmax import MinMaxNormalizer
 
-__all__ = ["ZScoreNormalizer", "MinMaxNormalizer", "resolve_normalizer", "Normalizer"]
+# factory
+from .factory import NormalizerFactory
 
-_REGISTRY: dict[str, type[Normalizer]] = {
-    "ZScoreNormalizer": ZScoreNormalizer,
-    "MinMaxNormalizer": MinMaxNormalizer,
-}
-
-def resolve_normalizer(name: str, **kwargs) -> Normalizer:
-    try:
-        cls = _REGISTRY[name]
-    except KeyError as e:
-        raise ValueError(f"Unknown normalizer '{name}'. Available: {', '.join(_REGISTRY)}") from e
-    return cls(**kwargs)
+__all__ = ["ZScoreNormalizer", "MinMaxNormalizer", "Normalizer", "NormalizerFactory"]
