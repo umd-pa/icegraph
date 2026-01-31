@@ -15,8 +15,6 @@ from icegraph.data.base import Stage
 
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline
-else:
-    Pipeline = None
 
 __all__ = ["FeatureExtractor"]
 

@@ -10,11 +10,11 @@ from torch import Tensor
 
 from icegraph._version import __version__
 from icegraph.console import Console
-from icegraph.trainer.arch import ModelFactory
-from icegraph.trainer.normalizers import NormalizerFactory
+from icegraph.trainer.model import ModelFactory
+from icegraph.trainer.normalizer import NormalizerFactory
 
 if TYPE_CHECKING:
-    from icegraph.trainer.normalizers import Normalizer
+    from icegraph.trainer.normalizer import Normalizer
 else:
     Trainer = Normalizer = None
 

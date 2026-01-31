@@ -19,68 +19,80 @@ table_names:
   truth: CorsikaWeightMap
 
 data:
-  # truth labels to use for training
-  target_labels:
-    - PrimaryEnergy
-
-  # any non-target labels to include (not used in training), useful for plotting
-  # these labels will be served to callbacks by the trainer during validation and test steps
-  include_labels: []
+  labels: [ PrimaryEnergy, Multiplicity ]  # labels to include in training files, empty list includes all labels
 
   splits:
     weights: {train: 60, val: 20, test: 20}
 
-  normalization:
-    apply_log_scaling_x:
-      # !!! must be columns present as features (see feature_extraction.feature_config.features
-      []
-    apply_log_scaling_y:
-        # !!! must be columns present under data.target_labels or data.include_labels
-      - PrimaryEnergy
-
 training:
   seed: 2729
 
-  # batch size controls how many samples are passed at a time for each
-  # training batch (see torch_geometric.loader.DataLoader batch_size argument)
-  batch_size: 2048
-  num_workers: 6
-  prefetch_factor: 8
+  trainer:
+    max_epochs: 10000
+    val_interval: 1
+    save_interval: 100
 
-  trainer_params:
-    max_epochs: 100000
-    num_nbrs: 16
-    hidden_layers: 5
-    hidden_channels: 256
-    val_interval_epochs: 1
-    save_interval: 50
+  services:
+    state: {}
 
-  normalizer: ZScoreNormalizer
+    strategy:
+      name: regression
 
-  strategy:
-    task: RegressionStrategy
-    kwargs:
-      k: 2
+    data:
+      targets:  [ PrimaryEnergy ]
+      aux:      [ ]
+      # any non-target labels to include (not used in training), useful for plotting
+      # these labels will be served to callbacks by the trainer during validation and test steps
 
-  scheduler:
-    # pass task: None for no scheduler
-    task: StepLR
-    step_mode: epoch
-    kwargs:
-      step_size: 50
-      gamma: 0.5
+      reader:
+        name: LMDB
 
-  optimizer:
-    task: Adam
-    kwargs:
-      lr: 0.0002
-      betas: [0.9, 0.999]
-      eps: 0.00000001
-      weight_decay: 0.00005
-      amsgrad: False
+      loader:
+        # batch size controls how many samples are passed at a time for each
+        # training batch (see torch DataLoader batch_size argument)
+        batch_size: 2048
+        block_size: 8192
+        num_workers: 6
+        prefetch_factor: 8
+        mp_context: fork
+        persistent_workers: true
 
-  tensorboard:
-    port: 6599
+    metrics:
+      select:
+        - name: MSE
+          kwargs: { }
+
+        - name: MAE
+          kwargs: { }
+
+        - name: RMSE
+          kwargs: { }
+
+  components:
+    model:
+      name: GravNet
+      kwargs:
+        hidden_layers: 5
+        hidden_channels: 256
+        num_neighbors: 16
+
+    normalizer:
+      name: ZScore
+      kwargs:
+        transforms:
+          PrimaryEnergy:
+            space: asinh
+            base: 10
+
+    optimizer:
+      name: Adam
+      kwargs:
+        lr: 0.0002
+        betas: [ 0.9, 0.999 ]
+        eps: 0.00000001
+        weight_decay: 0.00005
+        amsgrad: False
+
 
 # ml_suite configurations, see ml_suite docs
 feature_extraction:

@@ -1,8 +1,10 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Union, Optional, Self, Dict, Any
+from typing import Union, Optional, Self, Dict
 import tempfile
 import os
 
@@ -13,6 +15,10 @@ from pydantic import ValidationError
 from ._schemas import FullConfig
 
 __all__ = ["IGConfig"]
+
+# module logger
+import logging
+logger = logging.getLogger(__name__)
 
 
 class IGConfig:
@@ -56,10 +62,6 @@ class IGConfig:
         }
 
         return paths
-
-    @classmethod
-    def from_dict(cls, _dict: Dict[str, Any]) -> Self:
-        return cls.__new__(cls)
 
     @staticmethod
     def get_xdg_cache_dir() -> Path:
@@ -120,6 +122,7 @@ class IGConfig:
             raw = self._load_file(self.paths["user_config"])
             FullConfig(**raw)
         except ValidationError:
+            logging.exception("config validation failed", exc_info=True)
             raise
 
     @staticmethod
@@ -137,10 +140,16 @@ class IGConfig:
             return yaml.safe_load(file)
 
     @classmethod
-    def register(cls, instance: Self) -> None:
+    def register(cls, instance: IGConfig) -> None:
         """Register the config instance for global access."""
         cls._instance = instance
         cls._instance.validate()
+
+        logger.debug(
+            "registered user config for %s: %s",
+            type(instance).__name__,
+            instance.user_config.toDict()
+        )
 
     @classmethod
     def get(cls) -> Self:

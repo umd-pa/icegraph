@@ -6,7 +6,7 @@ from __future__ import annotations
 import time
 import functools
 from abc import abstractmethod, ABC
-from typing import TYPE_CHECKING, Optional, Union, overload, Iterator
+from typing import TYPE_CHECKING, Optional, Union, Iterator
 from queue import Queue
 from pathlib import Path
 
@@ -17,6 +17,12 @@ if TYPE_CHECKING:
 else:
     Pipeline = None
     EnvelopeOrSentinel = None
+
+__all__ = ["Stage"]
+
+# module logger
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Stage(ABC):
@@ -57,11 +63,6 @@ class Stage(ABC):
         """
         self._out_queue_idx = queue_idx
 
-    @overload
-    def set_in_iter(self, in_iter: Iterator[Pipeline.Envelope]) -> None: ...
-    @overload
-    def set_in_iter(self, in_iter: Iterator[Path]) -> None: ...
-
     def set_in_iter(self, in_iter: Union[Iterator[Pipeline.Envelope], Iterator[Path]]) -> None:
         """
         Set the input iterator for this stage.
@@ -86,6 +87,7 @@ class Stage(ABC):
                 f"{type(self).__name__} not wired: set_parent(...), assign_queue(...), "
                 f"and set_in_iter(...) must be called before execution."
             )
+        logger.debug("Stage %s starting (queue_idx=%s)", self.__class__.__name__, self._out_queue_idx)
         try:
             for env in self._in_iter:
                 if self._parent.stop.is_set():
@@ -96,6 +98,7 @@ class Stage(ABC):
         finally:
             # Always signal end-of-stream downstream
             self._out_q.put(self._parent.SENTINEL)
+            logger.debug("Stage %s finished; sentinel emitted", self.__class__.__name__)
 
     ### ACCESSORS
 
@@ -144,11 +147,6 @@ class Stage(ABC):
         return decorator
 
     ### STUBS
-
-    @overload
-    def _process(self, arg: Path) -> Optional[Pipeline.Envelope]: ...
-    @overload
-    def _process(self, arg: Pipeline.Envelope) -> Optional[Pipeline.Envelope]: ...
 
     @abstractmethod
     def _process(self, arg: Union[Path, Pipeline.Envelope]) -> Optional[Pipeline.Envelope]:

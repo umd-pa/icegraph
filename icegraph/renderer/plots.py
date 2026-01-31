@@ -7,7 +7,7 @@ import math
 import numpy as np
 import plotly.graph_objects as go
 
-from .base import IGBasicPlot, IGDistributionPlot
+from .core import IGBasicPlot, IGDistributionPlot
 from icegraph.data.pulses import Pulses
 from icegraph.exceptions import IceCubeImportError
 

@@ -21,7 +21,10 @@ from icegraph.geometry import Detector
 from .base.exceptions import ProcessorError
 from .base import Processor
 from icegraph.data.base import Stage
-from icegraph.utils import Statistics
+from icegraph.statistics import StatisticService
+from icegraph.types.statistics import StatisticKind, StatisticBundleStruct
+from icegraph.types.data import ModelInputRole, Split
+from icegraph.types.common import ArrayF
 
 if TYPE_CHECKING:
     from icegraph.data.pipeline import Pipeline
@@ -86,7 +89,6 @@ class FeatureProcessor(Processor, HelperMixin):
         self.dom_id_cols = self._config.internal_config.column_names.dom_id_columns
         self.event_id_cols = self._config.internal_config.column_names.event_id_columns
         self.dom_pos_cols = self._config.internal_config.column_names.dom_position_columns
-        self.apply_log_scaling_x = self._config.user_config.data.normalization.apply_log_scaling_x
 
         # get keys
         self.target_key = self._config.user_config.table_names.features
@@ -117,7 +119,7 @@ class FeatureProcessor(Processor, HelperMixin):
         df = self._compress(df)
 
         # register metadata to the envelope
-        self._register_metadata(env, feature_cols)
+        env.attrs["global"][ModelInputRole.FEATURES.value] = feature_cols
 
         # merge this table to the main df and return
         self.merge_to_env(env, df)
@@ -173,7 +175,7 @@ class FeatureProcessor(Processor, HelperMixin):
         if vector_indices != expected:
             raise ProcessorError(f"Non-contiguous vector indices: found {vector_indices}, expected {expected}")
 
-        # Vectorized coordinates join instead of per-row apply
+        # Vectorized coordinates join
         det = self._get_detector()
         dom_ids_df = reshaped[self.dom_id_cols].drop_duplicates()
         coords = []
@@ -240,11 +242,6 @@ class FeatureProcessor(Processor, HelperMixin):
 
         return out
 
-    def _register_metadata(self, env: Pipeline.Envelope, feature_cols: List[str]) -> None:
-
-        env.attrs["global"]["feature_names"] = feature_cols
-        env.attrs["global"]["apply_log_scaling_x"] = self.apply_log_scaling_x
-
 
 class TruthProcessor(Processor, HelperMixin):
 
@@ -254,9 +251,7 @@ class TruthProcessor(Processor, HelperMixin):
 
         # grab config values
         self.event_id_cols = self._config.internal_config.column_names.event_id_columns
-        self.target_labels = self._config.user_config.data.target_labels
-        self.apply_log_scaling_y = self._config.user_config.data.normalization.apply_log_scaling_y
-        self.include_labels = self._config.user_config.data.include_labels
+        self.labels = self._config.user_config.data.labels
 
         # get keys
         self.target_key = self._config.user_config.table_names.truth
@@ -267,21 +262,17 @@ class TruthProcessor(Processor, HelperMixin):
         df = self._load_from_hdf(env, self.target_key)
 
         # clean table if source hdf5 is fixed format and all cols were loaded
-        truth_needed = list(set(self.event_id_cols + list(self.target_labels) + list(self.include_labels)))
-        df = df[truth_needed]
+        if self.labels:
+            # dedupe but preserve order
+            truth_needed = list(dict.fromkeys(self.event_id_cols + self.labels))
+            df = df[truth_needed]
 
-        # register associated metadata
-        self._register_metadata(env)
+        # add labels to env
+        env.attrs["global"][ModelInputRole.LABELS.value] = self.labels
 
         # merge this table to the main df and return
         self.merge_to_env(env, df)
         return env
-
-    def _register_metadata(self, env: Pipeline.Envelope) -> None:
-
-        env.attrs["global"]["target_labels"] = self.target_labels
-        env.attrs["global"]["include_labels"] = [label for label in self.include_labels if label not in self.target_labels]
-        env.attrs["global"]["apply_log_scaling_y"] = self.apply_log_scaling_y
 
 
 class EdgeProcessor(Processor, HelperMixin):
@@ -399,7 +390,6 @@ class StandardSplitAllocator(Processor, HelperMixin):
 
 
 class StratifiedSplitAllocator(Processor, HelperMixin):
-
     """
     Implementation of deficit round-robin for online stratification.
 
@@ -429,7 +419,8 @@ class StratifiedSplitAllocator(Processor, HelperMixin):
     @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
         # grab target labels and weights from config
-        target_labels = self._config.user_config.data.target_labels
+        # THIS IS CURRENTLY BUSTED DONT USE IT
+        target_labels = self._config.user_config.training.target_labels
         weights_dict = self._config.user_config.data.splits.weights
 
         # get normalized weights for each split
@@ -491,41 +482,46 @@ class StratifiedSplitAllocator(Processor, HelperMixin):
 class StatisticsProcessor(Processor, HelperMixin):
 
     PRE_REQS = [FeatureProcessor, (StandardSplitAllocator, StratifiedSplitAllocator)]
+    GO_AFTER = [TruthProcessor]
 
     @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
-        # grab necessary values from envelope
-        f_cols = env.attrs["global"]["feature_names"]
+        # grab splitmap from envelope
         splitmap = np.array(env.attrs["allocation"]["splitmap"])
-        target_labels = env.attrs["global"]["target_labels"]
-        df = env.df
 
-        # get split labels from ints for readability
-        split_int_assignments = self._config.internal_config.split_int_assignments
-        int_to_split_str: Dict[int, str] = dict(map(reversed, split_int_assignments.items()))
+        # build column name mapping
+        columns: dict[ModelInputRole, list[str]] = {
+            ModelInputRole.FEATURES:    env.attrs["global"][ModelInputRole.FEATURES.value],
+            ModelInputRole.LABELS:      env.attrs["global"][ModelInputRole.LABELS.value]
+        }
 
-        # get feature and label stats for each split
-        f_stats: Dict[str, Dict] = {}
-        l_stats: Dict[str, Dict] = {}
+        # build stats
+        stats: dict[str, dict[str, StatisticBundleStruct]] = {}
+        for split in Split.all():
+            split_stats = stats[split.value] = {}
 
-        for split in range(3):
-            split_name = int_to_split_str[split]
-            sub_df = df[splitmap == split]
+            # filter the df rowwise by split
+            sub_df = env.df[splitmap == split.to_int()]
 
-            # build stats from all dense arrays in split
-            f_data = np.vstack([array for array in sub_df["features"].to_numpy()])
+            # skip for empty split
+            if sub_df.empty:
+                continue
 
-            f_stats[split_name] = Statistics.from_dense_array(f_data, f_cols).to_struct()
+            # build dense array for both feature and labels so we can compute statistics
+            # both features and labels are stored in different formats, so must process each separately
+            dense: dict[ModelInputRole, ArrayF] = {
+                ModelInputRole.FEATURES:    np.vstack(sub_df["features"].to_numpy()).astype(dtype=np.float64),
+                ModelInputRole.LABELS:      sub_df[columns[ModelInputRole.LABELS]].to_numpy(dtype=np.float64)
+            }
 
-            l_df = sub_df[target_labels]
-            l_data = l_df.to_numpy(dtype=np.float64, copy=True)
-            l_cols = l_df.columns.tolist()
+            for role in ModelInputRole.all():
+                # compute statistics for each role and each split using a stat service
+                service = StatisticService(StatisticKind.all(), columns[role])
+                service.compute_from_array(dense[role])
+                split_stats[role.value] = service.to_struct()
 
-            l_stats[split_name] = Statistics.from_dense_array(l_data, l_cols).to_struct()
-
-        env.attrs["stat"]["feature_stats"] = f_stats
-        env.attrs["stat"]["label_stats"] = l_stats
-
+        # register stats to env
+        env.attrs["stat"] = stats
         return env
 
 
@@ -542,7 +538,7 @@ class ClassNormalizer(Processor, HelperMixin):
 
     @Stage.profile()
     def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
-        target_labels = env.attrs["global"]["target_labels"]
+        target_labels = env.attrs["global"][ModelInputRole.LABELS.value]
 
         local_diff: Dict[str, List[str]] = {}
         str_casted_series: Dict[str, pd.Series[str]] = {}
@@ -568,7 +564,7 @@ class ClassNormalizer(Processor, HelperMixin):
             self._sync_classmap(local_diff)
 
         # apply mapping
-        filtered_classmap: Dict[str, Dict[str, int]] = {}
+        filtered_classmap: dict[str, dict[str, int]] = {}
         for label in target_labels:
             # build mapping order (IDs are indices into this list)
             cats = self._classmap[label]
@@ -582,11 +578,8 @@ class ClassNormalizer(Processor, HelperMixin):
                 raise ProcessorError(f"Unknown classes in '{label}': {missing}")
 
             max_code = int(codes.max(initial=0))
-            env.df[label] = (
-                codes.astype(np.uint8, copy=False)
-                if max_code <= 255 else
-                codes.astype(np.uint16, copy=False)
-            )
+            dtype = np.uint8 if max_code <= 255 else np.uint16
+            env.df[label] = codes.astype(dtype, copy=False)
 
             # minimal classmap for this batch
             filtered_classmap[label] = {cls: i for i, cls in enumerate(cats) if cls in unique_sets[label]}
@@ -660,3 +653,13 @@ class ClassNormalizer(Processor, HelperMixin):
                 os.close(dfd)
         except OSError:
             pass
+
+
+class CustomLabeler(Processor, HelperMixin):
+
+    @Stage.profile()
+    def _process(self, env: Pipeline.Envelope) -> Optional[Pipeline.Envelope]:
+        return env
+
+    def _register_metadata(self, env: Pipeline.Envelope) -> None:
+        pass

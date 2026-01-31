@@ -64,20 +64,25 @@ class DataNormalizationConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    target_labels: List[str]
-    include_labels: List[str]
+    labels: List[str]
     splits: DataSplitsConfig
-    normalization: DataNormalizationConfig
 
 
 # === training ===
-class TrainerParamsConfig(BaseModel):
+class TrainerConfig(BaseModel):
     max_epochs: int
-    num_nbrs: int
-    hidden_layers: int
-    hidden_channels: int
     val_interval_epochs: int
     save_interval: int
+
+class LoaderConfig(BaseModel):
+    batch_size: int
+    num_workers: int
+    prefetch_factor: int
+    mp_context: Literal["fork", "forkserver", "spawn"]
+
+class ModelConfig(BaseModel):
+    task: str
+    kwargs: Dict[str, Any]
 
 
 class OptimizerConfig(BaseModel):
@@ -100,17 +105,36 @@ class TensorBoardConfig(BaseModel):
     port: int
 
 
+class NormalizerConfig(BaseModel):
+    task: str
+    kwargs: DataNormalizationConfig
+
+
+class MetricConfig(BaseModel):
+    task: str
+    kwargs: Dict[str, Any]
+
+
 class TrainingConfig(BaseModel):
-    seed: int
-    batch_size: int
-    num_workers: int
-    prefetch_factor: Optional[int]
-    trainer_params: TrainerParamsConfig
-    strategy: StrategyConfig
-    normalizer: str
-    optimizer: OptimizerConfig
-    scheduler: SchedulerConfig
-    tensorboard: TensorBoardConfig
+    # global seed for reproducibility
+    seed:               int
+
+    # labels
+    target_labels:      List[str]
+    auxiliary_labels:   List[str]
+
+    # support multiple options
+    metrics:            List[MetricConfig]
+
+    # support only one option
+    trainer:            TrainerConfig
+    loader:             LoaderConfig
+    model:              ModelConfig
+    strategy:           StrategyConfig
+    normalizer:         NormalizerConfig
+    optimizer:          OptimizerConfig
+    scheduler:          SchedulerConfig
+    tensorboard:        TensorBoardConfig
 
 
 # === feature_extraction ===
