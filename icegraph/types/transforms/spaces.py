@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
+from typing import TypeAlias, Literal
+
 from enum import Enum
 
-__all__ = ["TransformSpace"]
+__all__ = ["TransformSpace", "TransformSpaceType"]
 
+
+TransformSpaceType: TypeAlias = Literal["linear", "log", "asinh"]
 
 class TransformSpace(Enum):
     LINEAR = "linear"

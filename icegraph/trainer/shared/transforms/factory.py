@@ -5,14 +5,14 @@ from __future__ import annotations
 
 from icegraph.types.transforms import TransformSpace
 
-from icegraph.types.factory import ModuleFactory
+from icegraph.types.factory import Factory
 from .standard import Asinh, Log
 from .transform import Transform
 
 __all__ = ["TransformFactory"]
 
 
-class TransformFactory(ModuleFactory[TransformSpace, Transform]):
+class TransformFactory(Factory[TransformSpace, Transform]):
     pass
 
 TransformFactory.register(Asinh)

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from ..types import ServiceContext
 
@@ -23,7 +23,7 @@ class Strategy(ABC):
     A Strategy defines how a model computes loss, adapts targets,
     and determines input/output channels.
     """
-    name: str
+    name: ClassVar[str]
 
     def __init__(self, ctx: ServiceContext) -> None:
         self._in: int | None = None

@@ -3,10 +3,9 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Self, final, Iterator, Any
+from typing import final, Iterator, Any, ClassVar
 
 from icegraph.types.common import ArrayG
-from icegraph.types.data import AttributeDomain
 
 from ..types import Attributes
 
@@ -14,8 +13,8 @@ __all__ = ["Reader"]
 
 
 class Reader(ABC):
-    name: str
-    file_ext: str
+    name: ClassVar[str]
+    file_ext: ClassVar[str]
 
     def __init__(self, path: str | Path) -> None:
         # cache the path

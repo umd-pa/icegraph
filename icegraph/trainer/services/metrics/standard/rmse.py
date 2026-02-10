@@ -1,6 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from typing import ClassVar
+
 import torch
 from torch import Tensor
 
@@ -11,7 +13,7 @@ __all__ = ["RMSE"]
 
 class RMSE(MSE):
 
-    name = "rmse"
+    name: ClassVar[str] = "rmse"
     compatible = ["regression"]
 
     def _compute(self) -> float:
@@ -19,7 +21,7 @@ class RMSE(MSE):
             return float("nan")
 
         # calculate rmse
-        rmse: Tensor = torch.sqrt(self.cache["sse"] / self.cache["n"])
+        rmse = torch.sqrt(self.cache["sse"] / self.cache["n"])
 
         # only now sync back to host
         return rmse.item()

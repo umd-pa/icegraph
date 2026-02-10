@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from icegraph.types.statistics import StatisticKind, StatisticBundleStruct, StatisticStruct
+from icegraph.types.statistics import StatisticBundleStruct, StatisticStruct
 from icegraph.types.common import ArrayF
 
 from .factory import StatisticFactory
@@ -22,14 +22,14 @@ __all__ = ["StatisticBundle"]
 @dataclass
 class StatisticBundle:
     """Container for a coherent set of statistics computed on the same data."""
-    stats: dict[StatisticKind, Statistic]
-    columns: list[str]
+    stats:      dict[str, Statistic]
+    columns:    list[str]
 
     def __post_init__(self) -> None:
         if len(set(self.columns)) != len(self.columns):
             raise ValueError("Internal column list contains duplicates.")
 
-    def get(self, kind: StatisticKind) -> Statistic:
+    def get(self, kind: str) -> Statistic:
         """Return the statistic associated with the given kind."""
         return self.stats[kind]
 
@@ -56,7 +56,7 @@ class StatisticBundle:
             )
 
         # perform the merge
-        merged_stats: dict[StatisticKind, Statistic] = {}
+        merged_stats: dict[str, Statistic] = {}
         for kind, stat in a.stats.items():
             merged_stats[kind] = type(stat).merge(a, b)
 
@@ -130,7 +130,7 @@ class StatisticBundle:
         """Serialize the bundle instance into a JSON-friendly dict structure."""
         return {
             "columns": self.columns,
-            "stats": {kind.value: stat.to_struct() for kind, stat in self.stats.items()}
+            "stats": {kind: stat.to_struct() for kind, stat in self.stats.items()}
         }
 
     @classmethod
@@ -149,9 +149,8 @@ class StatisticBundle:
             raise TypeError("Param 'struct[\"stats\"]' must be a dict.")
 
         # build stats from structs
-        stats: dict[StatisticKind, Statistic] = {}
-        for kind_value, stat_struct in stat_structs.items():
-            kind = StatisticKind(kind_value)
+        stats: dict[str, Statistic] = {}
+        for kind, stat_struct in stat_structs.items():
             stats[kind] = StatisticFactory.from_struct(kind, stat_struct)
 
         return cls(stats, columns)

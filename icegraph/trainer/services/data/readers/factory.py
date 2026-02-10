@@ -3,7 +3,7 @@
 from typing import Any
 
 # local package
-from icegraph.types.factory import ModuleFactory
+from icegraph.types.factory import Factory
 
 # local subpackage
 from .reader import Reader
@@ -13,7 +13,7 @@ from .standard import LMDB
 __all__ = ["ReaderFactory"]
 
 
-class ReaderFactory(ModuleFactory[str, Reader]):
+class ReaderFactory(Factory[str, Reader]):
     @classmethod
     def create_store(cls, name: str, **kwargs: Any) -> ShardStore:
         spec = cls._typed_registry()[name]

@@ -1,16 +1,23 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Generic, TypeVar
+from __future__ import annotations
+
+from typing import TypeVar, Generic, ClassVar
+from abc import ABC
 
 from torch.nn import Module
 
-from ..module import TrainerModule
+from icegraph.types.plugins import Plugin
+
+from .types import ComponentContext
 
 __all__ = ["Component"]
 
 
-T = TypeVar("T")
+C = TypeVar("C")
+X = TypeVar("X", bound=ComponentContext)
 
-class Component(TrainerModule[T], Module, Generic[T]):
-    pass
+
+class Component(Plugin[C, X], Module, ABC, Generic[C, X]):
+    compatible: ClassVar[tuple[str, ...]] = tuple()

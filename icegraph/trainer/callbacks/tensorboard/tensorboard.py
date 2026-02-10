@@ -14,7 +14,7 @@ from .service import TensorBoardService
 
 if TYPE_CHECKING:
     from .. import context
-    from icegraph.trainer.components.metrics import ComputedMetric
+    from icegraph.trainer.services.metrics import ComputedMetric
 
 __all__ = ["TensorBoardCallback"]
 
@@ -32,7 +32,7 @@ class TensorBoardCallback(Callback):
 
     def on_init(self, ctx: context.InitContext) -> None:
         if self._tb is None:
-            self._tb = TensorBoardService(ctx.trainer.log_dir)
+            self._tb = TensorBoardService(ctx.trainer.logdir)
         self._tb.launch()
 
     def _log(self, metrics: list[ComputedMetric], split: Split, epoch: int) -> None:

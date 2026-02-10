@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Self
+from typing import Self, ClassVar
 
 import torch
 from torch import Tensor
@@ -13,7 +13,7 @@ __all__ = ["MAE"]
 
 class MAE(Metric):
 
-    name = "mae"
+    name: ClassVar[str] = "mae"
     compatible = ["regression"]
 
     def __init__(self, *args, **kwargs) -> None:

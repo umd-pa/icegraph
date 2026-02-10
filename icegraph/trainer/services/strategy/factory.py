@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 # local package
-from icegraph.types.factory import ModuleFactory
+from icegraph.types.factory import Factory
 
 # local subpackage
 from .strategy import Strategy
@@ -11,7 +11,7 @@ from .standard import Regression, Multiclass
 __all__ = ["StrategyFactory"]
 
 
-class StrategyFactory(ModuleFactory[str, Strategy]):
+class StrategyFactory(Factory[Strategy]):
     pass
 
 

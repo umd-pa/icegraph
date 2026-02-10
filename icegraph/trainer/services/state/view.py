@@ -6,16 +6,17 @@ from typing import TYPE_CHECKING, Protocol
 from ..types import ServiceView
 
 if TYPE_CHECKING:
-    from torch.distributed import Work
+    import torch
 
 __all__ = ["StateView"]
 
 
 class StateView(ServiceView, Protocol):
-    rank:       int | None
-    world:      int | None
-    local_rank: int | None
+    rank:       int
+    world:      int
+    local_rank: int
+    device:     torch.device
 
     def is_main_process(self) -> bool: ...
-    def barrier(self) -> Work | None: ...
+    def barrier(self) -> None: ...
     def is_ddp(self) -> bool: ...

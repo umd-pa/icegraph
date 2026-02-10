@@ -3,49 +3,47 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-from icegraph.trainer.types import Params
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..service import Service
-from ..types import ServiceContext
 
 from .strategy import Strategy
 from .factory import StrategyFactory
 from .view import StrategyView
+from .config import StrategyConfig
+from .types import CompatibleModule
 
 if TYPE_CHECKING:
     from torch import Tensor
 
-    from ..data import DataView
-
 __all__ = ["StrategyService"]
 
 
-class StrategyService(Service):
-    name = "strategy"
-    deps = []  # data is not a dependency, strategy only relies on data at runtime post service construction
-    view = StrategyView
+class StrategyService(Service[StrategyView, StrategyConfig]):
+    name: ClassVar[str] = "strategy"
 
-    def __init__(self, params: Params) -> None:
-        super().__init__(params)
+    interface = StrategyView
 
+    # make the type checker happy
+    _strategy:      Strategy | None
+    _in_channels:   int | None
+    _out_channels:  int | None
+
+    def build(self) -> None:
         # module initialized on attach
-        self._strategy: Strategy | None = None
+        self._strategy = None
 
         # cache for in and out channels
-        self._in_channels: int | None = None
-        self._out_channels: int | None = None
+        self._in_channels = None
+        self._out_channels = None
 
-    def on_attach(self, ctx: ServiceContext) -> None:
+    @classmethod
+    def validate_config(cls, config: dict[str, Any]) -> StrategyConfig:
+        return StrategyConfig(**config)
+
+    def on_attach(self) -> None:
         # initialize strategy module for given mode (strategies are named by the mode they manage)
-        name: str = self.params.require("name")
-        self._strategy: Strategy = StrategyFactory.create(name, ctx=ctx)
-
-    def state_dict(self) -> dict[str, Any]:
-        self._strategy = None
-        self._ctx = None
-        return self.__dict__.copy()
+        self._strategy = StrategyFactory.create(self.config.name, ctx=self._ctx)
 
     @property
     def mode(self) -> str:
@@ -63,3 +61,17 @@ class StrategyService(Service):
 
     def adapt_targets(self, targets: Tensor) -> Tensor:
         return self._strategy.adapt_targets(targets)
+
+    def ensure_compatible(self, module: CompatibleModule) -> None:
+        if not module.compatible:
+            # an empty compatibility tuple indicates compatibility with any strategy
+            return
+
+        if self.mode not in module.compatible:
+            raise RuntimeError(f"Module '{type(module).__name__}' is not compatible with strategy mode '{self.mode}'.")
+
+    def state_dict(self) -> dict[str, Any]:
+        return {"config": self.config.model_dump(mode="json")}
+
+    def load_state_dict(self, state: dict[str, Any]) -> None:
+        self.config = type(self).validate_config(state["config"])

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import lmdb
-from typing import Any
+from typing import Any, ClassVar
 from pathlib import Path
 import msgpack
 import struct
@@ -22,8 +22,8 @@ __all__ = ["LMDB"]
 
 
 class LMDB(Reader):
-    name: str = "lmdb"
-    file_ext: str = "lmdb"
+    name: ClassVar[str] = "lmdb"
+    file_ext: ClassVar[str] = "lmdb"
 
     def __init__(self, path: str | Path) -> None:
         super().__init__(path)

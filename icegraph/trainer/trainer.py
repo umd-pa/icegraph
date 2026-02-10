@@ -3,51 +3,37 @@
 
 from __future__ import annotations
 
-from typing import Self, Type, TYPE_CHECKING
+from typing import Self, Type, Any, TypeVar
 from pathlib import Path
 from contextlib import nullcontext
 import time
 
 # torch imports
 import torch
-from torch import Tensor
-import torch.optim as optim
-from torch.optim import Optimizer
-import torch.optim.lr_scheduler as lr_scheduler
-from torch.optim.lr_scheduler import LRScheduler
 from torch_geometric.seed import seed_everything
-from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
 from torch.nn.parallel import DistributedDataParallel  # DDP
 
-# local imports
-from icegraph.config import IGConfig
-from .callbacks import context
-from icegraph.trainer.model import ModelFactory
-from icegraph.trainer.callbacks import ConsoleCallback, ExportCallback, TensorBoardCallback
-from icegraph.trainer.callbacks import CallbackRegistry
-from icegraph.trainer.metric import MetricFactory
-
-from .types import Params
-
-# components
-from .components.normalizers import Normalizer, NormalizerFactory, NormalizerContext
-from .components.normalizers.types import StatSurface
-
-from icegraph.trainer.services.strategy import Strategy, StrategyFactory, StrategyContext
-from icegraph.trainer.services.strategy.types import AttributeSurface
-
-# systems
-from .services.data import DataService, DatasetContext
-
 # types
 from icegraph.types.data import Split, ModelInputRole
+from icegraph.types.factory import Factory
 from icegraph.types.files import SourceType, Source
 
-if TYPE_CHECKING:
-    from icegraph.trainer.callbacks.base import Callback
-    from icegraph.trainer.metric import MetricRegistry
-    from icegraph.trainer.dist import DDPProcessState
+from .config import ConfigStore
+
+# services
+from .services import ServiceManager
+
+# callbacks
+from .callbacks import CallbackManager, context
+
+# components
+from .components import ComponentContext, Component
+
+from .components.normalizer import Normalizer, NormalizerFactory, NormalizerContext
+from .components.model import Model, ModelFactory, ModelContext
+from .components.loss import LossFunction, LossFactory, LossContext
+from .components.optimizer import Optimizer, OptimizerFactory, OptimizerContext
 
 __all__ = ["Trainer"]
 
@@ -57,44 +43,42 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+T = TypeVar("T", bound=Component)
+
 class Trainer:
     """
     Trainer class responsible for managing the training, validation, and testing
     lifecycle of a PyTorch model.
 
     This class is the central coordinator for all training processes, including
-    model execution, optimization, metrics, and any other callbacks.
+    model execution, optimization, metrics, etc.
     """
 
     def __init__(
         self,
         source: Source | SourceType,
-        outdir: str | Path, *,
-        process_state: DDPProcessState | None = None,
-        default_callbacks: bool = True
+        outdir: str | Path
     ) -> None:
         """
         Initialize the Trainer.
 
-        Sets up global configuration, reproducibility, datasets, model, optimizer,
-        loss function, and metrics tracking.
-
         Args:
             source (SourceType | Source): Source files to train from.
             outdir (str | Path): Path to save the trained model and any other generated files.
-            process_state (DDPProcessState | None): Utility object for distributed jobs.
-            default_callbacks (bool): Whether to register default callbacks. Defaults to True.
         """
         # call to super
         super().__init__()
 
         logger.debug("initializing %s", self.__class__.__name__)
 
-        # stash output path
-        self.outdir = Path(outdir)
+        self.source = source
 
-        # build a trainer config dotmap
-        self.config = IGConfig.get().user_config.training
+        # stash outdir and derive logdir
+        self.outdir = Path(outdir)
+        self.logdir = self.outdir / "logs"
+
+        # load trainer config
+        self.config = ConfigStore.get()
 
         # global access to current epoch
         self.current_epoch: int = 0
@@ -102,164 +86,80 @@ class Trainer:
         # slots for active mode and split
         self.split: Split = Split.TRAIN  # first split is always train
 
-        # initialize the DDP process state handler
-        # this needs to happen before any other initialization as downstream relies on process state
-        self.process_state = self._init_ddp(process_state)
+        # initialize the service manager
+        self.services = ServiceManager.from_config(self, self.config.services.toDict())
 
-        # initialize the dataset manager
-        self.data = self._init_data(source)
-
-        # initialize the callback registry before initializing any callbacks
-        self.callbacks = self._init_callback_registry()
-
-        # init device
-        self.device = self._init_device()
-
-        # initialize the strategy and grab the loss func
-        # this needs to happen before model init as it depends on strategy
-        self.strategy: Strategy = self._init_strategy()
-        self.loss_fn: torch.nn.Module = self.strategy.loss_function()
-
-        # initialize the metric registry, MUST OCCUR AFTER STRATEGY INIT
-        self.metrics: MetricRegistry = self._init_metrics()
-
-        # set up the model
-        self.model: torch.nn.Module = self._init_model()
-
-        # place logs alongside run files
-        self.log_dir: Path = self.outdir / "logs"
-
-        logger.info("%s output directory: %s", self.__class__.__name__, str(self.outdir))
+        self.state      = self.services.require("state",    required_by=Trainer)
+        self.metrics    = self.services.require("metrics",  required_by=Trainer)
+        self.strategy   = self.services.require("strategy", required_by=Trainer)
+        self.data       = self.services.require("data",     required_by=Trainer)
 
         # set global seed for reproducibility
-        self._init_seed()
+        self._set_seed(self.config.seed + self.state.rank)
 
-        # register callbacks if required
-        if default_callbacks:
-            self._init_default_callbacks()
+        # initialize components
+        self.loss:          LossFunction    = self._init_loss()
+        self.model:         Model           = self._init_model()
+        self.normalizer:    Normalizer      = self._init_normalizer()
+        self.optimizer:     Optimizer       = self._init_optimizer()
 
-        # initialize the normalizer
-        self.normalizer: Normalizer = self._init_normalizer()
-
-        # initialize the optimizer
-        self.optimizer: Optimizer = self._init_optimizer()
+        # initialize the callback manager
+        self.callbacks = CallbackManager(self)
 
     ### INIT METHODS
 
-    @staticmethod
-    def _init_ddp(process_state: DDPProcessState | None) -> DDPProcessState | None:
-        """Initialize the DDP process state handler if there is one."""
-        if process_state is not None:
-            process_state.attach()
+    def _construct_component(self, factory: type[Factory[T]], config: dict[str, Any], ctx: ComponentContext) -> T:
+        component = factory.create(config["name"], config=config["kwargs"])
 
-        return process_state
+        # attach the component using context
+        component.attach(ctx)
 
-    def _init_data(self, source: Source | SourceType) -> DataService:
-        """Initialize the dataset manager."""
-        # grab dataset config
-        config = self.config.data
+        # move to device
+        component.to(self.state.device)
 
-        # build the instance with config params
-        manager = DataService(params=Params(config.toDict(), DataService.__name__))
+        return component
 
-        # build context and attach
-        ctx = DatasetContext(source=source, process_state=self.process_state)
-        manager.attach(ctx)
+    def _init_loss(self) -> LossFunction[Any]:
+        """Initialize the normalizer."""
+        # grab loss config
+        config = self.config.components.loss.model_dump()
+        ctx = LossContext(services=self.services)
+        loss = self._construct_component(LossFactory, config, ctx)
 
-        return manager
+        # ensure selected loss is compatible with declared strategy
+        self.strategy.ensure_compatible(loss)
 
-    def _init_normalizer(self) -> Normalizer:
+        return loss
+
+    def _init_normalizer(self) -> Normalizer[Any]:
         """Initialize the normalizer."""
         # grab normalizer config
-        config = self.config.normalizer
+        config = self.config.components.normalizer.model_dump()
+        ctx = NormalizerContext(services=self.services)
+        normalizer = self._construct_component(NormalizerFactory, config, ctx)
 
-        # build the instance with config params
-        params = Params(config.kwargs.toDict(), Normalizer.__name__)
-        normalizer = NormalizerFactory.create(config.name, params=params)
-
-        # build context
-        ctx = NormalizerContext(data=self.data.view(StatSurface))
-
-        # attach the normalizer
-        normalizer.attach(ctx)
-
-        # normalizer is a torch module, so need to move to device
-        normalizer.to(self.device)
+        # ensure selected normalizer is compatible with declared strategy
+        self.strategy.ensure_compatible(normalizer)
 
         return normalizer
 
-    def _init_strategy(self) -> Strategy:
-        """Initialize the strategy."""
-        # grab strategy config
-        config = self.config.strategy
-
-        # build the instance with config params
-        params = Params(config.kwargs.toDict(), Strategy.__name__)
-        strategy = StrategyFactory.create(config.task, params=params)
-
-        # build context
-        ctx = StrategyContext(data=self.data.view(AttributeSurface))
-
-        # attach the strategy
-        strategy.attach(ctx)
-
-        return strategy
-
-    def _init_callback_registry(self) -> CallbackRegistry:
-        return CallbackRegistry(self)
-
-    def _init_device(self) -> torch.device:
-        """Select and initialize the device."""
-        # get the device selection
-        if self.process_state:
-            logger.debug(
-                "initializing on rank %d/%d",
-                self.process_state.procinfo["local_rank"], self.process_state.procinfo["world"]
-            )
-            device = torch.device(f"cuda:{self.process_state.procinfo['local_rank']}")
-        else:
-            if torch.cuda.is_available():
-                logger.debug("initializing on GPU")
-                device = torch.device("cuda")
-            else:
-                logger.debug("no accelerators found, fallback to CPU")
-                device = torch.device("cpu")
-
-        return device
-
-    def _init_model(self) -> torch.nn.Module:
+    def _init_model(self) -> Model[Any]:
         """Initialize the model for training."""
-        model_config = self.config.model
+        config = self.config.components.model.model_dump()
+        ctx = ModelContext(services=self.services)
+        model = self._construct_component(ModelFactory, config, ctx)
 
-        # determine dimensions of input and output
-        in_channels = self.strategy.in_channels
-        out_channels = self.strategy.out_channels
-
-        # pull hidden layers and channels from config (not controlled by strategy)
-        kwargs = model_config.kwargs
-
-        hidden_channels     = kwargs.hidden_channels
-        hidden_layers       = kwargs.hidden_layers
-        num_neighbors       = kwargs.num_neighbors
-
-        logger.debug(
-            "initializing %s model with in_channels=%d, out_channels=%d, kwargs=%s",
-            model_config.task, in_channels, out_channels, str(kwargs.toDict())
-        )
-
-        # get the model and move to accelerator
-        active_model = ModelFactory.create(
-            model_config.task, in_channels, hidden_channels, out_channels, hidden_layers, num_neighbors
-        )
-        active_model.init_model()
-        model = active_model.to(self.device)
+        # ensure selected model is compatible with declared strategy
+        self.strategy.ensure_compatible(model)
 
         # if ddp is enabled, the model needs to be wrapped by torch DDP
-        if self.process_state:
+        # get state service
+        state = self.services.require("state", required_by=Trainer)
+        if state.is_ddp():
             model = DistributedDataParallel(
                 model,
-                device_ids=[self.device.index] if self.device.type == "cuda" else None,
-                output_device=(self.device.index if self.device.type == "cuda" else None),
+                device_ids=[state.device.index] if state.device.type == "cuda" else None,
+                output_device=(state.device.index if state.device.type == "cuda" else None),
                 broadcast_buffers=False,
                 gradient_as_bucket_view=True,
                 find_unused_parameters=False
@@ -267,45 +167,15 @@ class Trainer:
 
         return model
 
-    def _init_seed(self) -> None:
-        """Set a deterministic seed."""
-        base_seed = self.config.seed
-        rank_off = (self.process_state.procinfo["rank"] if self.process_state else 0)
-        self._set_seed(base_seed + rank_off)
+    def _init_optimizer(self) -> Optimizer[Any]:
+        """Initialize the normalizer."""
+        # grab normalizer config
+        config = self.config.components.optimizer.model_dump()
+        ctx = OptimizerContext(services=self.services, model_params=self.model.parameters())
+        optimizer = self._construct_component(OptimizerFactory, config, ctx)
 
-    def _init_metrics(self) -> MetricRegistry:
-        """Initialize the trainer metric registry."""
-        metric_config = self.config.metrics
-
-        # build metrics registry
-        metrics = MetricFactory.create(metric_config, self.strategy)
-
-        return metrics
-
-    def _init_default_callbacks(self) -> None:
-        """Set up minimal default callbacks."""
-        cb_spec = self.callbacks.CallbackSpec
-
-        default_callback_specs = [
-            cb_spec(callback=ExportCallback),
-            cb_spec(callback=TensorBoardCallback),
-            cb_spec(callback=ConsoleCallback)
-        ]
-
-        for callback in default_callback_specs:
-            self.callbacks.register_spec(callback)
-
-    def _init_optimizer(self) -> Optimizer:
-        """Initialize the optimizer."""
-        optim_config = self.config.optimizer
-        if not hasattr(optim, optim_config.task):
-            raise ValueError(f"Optimizer {optim_config.task} not found in torch.optim")
-
-        optimizer_spec: Type[Optimizer] = getattr(optim, optim_config.task)
-        optimizer = optimizer_spec(
-            self.model.parameters(),
-            **optim_config.kwargs.toDict()
-        )
+        # ensure selected optimizer is compatible with declared strategy
+        self.strategy.ensure_compatible(optimizer)
 
         return optimizer
 
@@ -315,7 +185,7 @@ class Trainer:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        self.exit(exc_type is KeyboardInterrupt)
+        self.close()
         return False
 
     def _fire(self, hook_name: str, ctx: context.Context) -> None:
@@ -360,15 +230,18 @@ class Trainer:
         logger.info("starting split: %s, epoch=%d", self.split.value, self.current_epoch)
         start_time = time.perf_counter()
 
+        # get metrics service
+        metrics = self.services.require("metrics", required_by=Trainer)
+
         # reset metrics for new epoch
-        self.metrics.reset()
+        metrics.reset()
 
         # loss accumulator
-        loss_accumulator = torch.tensor(0, dtype=torch.float64, device=self.device)
+        loss_accumulator = torch.tensor(0, dtype=torch.float64, device=self.state.device)
         batch_count = len(dataloader)
 
         # we want inference mode on eval epochs
-        ctx = torch.no_grad if self.split != Split.TRAIN else nullcontext
+        ctx = torch.no_grad if self.split in Split.eval() else nullcontext
 
         with ctx():
             # iterate over each batch
@@ -377,11 +250,11 @@ class Trainer:
                 self._fire("on_batch_begin", ctx)
 
                 # move the batch to the accelerator
-                batch = batch.to(self.device, non_blocking=True)
+                batch = batch.to(self.state.device, non_blocking=True)
 
                 # dispatch to normalizer after move but before callback hook fire
                 batch.x = self.normalizer(batch.x, ModelInputRole.FEATURES)
-                if self.strategy.name == "regression":
+                if self.strategy.mode == "regression":
                     batch.y = self.normalizer(batch.y, ModelInputRole.LABELS)
 
                 ctx = context.BatchTransferContext(self, batch=batch)
@@ -389,10 +262,10 @@ class Trainer:
 
                 # forward pass through model
                 out = self.model(batch.x, batch.batch)  # type: ignore[arg-type]
-                target = self.strategy.adapt_targets(batch, out)
+                target = self.strategy.adapt_targets(batch.y)
 
                 # compute batch loss and accumulate without sync
-                loss = self.loss_fn(out, target)
+                loss = self.loss(out, target)
                 loss_accumulator += loss.detach()
 
                 # pass results to metrics for update
@@ -423,7 +296,7 @@ class Trainer:
 
             # update metric summaries on eval steps
             if self.split in Split.eval():
-                self.metrics.update_summaries()
+                metrics.update_summaries()
 
         # accumulated epoch loss
         epoch_loss = loss_accumulator.item() / batch_count if batch_count > 0 else float("nan")
@@ -444,7 +317,7 @@ class Trainer:
         # set the trainer mode
         self._set_split(Split.TRAIN)
 
-        # grab dataloader from registry and run epoch
+        # grab dataloader from data service
         dataloader = self.data.dataloader(Split.TRAIN)
         loss = self._run_split(dataloader)
 
@@ -509,7 +382,7 @@ class Trainer:
 
             # validate only on main rank
             if (
-                (not self.process_state or self.process_state.is_main_process())
+                self.state.is_main_process()
                 and self.config.trainer.val_interval > 0
                 and (self.current_epoch + 1) % self.config.trainer.val_interval == 0
             ):
@@ -517,7 +390,7 @@ class Trainer:
 
             # test only once at end, on main rank
             if (
-                (not self.process_state or self.process_state.is_main_process())
+                self.state.is_main_process()
                 and (self.current_epoch + 1) == self.config.trainer.max_epochs
             ):
                 self._test()
@@ -525,13 +398,11 @@ class Trainer:
             ctx = context.EpochEndContext(self)
             self._fire("on_epoch_end", ctx)
 
-            if self.process_state:
-                self.process_state.barrier()  # keep ranks in lockstep (no-op if not DDP)
+            self.state.barrier()  # keep ranks in lockstep (no-op if not DDP)
 
-    def exit(self, interrupt: bool) -> None:
+    def close(self) -> None:
         try:
             ctx = context.TeardownContext(self)
             self._fire("on_teardown", ctx)
         finally:
-            if self.process_state:
-                self.process_state.cleanup(interrupt)
+            self.state.close()

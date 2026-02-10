@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, final, Dict, Any
+from typing import Optional, final, Dict, Any, ClassVar
 from abc import ABC, abstractmethod
 from collections import deque
 
@@ -22,12 +22,12 @@ class Metric(ABC):
     compute final aggregated values when requested.
     """
     # name for the metric (also display name on logs/console/etc)
-    name: str
+    name: ClassVar[str]
 
     # list of compatible tasks
     compatible: list[str]
 
-    SPAN: int = 5
+    SPAN: ClassVar[int] = 5
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
@@ -51,6 +51,7 @@ class Metric(ABC):
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
+
         if not isinstance(cls.SPAN, int) or cls.SPAN < 1:
             raise TypeError(f"{cls.__name__}.SPAN must be a positive non-zero integer.")
 

@@ -1,14 +1,21 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Mapping, Iterator, Self, Any
+from typing import Mapping, Iterator, Self, Any, overload, Literal
 from dataclasses import dataclass, field
+from graphlib import TopologicalSorter, CycleError
 
 from ..trainer import Trainer
-from ..types import Params
 
 from .service import Service
+from .types import ServiceView, ServiceContext
 from .factory import ServiceFactory
+
+# import each built in service view for overloads
+from .state import StateView
+from .strategy import StrategyView
+from .metrics import MetricView
+from .data import DataView
 
 __all__ = ["ServiceManager"]
 
@@ -26,22 +33,64 @@ class ServiceManager(Mapping[str, Service]):
     def __len__(self) -> int:
         return len(self._services)
 
-    def require(self, service: str, *, required_by: type = type(None)) -> ViewSurface:
+    @overload
+    def require(self, service: Literal["state"], *, required_by: type[Any] | None = None) -> StateView:
+        ...
+
+    @overload
+    def require(self, service: Literal["data"], *, required_by: type[Any] | None = None) -> DataView:
+        ...
+
+    @overload
+    def require(self, service: Literal["strategy"], *, required_by: type[Any] | None = None) -> StrategyView:
+        ...
+
+    @overload
+    def require(self, service: Literal["metrics"], *, required_by: type[Any] | None = None) -> MetricView:
+        ...
+
+    @overload
+    def require(self, service: str, *, required_by: type[Any] | None = None) -> ServiceView:
+        ...
+
+    def require(self, service: str, *, required_by: type[Any] | None = None) -> ServiceView:
         value = self._services.get(service)
 
         if value is None:
+            who = required_by.__name__ if required_by is not None else "<unknown>"
             raise RuntimeError(
-                f"The service '{service}' was requested by '{required_by.__name__}', but has not yet been initialized."
+                f"The service '{service}' was requested by '{who}', but has "
+                f"not been initialized or does not exist."
             )
 
-        return value
+        return value.view()
 
     @classmethod
-    def from_config(cls, trainer: Trainer, config: dict[str, Any]) -> Self:
+    def from_config(cls, trainer: Trainer, config: dict[str, dict[str, Any]]) -> Self:
         # iteratively construct the service manager
-        instance = cls.__new__(cls)
+        instance = cls()
 
-        for name, p in config.items():
-            params = Params(p, name)
+        # construct all services specified in config
+        for name, kwargs in config.items():
+            # create and register the service
+            instance._services[name] = ServiceFactory.create(name, config=kwargs)
 
+        # validate deps
+        for n, s in instance._services.items():
+            for d in s.deps:
+                if d not in instance._services:
+                    raise ValueError(f"Service '{n}' depends on missing service '{d}'")
 
+        # topological sort
+        graph = {n: set(s.deps) for n, s in instance._services.items()}
+        try:
+            order = TopologicalSorter(graph).static_order()
+        except CycleError as e:
+            raise ValueError(f"Service dependency cycle detected: {e}") from None
+
+        # build service context (includes refs to all services)
+        context = ServiceContext(instance, trainer)
+        for name in order:
+            instance._services[name].attach(context)
+
+        return instance

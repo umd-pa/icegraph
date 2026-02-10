@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from icegraph.types.factory import ModuleFactory
-from icegraph.types.statistics import StatisticKind, StatisticStruct
+from icegraph.types.factory import Factory
+from icegraph.types.statistics import StatisticStruct
 
 from .statistic import Statistic
 from .standard import *
@@ -12,10 +12,10 @@ from .standard import *
 __all__ = ["StatisticFactory"]
 
 
-class StatisticFactory(ModuleFactory[StatisticKind, Statistic]):
+class StatisticFactory(Factory[Statistic]):
 
     @classmethod
-    def from_struct(cls, name: StatisticKind, struct: StatisticStruct) -> Statistic:
+    def from_struct(cls, name: str, struct: StatisticStruct) -> Statistic:
         """Instantiate a registered statistic from a struct."""
         spec = cls._typed_registry()[name]
         return spec.from_struct(struct)

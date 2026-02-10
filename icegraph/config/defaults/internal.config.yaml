@@ -38,8 +38,3 @@ column_names:
     - dom_x
     - dom_y
     - dom_z
-
-split_int_assignments:
-  train: 0
-  validation: 1
-  test: 2

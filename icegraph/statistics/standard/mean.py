@@ -1,10 +1,13 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
+from typing import ClassVar
+
 import numpy as np
 
 from icegraph.types.transforms import TransformSpace
-from icegraph.types.statistics import StatisticKind
 from icegraph.types.common import ArrayF
 
 from ..statistic import Statistic
@@ -13,7 +16,7 @@ from ..bundle import StatisticBundle
 __all__ = ["Mean"]
 
 class Mean(Statistic):
-    name = StatisticKind.MEAN
+    name: ClassVar[str] = "mean"
     degree = 1
 
     def _compute(self, array: ArrayF) -> ArrayF:
@@ -25,13 +28,13 @@ class Mean(Statistic):
         linear = TransformSpace.LINEAR
 
         # space is guaranteed to be one of log, asinh or linear, so we can skip checks
-        count_a = a.get(StatisticKind.FINITE_COUNT).value(linear)
-        count_b = b.get(StatisticKind.FINITE_COUNT).value(linear)
+        count_a = a.get("finite_count").value(linear)
+        count_b = b.get("finite_count").value(linear)
 
         if space == TransformSpace.LOG:
             # log is computed over positive finite values only
-            count_a = a.get(StatisticKind.POSITIVE_COUNT).value(linear)
-            count_b = b.get(StatisticKind.POSITIVE_COUNT).value(linear)
+            count_a = a.get("positive_count").value(linear)
+            count_b = b.get("positive_count").value(linear)
 
         # get mean from each bundle
         mean_a = a.get(cls.name).value(space)

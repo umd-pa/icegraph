@@ -12,7 +12,6 @@ from torch import Tensor
 from icegraph.statistics import StatisticService
 from icegraph.renderer import ParityPlot
 from icegraph.common.histogram import Histogram
-from icegraph.types.statistics import StatisticKind
 
 # local subpackage
 from ..base import BinnedHistogramReducer
@@ -35,8 +34,8 @@ class ParityPlotter(BinnedHistogramReducer):
         stats.filter_to(self._target_labels).align_to(self._target_labels)
 
         # mins/maxs
-        mins = torch.as_tensor(stats.get(StatisticKind.MIN), dtype=torch.float32)
-        maxs = torch.as_tensor(stats.get(StatisticKind.MAX), dtype=torch.float32)
+        mins = torch.as_tensor(stats.get("min"), dtype=torch.float32)
+        maxs = torch.as_tensor(stats.get("max"), dtype=torch.float32)
 
         bounds = torch.stack((mins, maxs), dim=1)
 

@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .service import StateService
+from .view import StateView
 
-__all__ = ["StateService"]
+__all__ = ["StateService", "StateView"]

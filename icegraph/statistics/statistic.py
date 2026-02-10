@@ -4,15 +4,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Any, Self, ClassVar, Mapping
+from typing import Callable, Self, ClassVar, Mapping
 import inspect
-
-import numpy as np
 
 # local package
 from icegraph.types.transforms import TransformSpace
 from icegraph.types.common import ArrayF, ArrayB, ArrayI
-from icegraph.types.statistics import StatisticStruct, StatisticKind
+from icegraph.types.statistics import StatisticStruct
 
 # local subpackage
 from .bundle import StatisticBundle
@@ -23,7 +21,7 @@ __all__ = ["Statistic"]
 
 class Statistic(ABC):
     # name for registration
-    name: StatisticKind
+    name: ClassVar[str]
 
     # spaces the statistic is to be tracked in
     spaces: ClassVar[tuple[TransformSpace, ...]] = tuple(TransformSpace)

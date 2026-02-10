@@ -4,8 +4,11 @@
 # base class
 from .callback import Callback
 
-# registry
-from .registry import CallbackRegistry
+# manager
+from .manager import CallbackManager
+
+# types
+from .types import CallbackSpec
 
 # implementations
 from .console import ConsoleCallback
@@ -15,7 +18,8 @@ from .plotters import ParityPlotter, BiasPlotter
 
 __all__ = [
     "Callback",
-    "CallbackRegistry",
+    "CallbackManager",
+    "CallbackSpec",
     "ExportCallback",
     "ConsoleCallback",
     "TensorBoardCallback",

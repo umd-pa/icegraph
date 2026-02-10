@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-from typing import Callable, Any, Self, Iterable, Literal
+from typing import Callable, Self, Iterable, Literal
 from functools import reduce
 import copy
 
 import numpy as np
 
 from icegraph.types.transforms import TransformSpace
-from icegraph.types.statistics import StatisticKind, StatisticBundleStruct
+from icegraph.types.statistics import StatisticBundleStruct
 from icegraph.types.common import ArrayF
 
 from .statistic import Statistic
@@ -22,14 +22,14 @@ __all__ = ["StatisticService"]
 
 class StatisticService:
 
-    def __init__(self, kinds: Iterable[StatisticKind], columns: list[str]) -> None:
+    def __init__(self, kinds: Iterable[str], columns: list[str]) -> None:
         # build the stat bundle
         self.bundle: StatisticBundle = self._build_bundle(kinds, columns)
 
     @staticmethod
-    def _build_bundle(kinds: Iterable[StatisticKind], columns: list[str]) -> StatisticBundle:
+    def _build_bundle(kinds: Iterable[str], columns: list[str]) -> StatisticBundle:
         # initialize statistics dict
-        stats: dict[StatisticKind, Statistic] = {}
+        stats: dict[str, Statistic] = {}
 
         for kind in kinds:
             # get an instance for each kind requested
@@ -181,7 +181,7 @@ class StatisticService:
 
     ### RAW AND DERIVED STATISTIC ACCESS
 
-    def get(self, kind: StatisticKind, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10) -> ArrayF:
+    def get(self, kind: str, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10) -> ArrayF:
         """
        Return a raw statistic from the underlying bundle.
 
@@ -213,9 +213,9 @@ class StatisticService:
             space: Transform space for which to compute the effective valid sample count.
         """
         if space in (TransformSpace.LINEAR, TransformSpace.ASINH):
-            return self.get(StatisticKind.FINITE_COUNT, space=TransformSpace.LINEAR)
+            return self.get("finite_count", space=TransformSpace.LINEAR)
         elif space == TransformSpace.LOG:
-            return self.get(StatisticKind.POSITIVE_COUNT, space=TransformSpace.LINEAR)
+            return self.get("positive_count", space=TransformSpace.LINEAR)
         else:
             raise TypeError(f"Parameter 'space' must be a TransformSpace, got {type(space).__name__}.")
 
@@ -227,7 +227,7 @@ class StatisticService:
             base: Log base used for computing the geometric mean.
         """
         # only defined in log space, so only provided in log space
-        mean_log = self.get(StatisticKind.MEAN, space=TransformSpace.LOG, base=base)
+        mean_log = self.get("mean", space=TransformSpace.LOG, base=base)
 
         # geo_mean = base ** mean(log_base(x))
         return base ** mean_log
@@ -241,7 +241,7 @@ class StatisticService:
             base: Log base used for log- and asinh-transformed statistics. Ignored for linear space.
             biased: Whether to compute the biased estimator.
         """
-        m2 = self.get(StatisticKind.M2, space=space, base=base)
+        m2 = self.get("m2", space=space, base=base)
         valid_count = self.valid_count(space)
 
         # for biased use n, for unbiased use n - 1
@@ -272,8 +272,8 @@ class StatisticService:
             space: Transform space in which to compute the range.
             base: Log base used for log- and asinh-transformed statistics. Ignored for linear space.
         """
-        maximum = self.get(StatisticKind.MAX, space=space, base=base)
-        minimum = self.get(StatisticKind.MIN, space=space, base=base)
+        maximum = self.get("max", space=space, base=base)
+        minimum = self.get("min", space=space, base=base)
 
         # range = max - min
         return maximum - minimum
@@ -303,7 +303,7 @@ class StatisticService:
             biased: Whether to compute the biased estimator.
         """
         std = self.std(space=space, base=base, biased=biased)
-        mean = self.get(StatisticKind.MEAN, space=space, base=base)
+        mean = self.get("mean", space=space, base=base)
 
         # CV = std / mean
         return np.where(mean != 0, std / mean, np.nan)
@@ -318,7 +318,7 @@ class StatisticService:
             biased: Whether to compute the biased estimator.
         """
         variance = self.variance(space=space, base=base, biased=biased)
-        mean = self.get(StatisticKind.MEAN, space=space, base=base)
+        mean = self.get("mean", space=space, base=base)
 
         # RMS = sqrt(variance + mean ** 2)
         return np.sqrt(variance + np.square(mean))
@@ -333,7 +333,7 @@ class StatisticService:
             biased: Whether to compute the biased estimator.
         """
         std = self.std(space=space, base=base, biased=biased)
-        mean = self.get(StatisticKind.MEAN, space=space, base=base)
+        mean = self.get("mean", space=space, base=base)
 
         # SNR = mean / std
         return np.where(std != 0, mean / std, np.nan)

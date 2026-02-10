@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from icegraph.types.data import ModelInputRole
 
@@ -16,7 +16,7 @@ __all__ = ["Regression"]
 
 
 class Regression(Strategy):
-    name = "regression"
+    name: ClassVar[str] = "regression"
 
     @property
     def reduction(self) -> str:

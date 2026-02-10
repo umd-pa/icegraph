@@ -3,32 +3,29 @@
 
 from __future__ import annotations
 
-from typing import Type, Any, Protocol, ClassVar, TypeVar, Generic, Hashable
+from typing import Type, Any, ClassVar, Generic, cast, TypeVar, Protocol
 
 from .exceptions import UnknownModuleError
 
-__all__ = ["ModuleFactory"]
+__all__ = ["Factory"]
 
 
-K = TypeVar("K", bound=Hashable)
+class Named(Protocol):
+    name: ClassVar[str]
 
-class NamedModule(Protocol[K]):
-    name: K
-
-# bound generic type
-T = TypeVar("T", bound=NamedModule)
+T = TypeVar("T", bound=Named)
 
 
-class ModuleFactory(Generic[K, T]):
-    _registry: ClassVar[dict[Hashable, type[Any]]]
+class Factory(Generic[T]):
+    _registry: ClassVar[dict[str, type[Any]]]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         cls._registry = {}  # new registry per subclass
 
     @classmethod
-    def _typed_registry(cls) -> dict[K, type[T]]:
-        return cls._registry  # type: ignore[return-value]
+    def _typed_registry(cls) -> dict[str, type[T]]:
+        return cast(dict[str, type[T]], cls._registry)
 
     @classmethod
     def register(cls, module: Type[T]) -> None:
@@ -43,13 +40,13 @@ class ModuleFactory(Generic[K, T]):
         cls._typed_registry()[name] = module
 
     @classmethod
-    def create(cls, name: K, **kwargs: Any) -> T:
+    def create(cls, name: str, **kwargs: Any) -> T:
         """
         Instantiate a registered module. Raises UnknownModuleError if the name is unknown.
         """
-        # normalize to lower case if str key
+        # normalize to lower case
         # this is so config via factories is not case-sensitive
-        name = name.lower() if isinstance(name, str) else name
+        name = name.lower()
 
         try:
             spec = cls._typed_registry()[name]

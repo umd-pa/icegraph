@@ -1,10 +1,13 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
+from typing import ClassVar
+
 import numpy as np
 
 from icegraph.types.transforms import TransformSpace
-from icegraph.types.statistics import StatisticKind
 from icegraph.types.common import ArrayF
 
 from ..statistic import Statistic
@@ -18,7 +21,7 @@ class WelfordM2(Statistic):
     Welford M2 provides a numerically stable method of calculating variance. Allows computation of
     variance and related metrics in a single pass.
     """
-    name = StatisticKind.M2
+    name: ClassVar[str] = "m2"
     degree = 2
 
     def _compute(self, array: ArrayF) -> ArrayF:
@@ -34,17 +37,17 @@ class WelfordM2(Statistic):
 
         # space is guaranteed to be one of log, asinh or linear, so we can skip checks
         # linear and asinh is computed over finite non-nan values
-        count_a = a.get(StatisticKind.FINITE_COUNT).value(linear)
-        count_b = b.get(StatisticKind.FINITE_COUNT).value(linear)
+        count_a = a.get("finite_count").value(linear)
+        count_b = b.get("finite_count").value(linear)
 
         if space == TransformSpace.LOG:
             # log is computed over positive finite non-nan non-zero values only
-            count_a = a.get(StatisticKind.POSITIVE_COUNT).value(linear)
-            count_b = b.get(StatisticKind.POSITIVE_COUNT).value(linear)
+            count_a = a.get("positive_count").value(linear)
+            count_b = b.get("positive_count").value(linear)
 
         # get mean from each bundle
-        mean_a = a.get(StatisticKind.MEAN).value(space)
-        mean_b = b.get(StatisticKind.MEAN).value(space)
+        mean_a = a.get("mean").value(space)
+        mean_b = b.get("mean").value(space)
 
         # get m2 from each bundle
         m2_a = a.get(cls.name).value(space)

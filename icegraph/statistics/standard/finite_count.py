@@ -1,10 +1,13 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
+from typing import ClassVar
+
 import numpy as np
 
 from icegraph.types.transforms import TransformSpace
-from icegraph.types.statistics import StatisticKind
 from icegraph.types.common import ArrayF
 
 from ..statistic import Statistic
@@ -14,7 +17,7 @@ __all__ = ["FiniteCount"]
 
 
 class FiniteCount(Statistic):
-    name = StatisticKind.FINITE_COUNT
+    name: ClassVar[str] = "finite_count"
     degree = 0
     spaces = (TransformSpace.LINEAR,)
 

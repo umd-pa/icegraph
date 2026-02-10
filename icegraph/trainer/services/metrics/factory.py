@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from icegraph.types.factory import ModuleFactory
+from icegraph.types.factory import Factory
 
 from .metric import Metric
 
@@ -11,7 +11,7 @@ from .standard import MSE, MAE, RMSE
 __all__ = ["MetricFactory"]
 
 
-class MetricFactory(ModuleFactory[str, Metric]):
+class MetricFactory(Factory[Metric]):
     pass
 
 

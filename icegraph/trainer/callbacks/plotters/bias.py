@@ -10,9 +10,8 @@ from torch import Tensor
 
 # local package
 from icegraph.statistics import StatisticService
-from icegraph.renderer import ParityPlot
+from icegraph.renderer import BiasPlot
 from icegraph.common.histogram import Histogram
-from icegraph.types.statistics import StatisticKind
 
 # local subpackage
 from ..base import BinnedHistogramReducer
@@ -35,8 +34,8 @@ class BiasPlotter(BinnedHistogramReducer):
         stats.filter_to(self._target_labels).align_to(self._target_labels)
 
         # mins/maxs
-        mins = torch.as_tensor(stats.get(StatisticKind.MIN), dtype=torch.float32)
-        maxs = torch.as_tensor(stats.get(StatisticKind.MAX), dtype=torch.float32)
+        mins = torch.as_tensor(stats.get("min"), dtype=torch.float32)
+        maxs = torch.as_tensor(stats.get("max"), dtype=torch.float32)
 
         bounds = torch.stack((mins, maxs), dim=1)
 
@@ -58,9 +57,9 @@ class BiasPlotter(BinnedHistogramReducer):
     def _dispatch(self, trainer: Trainer, data: Histogram) -> None:
         epoch = trainer.current_epoch
 
-        save_path = self._save_dir / f"{data.name}.parity.{epoch + 1}.html"
+        save_path = self._save_dir / f"{data.name}.bias.{epoch + 1}.html"
 
-        plot = ParityPlot(data, epoch=epoch)
+        plot = BiasPlot(data, epoch=epoch)
         plot.plot(save_path=save_path)
 
-        logger.info(f"new parity plot saved: %s", str(save_path))
+        logger.info(f"new bias plot saved: %s", str(save_path))

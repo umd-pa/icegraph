@@ -3,40 +3,46 @@
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 from torch import Tensor
 
-from icegraph.trainer.types import Params
-
 from ..service import Service
-from ..types import ServiceContext
 
 from .metric import Metric
 from .factory import MetricFactory
 from .types import ComputedMetric
 from .view import MetricView
+from .config import MetricConfig
 
 __all__ = ["MetricService"]
 
 
-class MetricService(Service):
-    name = "metrics"
-    deps = ["strategy"]
-    view = MetricView
+class MetricService(Service[MetricView, MetricConfig]):
+    name: ClassVar[str] = "metrics"
 
-    def __init__(self, params: Params) -> None:
-        super().__init__(params)
+    deps = ("strategy",)
+    interface = MetricView
 
-        self._metrics: list[Metric] = []
+    # make the type checker happy
+    _metrics: list[Metric]
 
-    def on_attach(self, ctx: ServiceContext) -> None:
-        strategy = ctx.services.require("strategy", required_by=MetricService)
+    def build(self) -> None:
+        self._metrics = []
+
+    @classmethod
+    def validate_config(cls, config: dict[str, Any]) -> MetricConfig:
+        return MetricConfig(**config)
+
+    def on_attach(self) -> None:
+        strategy = self._ctx.services.require("strategy", required_by=MetricService)
         mode = strategy.mode
 
         # load user metric selections
-        selection_list = self.params.require("select")
+        selection_list = self.config.select
         for selection in selection_list:
             # build metric, structure of config is enforced by pydantic
-            metric = MetricFactory.create(selection["name"], **selection["kwargs"])
+            metric = MetricFactory.create(selection.name, **selection.kwargs)
 
             # verify metric compatibility
             if mode not in metric.compatible:
@@ -63,3 +69,9 @@ class MetricService(Service):
     def reset(self) -> None:
         for metric in self._metrics:
             metric.reset()
+
+    def state_dict(self) -> dict[str, Any]:
+        return {"config": self.config.model_dump(mode="json")}
+
+    def load_state_dict(self, state: dict[str, Any]) -> None:
+        self.config = type(self).validate_config(state["config"])

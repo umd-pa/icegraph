@@ -20,7 +20,7 @@ from ..callback import Callback
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
     from .. import context
-    from icegraph.trainer.components.metrics import ComputedMetric
+    from icegraph.trainer.services.metrics import ComputedMetric
 
 __all__ = ["ConsoleCallback"]
 

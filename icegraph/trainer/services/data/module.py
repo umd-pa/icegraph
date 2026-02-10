@@ -11,9 +11,10 @@ from torch_geometric.data import Data
 import torch
 import numpy as np
 
-from icegraph.config import IGConfig
 from icegraph.types.data import Split, AttributeDomain
 from icegraph.types.common import ArrayI, ArrayG
+
+from .config import ModuleConfig
 
 from .readers import ShardStore
 
@@ -27,26 +28,20 @@ logger = logging.getLogger(__name__)
 class DatasetModule(Dataset[Data], Sized):
     """The base dataset class for loading and managing IceCube data."""
 
-    def __init__(self, split: Split, store: ShardStore) -> None:
+    def __init__(self, split: Split, store: ShardStore, config: ModuleConfig) -> None:
         super().__init__()
 
-        # cache split assignment and store reference
-        self.split = split
-        self.store = store
-
-        # grab global config
-        self._config = IGConfig.get()
+        # cache arguments
+        self.split      = split
+        self.store      = store
+        self.config     = config
 
         # cache for the key list
         self._keys: ArrayI | None = None
 
-        # keys cache
-        self.auxiliary_labels:  list[str] = self._config.user_config.training.auxiliary_labels
-        self.target_labels:     list[str] = self._config.user_config.training.target_labels
-
         logger.debug(
             "initialized %s (split=%s) with target_labels=%s, auxiliary_labels=%s",
-            type(self).__name__, self.split.name, self.target_labels, self.auxiliary_labels
+            type(self).__name__, self.split.name, config.targets, config.aux
         )
 
     def __getitem__(self, i: int) -> Data:
@@ -102,7 +97,7 @@ class DatasetModule(Dataset[Data], Sized):
             raise KeyError(f"Record at index {i} missing 'features' column.")
 
         # normalize to tensor
-        features_t = torch.tensor(features, dtype=torch.float32)
+        features_t = torch.tensor(features, dtype=torch.float32)  # always float32
 
         # ensure features has the correct shape [1, F]
         if features_t.ndim == 1:
@@ -127,7 +122,7 @@ class DatasetModule(Dataset[Data], Sized):
             labels.append(column)
 
         # normalize to tensor
-        labels_t = torch.tensor(labels, dtype=torch.float32)
+        labels_t = torch.tensor(labels)  # dtype varies and is controlled later by strategy, so keep storage dtype
 
         # ensure labels has the correct shape [1, L]
         if labels_t.ndim == 1:
@@ -198,7 +193,7 @@ class DatasetModule(Dataset[Data], Sized):
         # populate payload
         payload: dict[str, Tensor] = {
             "x": self._get_features(record, index),
-            "y": self._get_labels(record, self.target_labels, index),
+            "y": self._get_labels(record, self.config.targets, index),
             "edge_index": self._get_edge_index(record, index),
             "edge_attr": self._get_edge_attr(record, index)
         }
@@ -213,8 +208,8 @@ class DatasetModule(Dataset[Data], Sized):
         # build the torch geometric Data object
         data = Data(**payload)
 
-        # if not in training split (on eval), append auxiliary label data
-        if self.split != Split.TRAIN:
-            data.aux = self._get_labels(record, self.auxiliary_labels, index)
+        # if in eval, append auxiliary label data
+        if self.split in Split.eval():
+            data.aux = self._get_labels(record, self.config.aux, index)
 
         return data

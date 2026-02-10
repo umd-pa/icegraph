@@ -5,6 +5,8 @@ from typing import Protocol, TYPE_CHECKING
 
 from ..types import ServiceView
 
+from .types import CompatibleModule
+
 if TYPE_CHECKING:
     from torch import Tensor
 
@@ -19,3 +21,4 @@ class StrategyView(ServiceView, Protocol):
     out_channels: int
 
     def adapt_targets(self, targets: Tensor) -> Tensor: ...
+    def ensure_compatible(self, module: CompatibleModule) -> None: ...

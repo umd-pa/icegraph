@@ -514,9 +514,15 @@ class StatisticsProcessor(Processor, HelperMixin):
                 ModelInputRole.LABELS:      sub_df[columns[ModelInputRole.LABELS]].to_numpy(dtype=np.float64)
             }
 
+            # stats to include
+            stat_selection = [
+                "min", "max", "mean", "m2", "finite_count",
+                "positive_count", "total_count", "zero_count", "nan_count"
+            ]
+
             for role in ModelInputRole.all():
                 # compute statistics for each role and each split using a stat service
-                service = StatisticService(StatisticKind.all(), columns[role])
+                service = StatisticService(stat_selection, columns[role])
                 service.compute_from_array(dense[role])
                 split_stats[role.value] = service.to_struct()
 
