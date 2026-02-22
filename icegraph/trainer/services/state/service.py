@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TYPE_CHECKING
 import os
 
 import torch
 import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel
 
 from ..service import Service
 
@@ -15,11 +16,15 @@ from .view import StateView
 from .config import StateConfig
 from .types import ProcInfo
 
+if TYPE_CHECKING:
+    from icegraph.trainer.components.model import Model
+
 __all__ = ["StateService"]
 
 
 class StateService(Service[StateView, StateConfig]):
     name: ClassVar[str] = "state"
+    version: ClassVar[int] = 1
 
     interface = StateView
 
@@ -67,6 +72,20 @@ class StateService(Service[StateView, StateConfig]):
     @property
     def device(self) -> torch.device:
         return self._device
+
+    def bind_model(self, model: Model) -> Model:
+        """Bind a model to the current execution context."""
+        if self.is_ddp():
+            model = DistributedDataParallel(
+                model,
+                device_ids=[self.device.index] if self.device.type == "cuda" else None,
+                output_device=(self.device.index if self.device.type == "cuda" else None),
+                broadcast_buffers=False,
+                gradient_as_bucket_view=True,
+                find_unused_parameters=False
+            )
+
+        return model
 
     def is_main_process(self) -> bool:
         """Returns True if the current process is the main process. Checks if RANK is 0."""

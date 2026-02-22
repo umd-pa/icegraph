@@ -8,13 +8,14 @@ from icegraph.types.factory import PluginFactory
 from .model import Model
 
 # implementations
-from .block.standard import GravNet
+from .standard import GravNet
 
 __all__ = ["ModelFactory"]
 
 
 class ModelFactory(PluginFactory[Model]):
     pass
+
 
 for module in [GravNet]:
     ModelFactory.register(module)

@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from typing import TypeVar, Generic
-from abc import ABC, abstractmethod
+from typing import TypeVar
+from abc import abstractmethod
 
 from torch import Tensor
 
@@ -18,7 +18,7 @@ __all__ = ["LossFunction"]
 C = TypeVar("C")
 
 
-class LossFunction(Component[C, LossContext], ABC, Generic[C]):
+class LossFunction(Component[C, LossContext]):
     @abstractmethod
     def forward(self, out: Tensor, target: Tensor, /) -> Tensor:
         """Forward pass through the loss function."""

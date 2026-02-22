@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Generic, TypeVar, ClassVar, Any, final
 from abc import abstractmethod, ABC
 
@@ -16,6 +17,7 @@ X = TypeVar("X", bound=PluginContext)
 
 class Plugin(Generic[C, X], ABC):
     name: ClassVar[str]
+    version: ClassVar[int]
 
     def __init__(self, config: C) -> None:
         super().__init__()
@@ -34,8 +36,16 @@ class Plugin(Generic[C, X], ABC):
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
 
+        if inspect.isabstract(cls):
+            return
+
+        # ensure name is defined for all subclasses
         if getattr(cls, "name", None) is None:
             raise RuntimeError(f"Plugin {cls.__name__} must implement the class variable 'name'")
+
+        # ensure version is defined for all subclasses
+        if getattr(cls, "version", None) is None:
+            raise RuntimeError(f"Plugin {cls.__name__} must implement the class variable 'version'")
 
     @abstractmethod
     def build(self) -> None:
@@ -48,7 +58,7 @@ class Plugin(Generic[C, X], ABC):
 
     @final
     def attach(self, ctx: X) -> None:
-        """Attach this module given a context object, called by the trainer or inference engine."""
+        """Attach this module given a context object, called by the plugin parent."""
         if self._ctx is not None:
             raise RuntimeError(f"{type(self).__name__} is already attached.")
 

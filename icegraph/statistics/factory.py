@@ -6,8 +6,8 @@ from __future__ import annotations
 from icegraph.types.factory import Factory
 from icegraph.types.statistics import StatisticStruct
 
+from . import variants
 from .statistic import Statistic
-from .standard import *
 
 __all__ = ["StatisticFactory"]
 
@@ -21,7 +21,7 @@ class StatisticFactory(Factory[Statistic]):
         return spec.from_struct(struct)
 
 
-for stat in [Minimum, Maximum, Mean, WelfordM2, PositiveCount, NANCount, FiniteCount, ZeroCount, TotalCount]:
-    StatisticFactory.register(stat)
+for name in variants.__all__:
+    StatisticFactory.register(getattr(variants, name))
 
 

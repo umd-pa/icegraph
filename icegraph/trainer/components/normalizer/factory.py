@@ -2,18 +2,18 @@
 # Developed by Taylor St Jean
 
 # local package
-from icegraph.types.factory import Factory
+from icegraph.types.factory import PluginFactory
 
 # local subpackage
 from .normalizer import Normalizer
 
 # implementations
-from .affine.standard import MinMax, ZScore, Centering, UnitVariance
+from .standard import MinMax, ZScore, Centering, UnitVariance
 
 __all__ = ["NormalizerFactory"]
 
 
-class NormalizerFactory(Factory[Normalizer]):
+class NormalizerFactory(PluginFactory[Normalizer]):
     pass
 
 

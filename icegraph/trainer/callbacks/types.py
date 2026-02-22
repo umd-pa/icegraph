@@ -12,8 +12,8 @@ __all__ = ["CallbackSpec"]
 
 @dataclass
 class CallbackSpec:
-    callback: type[Callback]
-    kwargs: dict[str, Any] = field(default_factory=dict)
+    callback:   type[Callback]
+    kwargs:     dict[str, Any] = field(default_factory=dict)
 
     def __call__(self) -> Callback:
         if inspect.isclass(self.callback) and not issubclass(self.callback, Callback):

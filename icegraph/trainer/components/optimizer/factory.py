@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 # local package
-from icegraph.types.factory import Factory
+from icegraph.types.factory import PluginFactory
 
 # local subpackage
 from .optimizer import Optimizer
@@ -13,7 +13,7 @@ from .standard import AdamW, SGD
 __all__ = ["OptimizerFactory"]
 
 
-class OptimizerFactory(Factory[Optimizer]):
+class OptimizerFactory(PluginFactory[Optimizer]):
     pass
 
 

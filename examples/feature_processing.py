@@ -4,7 +4,7 @@ from pathlib import Path
 from icegraph.data.pipeline import Pipeline
 from icegraph.data.processor import FeatureProcessor, EdgeProcessor, TruthProcessor, StandardSplitAllocator, StatisticsProcessor
 from icegraph.data.extractor import FeatureExtractor
-from icegraph.data.writers import LMDBWriter
+from icegraph.data.writer import LMDBWriter
 from icegraph.config import IGConfig
 
 

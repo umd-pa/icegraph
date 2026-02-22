@@ -19,12 +19,12 @@ from icegraph.types.files import Source
 
 from ..service import Service
 
-from .module import DatasetModule
-from .samplers import DistributedBlockwiseSampler
-from .readers import ReaderFactory, ShardStore
 from .types import Attributes, GlobalAttributes, SizedDataset
 from .view import DataView
 from .config import DataConfig
+from .store import Store, StoreFactory, StoreContext
+from .module import Module, ModuleFactory, ModuleContext
+from .sampler import SamplerFactory, SamplerContext
 
 __all__ = ["DataService"]
 
@@ -34,14 +34,15 @@ class DataService(Service[DataView, DataConfig]):
     A container class for managing access to training, validation, and test datasets.
     """
     name: ClassVar[str] = "data"
+    version: ClassVar[int] = 1
 
     deps = ("state", "strategy")
     interface = DataView
 
     # make the type checker happy
     _source:            Source | None
-    _store:             ShardStore | None
-    _datasets:          dict[Split, DatasetModule]
+    _store: Store | None
+    _datasets:          dict[Split, Module]
     _dataloaders:       dict[Split, DataLoader]
     _stats:             dict[Split, dict[ModelInputRole, StatisticService]]
     _expect_checksum:   str | None
@@ -49,10 +50,10 @@ class DataService(Service[DataView, DataConfig]):
     def build(self) -> None:
         """Initialize the DataService with training, validation, and test datasets."""
         self._source:   Source | None = None
-        self._store:    ShardStore | None = None
+        self._store:    Store | None = None
 
         # build the dataset and dataloader cache
-        self._datasets:     dict[Split, DatasetModule]  = {}
+        self._datasets:     dict[Split, Module]  = {}
         self._dataloaders:  dict[Split, DataLoader]     = {}
 
         # statistic service cache
@@ -72,15 +73,20 @@ class DataService(Service[DataView, DataConfig]):
 
         # invalidate caches
         self._store = None
+
+        # clear dict caches
         self._dataloaders.clear()
+        self._datasets.clear()
         self._stats.clear()
 
         # build datasets
-        self._datasets = {
-            split: DatasetModule(
-                split=split, store=self.store, config=self.config.module
-            ) for split in Split.all()
-        }
+        config = self.config.module
+        for split in Split.all():
+            self._datasets[split] = ModuleFactory.create(config.name, **config.kwargs)
+
+            # attach
+            ctx = ModuleContext(split=split, store=self.store)
+            self._datasets[split].attach(ctx)
 
     def state_dict(self) -> dict[str, Any]:
         # ensure manager has already been attached before building state dict
@@ -107,15 +113,24 @@ class DataService(Service[DataView, DataConfig]):
 
     @property
     def global_attrs(self) -> GlobalAttributes:
-        return self.store.global_attrs(checksum=self._expect_checksum)
+        return self.store.global_attrs
 
     @property
-    def store(self) -> ShardStore:
+    def store(self) -> Store:
         if self._source is None:
             raise RuntimeError(f"{type(self).__name__}: cannot build store before attach (source must be defined).")
 
         if self._store is None:
-            self._store = ReaderFactory.create_store(self.config.reader.name, source=self._source)
+            # get store config
+            config = self.config.store
+
+            # build the store
+            self._store = StoreFactory.create(config.name, **config.kwargs)
+
+            # attach the store
+            ctx = StoreContext(source=self._source)
+            self._store.attach(ctx)
+
         return self._store
 
     def set_epoch(self, epoch: int) -> None:
@@ -134,13 +149,9 @@ class DataService(Service[DataView, DataConfig]):
 
     def _build_dataloader(self, split: Split) -> DataLoader:
         """Initialize the dataloader for a given split."""
-        # get loader subparams
-        loader_config = self.config.loader
+        # first initialize the sampler
+        config = self.config.sampler
 
-        # get worker count configuration
-        num_workers: int = loader_config.num_workers
-
-        # build sampler
         is_train = (split == Split.TRAIN)
 
         # get state from the service manager
@@ -151,27 +162,31 @@ class DataService(Service[DataView, DataConfig]):
         rank    = state.rank    if is_train else 0
         world   = state.world   if is_train else 1
 
-        sampler = DistributedBlockwiseSampler(
-            self.dataset(split),
-            loader_config.block_size,
-            num_replicas=world,
-            rank=rank,
-            shuffle=is_train  # only need shuffle on training split
-        )
+        sampler = SamplerFactory.create(config.name, **config.kwargs)
+
+        # attach sampler
+        ctx = SamplerContext(dataset=self.dataset(split), num_replicas=world, rank=rank, shuffle=is_train)
+        sampler.attach(ctx)
+
+        # get loader subparams
+        config = self.config.loader
+
+        # get worker count configuration
+        num_workers: int = config.num_workers
 
         # dataloader kwargs
         kwargs: dict[str, Any] = {
             "num_workers":  num_workers,
-            "batch_size":   loader_config.batch_size,
+            "batch_size":   config.batch_size,
             "sampler":      sampler
         }
 
         # if num workers is greater than 0 (multiprocessing)
         if num_workers > 0:
             kwargs.update(
-                prefetch_factor=loader_config.prefetch_factor,
-                multiprocessing_context=mp.get_context(loader_config.mp_context),
-                persistent_workers=loader_config.persistent_workers,
+                prefetch_factor=config.prefetch_factor,
+                multiprocessing_context=mp.get_context(config.mp_context),
+                persistent_workers=config.persistent_workers,
                 pin_memory=torch.cuda.is_available()
             )
 
@@ -188,7 +203,7 @@ class DataService(Service[DataView, DataConfig]):
                 # ensure stats exist
                 if stats is None:
                     raise RuntimeError(
-                        f"Key '{AttributeDomain.LOCAL.value}' not found in attrs. "
+                        f"Key '{AttributeDomain.LOCAL.name}' not found in attrs. "
                         f"Problematic shard: ID={attr.shard_id}."
                     )
 
@@ -197,7 +212,7 @@ class DataService(Service[DataView, DataConfig]):
                 # ensure struct was found
                 if struct_ is None:
                     raise RuntimeError(
-                        f"No stats found at attrs[{AttributeDomain.LOCAL.value}][{role.value}][{split.value}]. "
+                        f"No stats found at attrs[{AttributeDomain.LOCAL.name}][{role.value}][{split.value}]. "
                         f"Problematic shard: ID={attr.shard_id}."
                     )
 

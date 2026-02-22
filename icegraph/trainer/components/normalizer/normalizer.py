@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from typing import TypeVar, Generic
-from abc import ABC, abstractmethod
+from typing import TypeVar
+from abc import abstractmethod
 
 import torch
 from torch import Tensor
@@ -21,7 +21,7 @@ __all__ = ["Normalizer"]
 C = TypeVar("C")
 
 
-class Normalizer(Component[C, NormalizerContext], ABC, Generic[C]):
+class Normalizer(Component[C, NormalizerContext]):
 
     @abstractmethod
     @torch.no_grad()

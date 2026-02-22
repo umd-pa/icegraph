@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Any
 
 from pydantic import BaseModel
 
@@ -11,18 +11,15 @@ __all__ = ["DataConfig"]
 
 
 class DataConfig(BaseModel):
-    module: ModuleConfig
-    reader: ReaderConfig
-    loader: LoaderConfig
+    sampler:    PluginConfig
+    module:     PluginConfig
+    store:      PluginConfig
+    loader:     LoaderConfig
 
 
-class ModuleConfig(BaseModel):
-    targets:    list[str]
-    aux:        list[str]
-
-
-class ReaderConfig(BaseModel):
-    name: str
+class PluginConfig(BaseModel):
+    name:   str
+    kwargs: dict[str, Any]
 
 
 class LoaderConfig(BaseModel):

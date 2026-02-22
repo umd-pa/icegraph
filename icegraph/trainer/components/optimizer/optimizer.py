@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from typing import TypeVar, Generic
-from abc import ABC, abstractmethod
+from typing import TypeVar
+from abc import abstractmethod
 
 from ..component import Component
 
@@ -16,7 +16,7 @@ __all__ = ["Optimizer"]
 C = TypeVar("C")
 
 
-class Optimizer(Component[C, OptimizerContext], ABC, Generic[C]):
+class Optimizer(Component[C, OptimizerContext]):
     @abstractmethod
     def step(self) -> None:
         ...

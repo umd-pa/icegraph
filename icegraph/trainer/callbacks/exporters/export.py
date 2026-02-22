@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class ExportCallback(Callback):
     def __init__(self) -> None:
         super().__init__()
-        # cache for best loss
+        # cache for best loss, start at infinity
         self._best_loss: float = float("inf")
 
         # model dir
@@ -41,15 +41,10 @@ class ExportCallback(Callback):
         self.models_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    def _strip_attrs(attrs: dict) -> dict:
-        return attrs
-
-    def _gather_state(self, trainer: Trainer) -> dict:
-        # TODO: only pass necessary attrs, registry.attrs can be somewhat large and should be stripped
-        attrs = self._strip_attrs(trainer.data.attrs)
-
-        norm = trainer.normalizer
-        net = trainer.model.module if hasattr(trainer.model, "module") else trainer.model
+    def _gather_state(trainer: Trainer) -> dict:
+        attrs   = trainer.data.attrs
+        norm    = trainer.normalizer
+        net     = trainer.model.module if hasattr(trainer.model, "module") else trainer.model
 
         state = dict(
             network=(net.__class__.__name__, net.state_dict()),

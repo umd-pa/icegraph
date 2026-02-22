@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Self, ClassVar, Mapping
+from typing import Callable, Self, ClassVar, Mapping, TYPE_CHECKING
 import inspect
 
 # local package
@@ -13,8 +13,10 @@ from icegraph.types.common import ArrayF, ArrayB, ArrayI
 from icegraph.types.statistics import StatisticStruct
 
 # local subpackage
-from .bundle import StatisticBundle
 from .transforms import linear_transform, log_transform, asinh_transform
+
+if TYPE_CHECKING:
+    from .bundle import StatisticBundle
 
 __all__ = ["Statistic"]
 

@@ -82,7 +82,7 @@ class StatisticService:
 
         # break out if only one service passed
         if len(services) == 1:
-            service = services[0]
+            service = services[0].copy()
             if not isinstance(service, cls):
                 raise TypeError(f"Argument 'services' must be an iterable over {cls.__name__} objects.")
             return service.copy()

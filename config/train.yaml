@@ -1,72 +1,88 @@
-training:
-  seed: 2729
+seed: 2729
 
-  trainer:
-    max_epochs: 10000
-    val_interval: 1
-    save_interval: 100
+source: /data/i3store/users/umd-ml/sim/L2/23122/0000000-0000999
+outdir: /data/i3store/users/tstjean/data/processed/23122
 
-  services:
-    state: { }
+trainer:
+  max_epochs: 10000
+  val_interval: 1
+  save_interval: 100
 
+services:
+  state: { }
+
+  strategy:
     strategy:
       name: regression
+      kwargs: { }
 
-    data:
-      module:
-        targets:  [ PrimaryEnergy ]
+  data:
+    loader:
+      # batch size controls how many samples are passed at a time in each
+      # training batch (see torch DataLoader batch_size argument)
+      batch_size: 2048
+      num_workers: 6
+      prefetch_factor: 8
+      mp_context: fork
+      persistent_workers: true
+
+    sampler:
+      name: blockwise
+      kwargs:
+        block_size: 8192
+
+    module:
+      name: graph
+      kwargs:
+        features: [ ]
+        labels:   [ PrimaryEnergy ]
         aux:      [ ]
         # aux is for any non-target labels to include (not used in training), useful for plotting.
         # these labels are served to callbacks by the trainer during validation and test steps
 
-      reader:
-        name: lmdb
-
-      loader:
-        # batch size controls how many samples are passed at a time in each
-        # training batch (see torch DataLoader batch_size argument)
-        batch_size: 2048
-        block_size: 8192
-        num_workers: 6
-        prefetch_factor: 8
-        mp_context: fork
-        persistent_workers: true
-
-    metrics:
-      select:
-        - name: mse
+    store:
+      name: lru-shard
+      kwargs:
+        cache_size: 32
+        reader:
+          name: lmdb
           kwargs: { }
 
-        - name: mae
-          kwargs: { }
+  metrics:
+    select:
+      - name: mse
+        kwargs: { }
 
-        - name: rmse
-          kwargs: { }
+      - name: mae
+        kwargs: { }
 
-  components:
-    model:
-      name: gravnet
-      kwargs:
-        hidden_layers: 5
-        hidden_channels: 256
-        num_neighbors: 16
-        space_dimensions: 4
-        propagate_dimensions: 12
+      - name: rmse
+        kwargs: { }
 
-    normalizer:
-      name: zscore
-      kwargs:
-        transforms:
-          PrimaryEnergy:
-            space: asinh
-            base: 10
+components:
+  model:
+    name: gravnet
+    kwargs:
+      hidden_layers: 5
+      hidden_channels: 256
+      num_neighbors: 16
+      space_dimensions: 4
+      propagate_dimensions: 12
 
-    optimizer:
-      name: adam
-      kwargs:
-        lr: 0.0002
-        weight_decay: 0.00005
+  normalizer:
+    name: zscore
+    kwargs:
+      transforms:
+        PrimaryEnergy:
+          space: asinh
+          base: 10
 
-    loss:
-      name: mse
-      kwargs: { }
+  optimizer:
+    name: adam
+    kwargs:
+      lr: 0.0002
+      weight_decay: 0.00005
+
+  loss:
+    name: mse
+    kwargs: { }

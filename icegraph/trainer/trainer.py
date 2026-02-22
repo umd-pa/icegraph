@@ -3,23 +3,24 @@
 
 from __future__ import annotations
 
-from typing import Self, Type, Any, TypeVar
+from typing import Self, Any, TypeVar
 from pathlib import Path
 from contextlib import nullcontext
 import time
+
+import yaml
 
 # torch imports
 import torch
 from torch_geometric.seed import seed_everything
 from torch_geometric.loader import DataLoader
-from torch.nn.parallel import DistributedDataParallel  # DDP
 
 # types
 from icegraph.types.data import Split, ModelInputRole
-from icegraph.types.factory import Factory
-from icegraph.types.files import SourceType, Source
+from icegraph.types.factory import PluginFactory
+from icegraph.types.files import Source, SourceType
 
-from .config import ConfigStore
+from .config import Config, ComponentOption
 
 # services
 from .services import ServiceManager
@@ -43,7 +44,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-T = TypeVar("T", bound=Component)
+T = TypeVar("T", bound=Component[Any, Any])
+
 
 class Trainer:
     """
@@ -54,31 +56,18 @@ class Trainer:
     model execution, optimization, metrics, etc.
     """
 
-    def __init__(
-        self,
-        source: Source | SourceType,
-        outdir: str | Path
-    ) -> None:
-        """
-        Initialize the Trainer.
-
-        Args:
-            source (SourceType | Source): Source files to train from.
-            outdir (str | Path): Path to save the trained model and any other generated files.
-        """
-        # call to super
-        super().__init__()
-
+    def __init__(self, source: Source | SourceType, config: Config) -> None:
+        """Initialize the Trainer."""
         logger.debug("initializing %s", self.__class__.__name__)
 
-        self.source = source
+        self.source = Source(source)
 
         # stash outdir and derive logdir
-        self.outdir = Path(outdir)
+        self.outdir = Path(config.outdir)
         self.logdir = self.outdir / "logs"
 
         # load trainer config
-        self.config = ConfigStore.get()
+        self.config = config
 
         # global access to current epoch
         self.current_epoch: int = 0
@@ -98,18 +87,25 @@ class Trainer:
         self._set_seed(self.config.seed + self.state.rank)
 
         # initialize components
-        self.loss:          LossFunction    = self._init_loss()
-        self.model:         Model           = self._init_model()
-        self.normalizer:    Normalizer      = self._init_normalizer()
-        self.optimizer:     Optimizer       = self._init_optimizer()
+        self.loss       = self._init_loss()
+        self.model      = self._init_model()
+        self.normalizer = self._init_normalizer()
+        self.optimizer  = self._init_optimizer()
 
         # initialize the callback manager
         self.callbacks = CallbackManager(self)
 
+    @classmethod
+    def from_yaml(cls, source: Source | SourceType, config_path: str | Path) -> Self:
+        with Path(config_path).open("r") as f:
+            return cls(source, Config(**yaml.safe_load(f)))
+
     ### INIT METHODS
 
-    def _construct_component(self, factory: type[Factory[T]], config: dict[str, Any], ctx: ComponentContext) -> T:
-        component = factory.create(config["name"], config=config["kwargs"])
+    def _construct_component(
+            self, factory: type[PluginFactory[T]], config: ComponentOption, ctx: ComponentContext
+    ) -> T:
+        component = factory.create(config.name, config=config.kwargs)
 
         # attach the component using context
         component.attach(ctx)
@@ -117,67 +113,48 @@ class Trainer:
         # move to device
         component.to(self.state.device)
 
+        # ensure component is compatible
+        self.strategy.ensure_compatible(component)
+
         return component
 
     def _init_loss(self) -> LossFunction[Any]:
         """Initialize the normalizer."""
         # grab loss config
-        config = self.config.components.loss.model_dump()
+        config = self.config.components.loss
         ctx = LossContext(services=self.services)
-        loss = self._construct_component(LossFactory, config, ctx)
 
-        # ensure selected loss is compatible with declared strategy
-        self.strategy.ensure_compatible(loss)
-
-        return loss
+        return self._construct_component(LossFactory, config, ctx)
 
     def _init_normalizer(self) -> Normalizer[Any]:
         """Initialize the normalizer."""
         # grab normalizer config
-        config = self.config.components.normalizer.model_dump()
+        config = self.config.components.normalizer
         ctx = NormalizerContext(services=self.services)
-        normalizer = self._construct_component(NormalizerFactory, config, ctx)
 
-        # ensure selected normalizer is compatible with declared strategy
-        self.strategy.ensure_compatible(normalizer)
-
-        return normalizer
-
-    def _init_model(self) -> Model[Any]:
-        """Initialize the model for training."""
-        config = self.config.components.model.model_dump()
-        ctx = ModelContext(services=self.services)
-        model = self._construct_component(ModelFactory, config, ctx)
-
-        # ensure selected model is compatible with declared strategy
-        self.strategy.ensure_compatible(model)
-
-        # if ddp is enabled, the model needs to be wrapped by torch DDP
-        # get state service
-        state = self.services.require("state", required_by=Trainer)
-        if state.is_ddp():
-            model = DistributedDataParallel(
-                model,
-                device_ids=[state.device.index] if state.device.type == "cuda" else None,
-                output_device=(state.device.index if state.device.type == "cuda" else None),
-                broadcast_buffers=False,
-                gradient_as_bucket_view=True,
-                find_unused_parameters=False
-            )
-
-        return model
+        return self._construct_component(NormalizerFactory, config, ctx)
 
     def _init_optimizer(self) -> Optimizer[Any]:
         """Initialize the normalizer."""
         # grab normalizer config
-        config = self.config.components.optimizer.model_dump()
+        config = self.config.components.optimizer
         ctx = OptimizerContext(services=self.services, model_params=self.model.parameters())
-        optimizer = self._construct_component(OptimizerFactory, config, ctx)
 
-        # ensure selected optimizer is compatible with declared strategy
-        self.strategy.ensure_compatible(optimizer)
+        return self._construct_component(OptimizerFactory, config, ctx)
 
-        return optimizer
+    def _init_model(self) -> Model[Any]:
+        """Initialize the model for training."""
+        # grab model config
+        config = self.config.components.model
+        ctx = ModelContext(services=self.services)
+        model = self._construct_component(ModelFactory, config, ctx)
+
+        # model needs to be bound to execution context
+        # get state service
+        state = self.services.require("state", required_by=Trainer)
+        state.bind_model(model)
+
+        return model
 
     ### ---
 
@@ -230,11 +207,8 @@ class Trainer:
         logger.info("starting split: %s, epoch=%d", self.split.value, self.current_epoch)
         start_time = time.perf_counter()
 
-        # get metrics service
-        metrics = self.services.require("metrics", required_by=Trainer)
-
         # reset metrics for new epoch
-        metrics.reset()
+        self.metrics.reset()
 
         # loss accumulator
         loss_accumulator = torch.tensor(0, dtype=torch.float64, device=self.state.device)
@@ -296,7 +270,7 @@ class Trainer:
 
             # update metric summaries on eval steps
             if self.split in Split.eval():
-                metrics.update_summaries()
+                self.metrics.update_summaries()
 
         # accumulated epoch loss
         epoch_loss = loss_accumulator.item() / batch_count if batch_count > 0 else float("nan")
@@ -405,4 +379,4 @@ class Trainer:
             ctx = context.TeardownContext(self)
             self._fire("on_teardown", ctx)
         finally:
-            self.state.close()
+            self.services.close()

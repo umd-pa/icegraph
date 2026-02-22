@@ -2,7 +2,7 @@
 # Developed by Taylor St Jean
 
 # local package
-from icegraph.types.factory import Factory
+from icegraph.types.factory import PluginFactory
 
 # local subpackage
 from .loss import LossFunction
@@ -13,7 +13,7 @@ from .standard import MSELoss, L1Loss, NLLLoss, CrossEntropyLoss, BCEWithLogitsL
 __all__ = ["LossFactory"]
 
 
-class LossFactory(Factory[LossFunction]):
+class LossFactory(PluginFactory[LossFunction]):
     pass
 
 

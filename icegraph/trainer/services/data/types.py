@@ -51,9 +51,9 @@ class Attributes(Mapping[AttributeDomain, dict[str, Any]]):
 
     @property
     def checksum(self) -> str:
-        checksum = self._data[AttributeDomain.GLOBAL].get("checksum")
+        checksum = self._data[AttributeDomain.GLOBAL].get("set_id")
         if checksum is None:
-            raise RuntimeError("Could not find key 'checksum' in GLOBAL attrs. A checksum is required for every shard.")
+            raise RuntimeError("Could not find key 'set_id' in GLOBAL attrs. A checksum is required for every shard.")
 
         return checksum
 

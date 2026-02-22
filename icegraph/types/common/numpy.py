@@ -1,11 +1,10 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import TypeAlias, TYPE_CHECKING
+from typing import TypeAlias
 
-if TYPE_CHECKING:
-    import numpy.typing as npt
-    import numpy as np
+import numpy.typing as npt
+import numpy as np
 
 __all__ = [
     "ArrayG",

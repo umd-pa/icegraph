@@ -1,17 +1,15 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Union, Optional, Tuple
+from __future__ import annotations
+
 from pathlib import Path
 import subprocess
 import atexit
 from contextlib import suppress
-import signal
 
 from torch.utils.tensorboard import SummaryWriter
 
-from icegraph.config import IGConfig
-from icegraph.console._streams import suppress_stderr
 from icegraph.utils import is_port_available
 
 __all__ = ["TensorBoardService"]
@@ -26,7 +24,7 @@ class TensorBoardService:
     A utility class for managing a TensorBoard instance and writing logs.
     """
 
-    def __init__(self, log_dir: Union[str, Path]):
+    def __init__(self, log_dir: str | Path, *, port: int = 6006):
         """
         Initialize the TensorBoardService logger.
 
@@ -38,35 +36,26 @@ class TensorBoardService:
         # init tensorboard
         self._writer = SummaryWriter(log_dir=str(self.log_dir))
 
-        # grab tensorboard config
-        self.port = IGConfig.get().user_config.training.tensorboard.port
+        # cache port
+        self._port = port
 
-        if not is_port_available(self.port):
+        if not is_port_available(self._port):
             raise RuntimeError(
-                f"Failed to launch TensorBoardService. Specified port {self.port} is already being used by another process."
+                f"Failed to launch TensorBoardService. "
+                f"Specified port {self._port} is already being used by another process."
             )
 
-        self._process: Optional[subprocess.Popen] = None
+        self._process: subprocess.Popen | None = None
 
         # register atexit shutdown
-        atexit.register(self.shutdown)
-
-        # register signal handlers
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        atexit.register(self.close)
 
     def __del__(self) -> None:
         """
         Destructor that ensures TensorBoardService is shut down on object deletion.
         """
         with suppress(Exception):
-            self.shutdown()
-
-    def _signal_handler(self, signum, frame) -> None:
-        # Best effort cleanup, then re-raise default behavior by exiting
-        try:
-            self.shutdown()
-        finally:
-            raise SystemExit(128 + int(signum))
+            self.close()
 
     @property
     def writer(self) -> SummaryWriter:
@@ -78,65 +67,58 @@ class TensorBoardService:
         """
         return self._writer
 
-    def launch(self) -> Tuple[int, int]:
+    def launch(self) -> tuple[int, int]:
         """
         Launch a TensorBoard instance.
-
-        Returns:
-            (PID, Port)
         """
-        with suppress_stderr():
-            self._process = subprocess.Popen([
-                "tensorboard",
-                "--logdir", str(self.log_dir),
-                "--port", str(self.port)
-            ])
+        self._process = subprocess.Popen([
+            "tensorboard",
+            "--logdir", str(self.log_dir),
+            "--port", str(self._port)
+        ])
 
         logger.info(
             f"%s started with PID=%d at http://localhost:%d",
-            self.__class__.__name__, self._process.pid, self.port
+            type(self).__name__, self._process.pid, self._port
         )
 
-        return self._process.pid, self.port
+        return self._process.pid, self._port
 
-    def shutdown(self) -> None:
-        """
-        Shut down any active TensorBoardService instance if running.
-
-        Terminates the subprocess and waits for it to exit.
-        Any exception during termination is caught and logged.
-        """
+    def close(self) -> None:
+        """Shut down any active TensorBoardService instance if running."""
         with suppress(Exception):
             self._writer.close()
 
         proc = self._process
+        self._process = None  # clear early to avoid double-shutdown races
         if proc is None:
             return
 
         pid = proc.pid
 
+        # if already exited, just clear
+        if proc.poll() is not None:
+            self._process = None
+            logger.debug(
+                "%s already exited (PID=%d)", type(self).__name__, pid
+            )
+            return
+
         try:
-            # if already exited, just clear
-            if proc.poll() is not None:
-                self._process = None
-                logger.debug("%s already exited (PID=%d)", self.__class__.__name__, pid)
-                return
-
-            # terminate then wait briefly
             proc.terminate()
-            try:
-                proc.wait(timeout=3)
-                logger.info("%s terminated (PID=%d, port=%d)", self.__class__.__name__, pid, self.port)
-            except subprocess.TimeoutExpired:
-                # escalate
+            proc.wait(timeout=3)
+            logger.info(
+                "%s terminated (PID=%d, port=%d)", type(self).__name__, pid, self._port
+            )
+        except subprocess.TimeoutExpired:
+            with suppress(Exception):
                 proc.kill()
+            with suppress(Exception):
                 proc.wait(timeout=3)
-                logger.warning("%s killed after timeout (PID=%d, port=%d)", self.__class__.__name__, pid, self.port)
-
+            logger.warning(
+                "%s killed after timeout (PID=%d, port=%d)", type(self).__name__, pid, self._port
+            )
         except Exception:
             logger.exception(
-                "failed to shutdown %s (PID=%d, port=%d)",
-                self.__class__.__name__, pid, self.port
+                "failed to shutdown %s (PID=%d, port=%d)",type(self).__name__, pid, self._port
             )
-        finally:
-            self._process = None

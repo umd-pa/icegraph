@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..service import Service
 
-from .strategy import Strategy
-from .factory import StrategyFactory
 from .view import StrategyView
 from .config import StrategyConfig
 from .types import CompatibleModule
+from .strategy import Strategy, StrategyFactory, StrategyContext
 
 if TYPE_CHECKING:
     from torch import Tensor
@@ -21,6 +20,7 @@ __all__ = ["StrategyService"]
 
 class StrategyService(Service[StrategyView, StrategyConfig]):
     name: ClassVar[str] = "strategy"
+    version: ClassVar[int] = 1
 
     interface = StrategyView
 
@@ -43,7 +43,12 @@ class StrategyService(Service[StrategyView, StrategyConfig]):
 
     def on_attach(self) -> None:
         # initialize strategy module for given mode (strategies are named by the mode they manage)
-        self._strategy = StrategyFactory.create(self.config.name, ctx=self._ctx)
+        config = self.config.strategy
+        self._strategy = StrategyFactory.create(config.name, **config.kwargs)
+
+        # attach the strategy
+        ctx = StrategyContext(data=self._ctx.services.require("data", required_by=type(self)))
+        self._strategy.attach(ctx)
 
     @property
     def mode(self) -> str:
@@ -52,12 +57,16 @@ class StrategyService(Service[StrategyView, StrategyConfig]):
     @property
     def in_channels(self) -> int:
         """Return the number of input channels for the model."""
-        return self._strategy.in_channels
+        if self._in_channels is None:
+            self._in_channels = self._strategy.in_channels()
+        return self._in_channels
 
     @property
     def out_channels(self) -> int:
         """Return the number of output channels for the model."""
-        return self._strategy.out_channels
+        if self._out_channels is None:
+            self._out_channels = self._strategy.out_channels()
+        return self._out_channels
 
     def adapt_targets(self, targets: Tensor) -> Tensor:
         return self._strategy.adapt_targets(targets)

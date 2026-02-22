@@ -32,8 +32,8 @@ class Reducer(Callback, ABC):
     (e.g. histograms) that are later consumed by renderers.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs) -> None:
+        super().__init__()
 
         # cache user plot scale choice
         _axis_scale: tuple[str, str] = kwargs.get("scale") or ("linear", "linear")

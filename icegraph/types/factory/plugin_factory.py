@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from ..plugins import Plugin
 
@@ -15,17 +15,16 @@ __all__ = ["PluginFactory"]
 
 P = TypeVar("P", bound=Plugin[Any, Any])
 
-class PluginFactory(Factory[P], Generic[P]):
+class PluginFactory(Factory[P]):
 
     @classmethod
-    def create(cls, name: str, **kwargs: Any) -> P:
+    def create(cls, name: str, **config: Any) -> P:
         """
         Instantiate a registered module. Raises UnknownModuleError if the name is unknown.
         """
         # normalize to lower case
         # this is so config via factories is not case-sensitive
-        name    = name.lower()
-        config  = kwargs.get("config", {})
+        name = name.lower()
 
         try:
             spec = cls._typed_registry()[name]

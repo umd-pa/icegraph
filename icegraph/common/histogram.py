@@ -121,7 +121,7 @@ class Histogram:
         totals = cumulative.take(-1, axis=axis)
 
         # determine median indices
-        median_indices = np.argmax(cumulative >= (threshold * totals), axis=axis)
+        median_indices = np.argmax(cumulative >= (threshold * float(totals)), axis=axis)
 
         # grab axis centers
         centers = self.centers[axis]

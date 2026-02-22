@@ -25,19 +25,21 @@ logger = logging.getLogger(__name__)
 
 class TensorBoardCallback(Callback):
 
-    def __init__(self) -> None:
+    def __init__(self, port: int) -> None:
         super().__init__()
 
-        self._tb: TensorBoardService | None = None
+        self._port: int = port
+
+        self._service: TensorBoardService | None = None
 
     def on_init(self, ctx: context.InitContext) -> None:
-        if self._tb is None:
-            self._tb = TensorBoardService(ctx.trainer.logdir)
-        self._tb.launch()
+        if self._service is None:
+            self._service = TensorBoardService(ctx.trainer.logdir, port=self._port)
+        self._service.launch()
 
     def _log(self, metrics: list[ComputedMetric], split: Split, epoch: int) -> None:
         for metric in metrics:
-            self._tb.writer.add_scalar(f"{split.value.upper()}/{metric.name.upper()}", metric.value, epoch + 1)
+            self._service.writer.add_scalar(f"{split.value.upper()}/{metric.name.upper()}", metric.value, epoch + 1)
 
     def on_train_end(self, ctx: context.TrainEndContext) -> None:
         trainer = ctx.trainer
@@ -64,5 +66,4 @@ class TensorBoardCallback(Callback):
         self._log(metrics, trainer.split, epoch)
 
     def on_teardown(self, ctx: context.TeardownContext) -> None:
-        self._tb.writer.close()
-        self._tb.shutdown()
+        self._service.close()

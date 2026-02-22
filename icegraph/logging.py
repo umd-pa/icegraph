@@ -10,6 +10,10 @@ import logging.config
 import sys
 from pathlib import Path
 
+from icegraph.ui import console
+
+__all__ = ["configure_logging"]
+
 
 class JsonFormatter(logging.Formatter):
     """JSON formatter for logs."""
@@ -60,7 +64,7 @@ def configure_logging(
     json_logs:      bool            = False,
     max_bytes:      int             = 10_000_000,
     backup_count:   int             = 5,
-    console:        bool            = True
+    use_console:    bool            = True
 ) -> logging.Logger:
     """
     Configure logging for the ``icegraph`` package namespace.
@@ -85,7 +89,7 @@ def configure_logging(
             ``10_000_000``.
         backup_count (int): Number of rotated log files to keep. Only applies
             when ``log_file`` is provided. Defaults to ``5``.
-        console (bool): If ``True``, emits logs to the console. Defaults to ``True``.
+        use_console (bool): If ``True``, emits logs to the console. Defaults to ``True``.
     """
 
     # normalize inputs
@@ -106,8 +110,7 @@ def configure_logging(
             import concurrent_log_handler  # noqa: F401
         except ImportError as e:
             raise RuntimeError(
-                "File logging requires the 'concurrent-log-handler' dependency for multiprocess safety. "
-                "Install it with: pip install concurrent-log-handler==0.9.28"
+                "File logging requires the 'concurrent-log-handler' dependency for multiprocess safety."
             ) from e
 
     # build formatters
@@ -120,12 +123,24 @@ def configure_logging(
     # Handlers
     handlers: Dict[str, Dict[str, Any]] = {}
 
-    if console:
-        handlers["console"] = {
-            "class": "icegraph.logging.DynamicStderrHandler",
-            "level": level,
-            "formatter": "json" if json_logs else "standard"
-        }
+    if use_console:
+        if json_logs:
+            handlers["console"] = {
+                "class": "icegraph.logging.DynamicStderrHandler",
+                "level": level,
+                "formatter": "json",
+            }
+        else:
+            # Rich console logging (plays nicely with Progress/Live)
+            handlers["console"] = {
+                "()": "rich.logging.RichHandler",
+                "level": level,
+                "console": console,
+                "rich_tracebacks": True,
+                "show_path": False,
+                "markup": True,
+                "formatter": "rich",
+            }
 
     if log_file:
         Path(log_file).parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +159,8 @@ def configure_logging(
         "disable_existing_loggers": False,  # keep third-party loggers alive
         "formatters": {
             "standard": {"format": standard_fmt, "datefmt": datefmt},
-            "json": {"()": JsonFormatter}
+            "json": {"()": JsonFormatter},
+            "rich": {"format": "%(message)s"},
         },
         "handlers": handlers,
         "loggers": {

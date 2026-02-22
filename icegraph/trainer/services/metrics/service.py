@@ -9,8 +9,7 @@ from torch import Tensor
 
 from ..service import Service
 
-from .metric import Metric
-from .factory import MetricFactory
+from .metric import Metric, MetricFactory, MetricContext
 from .types import ComputedMetric
 from .view import MetricView
 from .config import MetricConfig
@@ -20,6 +19,7 @@ __all__ = ["MetricService"]
 
 class MetricService(Service[MetricView, MetricConfig]):
     name: ClassVar[str] = "metrics"
+    version: ClassVar[int] = 1
 
     deps = ("strategy",)
     interface = MetricView
@@ -36,7 +36,6 @@ class MetricService(Service[MetricView, MetricConfig]):
 
     def on_attach(self) -> None:
         strategy = self._ctx.services.require("strategy", required_by=MetricService)
-        mode = strategy.mode
 
         # load user metric selections
         selection_list = self.config.select
@@ -44,9 +43,12 @@ class MetricService(Service[MetricView, MetricConfig]):
             # build metric, structure of config is enforced by pydantic
             metric = MetricFactory.create(selection.name, **selection.kwargs)
 
+            # attach the metric
+            ctx = MetricContext()
+            metric.attach(ctx)
+
             # verify metric compatibility
-            if mode not in metric.compatible:
-                raise RuntimeError(f"Metric '{type(metric).__name__}' is not compatible with strategy '{mode}'.")
+            strategy.ensure_compatible(metric)
 
             self._metrics.append(metric)
 

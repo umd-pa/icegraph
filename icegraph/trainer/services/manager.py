@@ -1,21 +1,25 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import Mapping, Iterator, Self, Any, overload, Literal
+from __future__ import annotations
+
+from typing import Mapping, Iterator, Self, Any, overload, Literal, TYPE_CHECKING
 from dataclasses import dataclass, field
 from graphlib import TopologicalSorter, CycleError
 
-from ..trainer import Trainer
-
-from .service import Service
-from .types import ServiceView, ServiceContext
 from .factory import ServiceFactory
+from .service import Service
 
 # import each built in service view for overloads
 from .state import StateView
 from .strategy import StrategyView
 from .metrics import MetricView
 from .data import DataView
+
+if TYPE_CHECKING:
+    from ..trainer import Trainer
+
+    from .types import ServiceView, ServiceContext
 
 __all__ = ["ServiceManager"]
 
@@ -94,3 +98,7 @@ class ServiceManager(Mapping[str, Service]):
             instance._services[name].attach(context)
 
         return instance
+
+    def close(self) -> None:
+        for service in self._services.values():
+            service.close()

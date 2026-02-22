@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from typing import TypeVar, cast, ClassVar, Any, final, Generic
-from abc import ABC, abstractmethod
+from typing import TypeVar, cast, ClassVar, Any, final, Generic, TYPE_CHECKING
+from abc import abstractmethod
 
 from icegraph.types.plugins import Plugin
 
@@ -17,7 +17,7 @@ V = TypeVar("V", bound=ServiceView)
 C = TypeVar("C")
 
 
-class Service(Plugin[C, ServiceContext], ABC, Generic[V, C]):
+class Service(Plugin[C, ServiceContext], Generic[V, C]):
     # any service dependencies this service has
     deps: ClassVar[tuple[str, ...]] = tuple()
 
@@ -30,7 +30,7 @@ class Service(Plugin[C, ServiceContext], ABC, Generic[V, C]):
         if getattr(cls, "interface", None) is None:
             raise RuntimeError(f"Service {cls.__name__} must implement the class variable 'interface'")
 
-        if not isinstance(cls.deps, tuple) or not all(isinstance(i, str) for i in cls.deps):
+        if not isinstance(cls.deps, tuple) or not all(isinstance(d, str) for d in cls.deps):
             raise RuntimeError(f"Dependencies for service {cls.__name__} must be a tuple of str.")
 
     @abstractmethod

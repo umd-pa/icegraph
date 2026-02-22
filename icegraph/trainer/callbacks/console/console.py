@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from rich.console import Console as RichConsole, Group
+from rich.console import Group
 from rich.text import Text
 from rich.panel import Panel
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn, TaskID
@@ -14,13 +14,15 @@ from rich.layout import Layout
 from rich.align import Align
 
 from icegraph.types.data import Split
+from icegraph.ui import console
 
 from ..callback import Callback
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
-    from .. import context
     from icegraph.trainer.services.metrics import ComputedMetric
+
+    from .. import context
 
 __all__ = ["ConsoleCallback"]
 
@@ -32,18 +34,10 @@ logger = logging.getLogger(__name__)
 class ConsoleCallback(Callback):
     """Rich-based console UI for training, defaults to standard printouts on incompatible terminals (like IDE's)."""
 
-    @staticmethod
-    def _top_left(renderable) -> Align:
-        return Align(renderable, align="left", vertical="top")
-
-    def _panel(self, title: str | None, renderable, **kwargs) -> Panel:
-        """Create a panel with top-left aligned content."""
-        return Panel(self._top_left(renderable), title=title, **kwargs)
-
     def __init__(self) -> None:
         super().__init__()
 
-        self.console = RichConsole()
+        self.console = console
         self.is_terminal = self.console.is_terminal
 
         # rich state
@@ -67,6 +61,14 @@ class ConsoleCallback(Callback):
                 transient=False,
                 expand=True,
             )
+
+    @staticmethod
+    def _top_left(renderable) -> Align:
+        return Align(renderable, align="left", vertical="top")
+
+    def _panel(self, title: str | None, renderable, **kwargs) -> Panel:
+        """Create a panel with top-left aligned content."""
+        return Panel(self._top_left(renderable), title=title, **kwargs)
 
     def _build_layout(self, trainer: Trainer) -> Layout:
         # init empty layout
@@ -215,6 +217,9 @@ class ConsoleCallback(Callback):
         # no op if no layout has been initialized
         if self.layout is None:
             return
+
+        # layout cannot be None past check
+        self.layout: Layout
 
         metrics = ctx.trainer.metrics.compute()
 

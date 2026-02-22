@@ -1,15 +1,17 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from typing import Protocol, runtime_checkable, TYPE_CHECKING, Any
 from dataclasses import dataclass
 
 from icegraph.types.plugins import PluginContext
 
-from .manager import ServiceManager
-
 if TYPE_CHECKING:
     from ..trainer import Trainer
+
+    from .manager import ServiceManager
 
 __all__ = ["ServiceView", "ServiceContext"]
 

@@ -25,7 +25,11 @@ class Source:
 
     ``resolve()`` yields matching files lazily.
     """
-    source: SourceType
+    source: SourceType | Source
+
+    def __post_init__(self) -> None:
+        if isinstance(self.source, Source):
+            object.__setattr__(self, "source", self.source.source)
 
     @staticmethod
     def _expand_path(path: Path, extension: str, recursive: bool) -> Iterable[Path]:

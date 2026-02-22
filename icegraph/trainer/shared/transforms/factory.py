@@ -3,16 +3,15 @@
 
 from __future__ import annotations
 
-from icegraph.types.transforms import TransformSpace
-
 from icegraph.types.factory import Factory
-from .standard import Asinh, Log
+
+from .variants import Asinh, Log
 from .transform import Transform
 
 __all__ = ["TransformFactory"]
 
 
-class TransformFactory(Factory[TransformSpace, Transform]):
+class TransformFactory(Factory[Transform]):
     pass
 
 TransformFactory.register(Asinh)

@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TypeVar, Generic, ClassVar
-from abc import ABC
+from typing import TypeVar, ClassVar
 
 from torch.nn import Module
 
@@ -19,5 +18,5 @@ C = TypeVar("C")
 X = TypeVar("X", bound=ComponentContext)
 
 
-class Component(Plugin[C, X], Module, ABC, Generic[C, X]):
+class Component(Plugin[C, X], Module):
     compatible: ClassVar[tuple[str, ...]] = tuple()

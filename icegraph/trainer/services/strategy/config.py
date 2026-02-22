@@ -3,10 +3,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 __all__ = ["StrategyConfig"]
 
 
 class StrategyConfig(BaseModel):
-    name: str
+    strategy: PluginConfig
+
+
+class PluginConfig(BaseModel):
+    name:   str
+    kwargs: dict[str, Any]

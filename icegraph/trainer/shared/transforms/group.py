@@ -10,7 +10,8 @@ from torch import Tensor
 from torch.nn import Module, ModuleDict
 
 from icegraph.types.transforms import TransformSpace, TransformSpec
-from icegraph.trainer.shared import BufferedDict
+
+from ..modules import BufferedDict
 
 from .factory import TransformFactory
 from .transform import Transform
@@ -32,7 +33,7 @@ class GroupTransform(Module):
 
         # transforms needs to be constant shape, build each empty
         self._transforms: ModuleDict = ModuleDict({
-            space.name: TransformFactory.create(space) for space in spaces
+            space.name: TransformFactory.create(space.value) for space in spaces
         })
 
     @staticmethod

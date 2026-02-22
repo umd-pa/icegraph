@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from abc import abstractmethod
+from typing import TypeVar
 
 from torch import Tensor
 
@@ -18,7 +18,7 @@ __all__ = ["Model"]
 C = TypeVar("C")
 
 
-class Model(Component[C, ModelContext], ABC, Generic[C]):
+class Model(Component[C, ModelContext]):
 
     @abstractmethod
     def forward(self, t: Tensor, /, batch: Tensor | None = None) -> Tensor:
