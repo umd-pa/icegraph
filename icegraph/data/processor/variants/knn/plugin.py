@@ -7,16 +7,19 @@ from typing import ClassVar, Any
 
 import numpy as np
 import pandas as pd
-from sklearn.neighbors import NearestNeighbors
+from scipy.spatial import cKDTree
 
 from icegraph.data.processor import Processor
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.types import Envelope
 from icegraph.types.common import ArrayF32, ArrayI64
 
 from .config import KNNConfig
 
 __all__ = ["KNN"]
+
+# module logger
+import logging
+logger = logging.getLogger(__name__)
 
 
 class KNN(Processor[KNNConfig]):
@@ -30,7 +33,6 @@ class KNN(Processor[KNNConfig]):
     def build(self) -> None:
         return
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         self._ensure_selected(env)
         main = env.tmp[env.active]
@@ -38,23 +40,24 @@ class KNN(Processor[KNNConfig]):
         by = env.resolve_cols(self.config.by)
         cols = env.resolve_cols(self.config.col)
 
-        def _edges_from_row(row: pd.Series):
-            pos = np.column_stack(row.to_list()).astype(np.float32, copy=False)
-            mask = np.isfinite(pos).all(axis=1)
-            return self.compute_edges(pos[mask])
+        edge_index: list[ArrayI64] = []
+        edge_weight: list[ArrayF32] = []
 
-        pairs = main[cols].apply(_edges_from_row, axis=1)
-        edge_index, edge_weight = zip(*pairs) if len(pairs) else ([], [])
+        rows = main[cols].to_numpy(object)
+        for row in rows:
+            pos = np.column_stack(row).astype(np.float32, copy=False)
+            mask = np.isfinite(pos).all(axis=1)
+            ei, ew = self.compute_edges(pos[mask])
+            edge_index.append(ei)
+            edge_weight.append(ew)
 
         # set up payload
-        payload = pairs.index.to_frame(index=False)
-
         out = env.resolve_cols(self.config.out)
         if len(out) != 2:
             raise RuntimeError(f"KNN: expected out to have two elements, got {out}")
 
         # sanity checks
-        n = len(payload)
+        n = len(main)
         if len(edge_index) != n or len(edge_weight) != n:
             raise RuntimeError(
                 f"KNN: length mismatch: payload={n}, edge_index={len(edge_index)}, edge_weight={len(edge_weight)}"
@@ -70,25 +73,34 @@ class KNN(Processor[KNNConfig]):
         return env.merge(payload, to=env.active, on=by, validate="1:1")
 
     def compute_edges(self, pos: ArrayF32) -> tuple[ArrayI64, ArrayF32]:
+        pos = np.ascontiguousarray(pos, dtype=np.float32)
+
         n = pos.shape[0]
         if n <= 1:
             return np.empty((2, 0), dtype=np.int64), np.empty((0,), dtype=np.float32)
 
-        effective_k = min(self.config.k, n - 1)
+        # get effective k
+        k = min(self.config.k, n - 1)
 
-        nn = NearestNeighbors(n_neighbors=effective_k + 1, algorithm="auto")
-        nn.fit(pos)
+        # build kdtree
+        tree = cKDTree(pos)
 
-        distances, indices = nn.kneighbors(pos, return_distance=True)
+        # query self + k neighbors, then drop self column
+        dists, indices = tree.query(pos, k=k + 1)
 
-        # first neighbor is the point itself; drop it
+        if k == 1:
+            dists = dists[:, None]
+            indices = indices[:, None]
+
+        dists = dists[:, 1:]
         indices = indices[:, 1:]
-        distances = distances[:, 1:]
 
-        # build edge_index in COO format (2, E)
-        src = np.repeat(np.arange(n), effective_k)
-        dst = indices.reshape(-1)
-        edge_index = np.vstack([src, dst]).astype(np.int64, copy=False)
-        edge_weight = distances.reshape(-1).astype(np.float32, copy=False)
+        src = np.repeat(np.arange(n, dtype=np.int64), k)
+        dst = indices.reshape(-1).astype(np.int64, copy=False)
 
+        edge_index = np.empty((2, n * k), dtype=np.int64)
+        edge_index[0] = src
+        edge_index[1] = dst
+
+        edge_weight = dists.reshape(-1).astype(np.float32, copy=False)
         return edge_index, edge_weight

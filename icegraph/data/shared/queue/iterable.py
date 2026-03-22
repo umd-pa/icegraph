@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-from queue import Queue
+from typing import Generic, TypeVar, cast
+from queue import Queue, Empty
 from collections.abc import Iterator
 from threading import Lock
 
@@ -18,12 +18,12 @@ SENTINEL = object()
 
 class IterableQueue(Iterator[O], Generic[O]):
 
-    def __init__(self, *, maxsize: int = 5) -> None:
+    def __init__(self, *, maxsize: int = 10) -> None:
         # actual wrapped queue
         self._q: Queue[O | object] = Queue(maxsize)
 
         # active flag
-        self._active = True
+        self._closed = False
 
         # lock
         self._lock = Lock()
@@ -33,21 +33,19 @@ class IterableQueue(Iterator[O], Generic[O]):
 
     def __next__(self) -> O:
         item = self._q.get()
-
         if item is SENTINEL:
             raise StopIteration
-
-        return item
+        return cast(O, item)
 
     def put(self, item: O) -> None:
         with self._lock:
-            if not self._active:
-                raise RuntimeError("Cannot put to an inactive queue.")
+            if self._closed:
+                raise RuntimeError("Cannot put to a closed queue.")
         self._q.put(item)
 
     def close(self) -> None:
         with self._lock:
-            if not self._active:
+            if self._closed:
                 return
-            self._active = False
+            self._closed = True
         self._q.put(SENTINEL)

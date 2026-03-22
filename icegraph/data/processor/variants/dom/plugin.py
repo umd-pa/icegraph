@@ -12,7 +12,6 @@ from icecube.icetray import OMKey
 from icecube.dataclasses import I3Geometry
 
 from icegraph.data.processor import Processor
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.types import Envelope
 from icegraph.types.data import AttributeDomain
 
@@ -35,7 +34,6 @@ class DOMProcessor(Processor[DOMConfig]):
     def build(self) -> None:
         self._geometry = None
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         self._ensure_selected(env)
         main = env.tmp[env.active]

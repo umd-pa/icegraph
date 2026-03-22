@@ -22,11 +22,6 @@ C = TypeVar("C")
 class Store(Plugin[C, StoreContext]):
     """Provides access to dataset files."""
 
-    _source: Source
-
-    def on_attach(self) -> None:
-        self._source = self._ctx.source
-
     def __iter__(self) -> Iterator[dict[str, Any]]:
         """Iterate through all records."""
         for i in range(len(self)):

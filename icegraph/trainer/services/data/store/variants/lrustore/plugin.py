@@ -12,6 +12,7 @@ import numpy as np
 from icegraph.types.common import ArrayI
 from icegraph.types.data import AttributeDomain
 from icegraph.trainer.services.data.types import Attributes, GlobalAttributes
+from icegraph.types.files import Source
 
 from ...readers import Reader, ReaderFactory, ReaderContext
 from ...store import Store
@@ -38,17 +39,21 @@ class LRUShardStore(Store[Config]):
         return Config(**config)
 
     def build(self) -> None:
+        # cache for global dataset attributes
+        self._global_attrs = None
+
+    def on_attach(self) -> None:
         # build the readers
-        config = self.config.reader
+        reader_config = self.config.reader
 
         # first build a single reader to determine file extension
-        sample = ReaderFactory.create(config.name, **config.kwargs)
+        sample = ReaderFactory.create(reader_config.name, **reader_config.kwargs)
         file_ext = type(sample).file_ext
 
         readers: list[Reader] = []
-        for path in self._source.resolve(file_ext):
+        for path in self._ctx.source.resolve(file_ext):
             # create the reader
-            reader = ReaderFactory.create(config.name, **config.kwargs)
+            reader = ReaderFactory.create(reader_config.name, **reader_config.kwargs)
 
             # attach the reader given specific file path
             ctx = ReaderContext(path=path)
@@ -72,9 +77,6 @@ class LRUShardStore(Store[Config]):
 
         # cache total dataset size
         self._dataset_size = int(np.sum(self._samples))
-
-        # cache for global dataset attributes
-        self._global_attrs = None
 
     def __getitem__(self, index: int | slice) -> dict[str, Any] | list[dict[str, Any]]:
         """

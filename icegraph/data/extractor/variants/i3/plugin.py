@@ -13,7 +13,6 @@ import h5py
 from icegraph.utils.stdout import suppress_output
 from icegraph.exceptions import IceCubeImportError
 from icegraph.data.types import Envelope
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.extractor import Extractor
 from icegraph.types.data import AttributeDomain
 
@@ -47,7 +46,6 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
     def build(self) -> None:
         return
 
-    @profile_stage()
     def _process(self, infile: Path) -> Envelope | None:
         files = [str(self.config.gcd_path), str(infile)]
 
@@ -80,7 +78,7 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
 
         # register metadata
         env.attrs[AttributeDomain.LOCAL.name]["origin"] = str(infile)
-        env.attrs[AttributeDomain.GLOBAL.name]["gcd"]   = str(self.config.gcd_path)
+        env.attrs[AttributeDomain.GLOBAL.name]["gcd"] = str(self.config.gcd_path)
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext

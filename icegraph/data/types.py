@@ -42,14 +42,12 @@ class Envelope:
         main: The payload DataFrame.
         tmp: Temp work space for processors. The selector moves frames to tmp, committer packs to main.
         data: Raw data from the extractor.
-        metrics: Dict storing per stage metrics.
         attrs: Data attributes (auto-nesting until de-vivification). Must include 'GLOBAL' and 'LOCAL' domain.
         state: Internal dict for inter-stage communication.
     """
     data:       dict[str, pd.DataFrame]
     tmp:        dict[str, pd.DataFrame]     = field(default_factory=dict)
     main:       pd.DataFrame                = field(default_factory=pd.DataFrame)
-    metrics:    dict[int, float]            = field(default_factory=dict)
     attrs:      dict[str, dict[str, Any]]   = field(default_factory=nested_dict)
 
     # not persisted

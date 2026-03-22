@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Self, Any
 from pathlib import Path
 import tempfile
-from threading import Thread, current_thread
+from threading import Thread, current_thread, Event
 import logging
 import itertools
 
@@ -116,6 +116,10 @@ class Pipeline:
 
         Blocks until all threads finish or an unrecoverable exception occurs.
         """
+        # shared exception event
+        error = Event()
+        failure: list[BaseException] = []
+
         def _runner(stage: Stage) -> None:
             try:
                 stage.execute()
@@ -124,8 +128,9 @@ class Pipeline:
                     "Stage crashed: %s", current_thread().name, exc_info=(type(e), e, e.__traceback__)
                 )
                 # signal everyone to stop
+                failure.append(e)
+                error.set()
                 self.close()
-                raise
 
         # start each thread
         threads: list[Thread] = []
@@ -137,13 +142,16 @@ class Pipeline:
             threads.append(t)
 
         # track the writer output for progress updates
-        self.track()
+        self.track(error)
 
         # join threads
         for thread in threads:
             thread.join()
 
-    def track(self) -> None:
+        if failure:
+            raise failure[0]
+
+    def track(self, error: Event) -> None:
         progress = Progress(
             TextColumn("{task.description}"),
             BarColumn(),
@@ -158,8 +166,14 @@ class Pipeline:
         )
 
         with progress:
-            for _ in progress.track(self._queues[-1], total=self._file_count, description="Processing"):
-                pass
+            task = progress.add_task("Processing", total=self._file_count)
+
+            while not error.is_set():
+                try:
+                    next(self._queues[-1])
+                    progress.advance(task)
+                except StopIteration:
+                    break
 
     def close(self) -> None:
         """Signal stages to stop, flush queues, and clean temporary resources."""

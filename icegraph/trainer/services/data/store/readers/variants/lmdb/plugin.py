@@ -35,18 +35,15 @@ class LMDB(Reader[Config]):
         self._env = None
         self._dbs = None
 
-        # assert keys are contiguous (very lightweight check)
-        self._assert_contiguous()
-
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> Config:
         return Config(**config)
 
-    def __len__(self) -> int:
+    def _get_len(self) -> int:
         with self.env.begin(db=self.dbs["data"]) as txn:
             return txn.stat()["entries"]
 
-    def _assert_contiguous(self) -> None:
+    def validate_file(self) -> None:
         with self.env.begin(db=self.dbs["data"]) as txn, txn.cursor() as cur:
             if not cur.first():
                 raise KeyError("Database is empty, cannot find first key.")
@@ -103,6 +100,9 @@ class LMDB(Reader[Config]):
                     raise KeyError(f"Key '{domain.name}' not found in LMDB file {self._path}.")
 
                 attrs[domain] = self._unpack(attrs_bytes)
+
+        # need to sleep so we dont leave handles open
+        self.sleep()
 
         return Attributes(attrs)
 

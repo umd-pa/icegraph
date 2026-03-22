@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from icegraph.types.factory import Factory
 
-from .variants import Asinh, Log
 from .transform import Transform
+
+from . import standard
 
 __all__ = ["TransformFactory"]
 
@@ -14,5 +15,6 @@ __all__ = ["TransformFactory"]
 class TransformFactory(Factory[Transform]):
     pass
 
-TransformFactory.register(Asinh)
-TransformFactory.register(Log)
+
+for name in standard.__all__:
+    TransformFactory.register(getattr(standard, name))

@@ -23,7 +23,21 @@ from .config import LMDBWriterConfig
 import msgpack_numpy as m
 m.patch()
 
+# register faulthandler
+import faulthandler
+import signal
+import sys
+
+faulthandler.enable()
+
+# dump all thread stacks on Ctrl+\ (SIGQUIT)
+faulthandler.register(signal.SIGQUIT, file=sys.stderr, all_threads=True)
+
 __all__ = ["LMDB"]
+
+# module logger
+import logging
+logger = logging.getLogger(__name__)
 
 
 _MB = 1 << 20
@@ -39,19 +53,23 @@ class LMDB(Writer[LMDBWriterConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> None:
+    def _process(self, env: Envelope) -> Envelope | None:
         # build output file path
         origin = Path(env.attrs[AttributeDomain.LOCAL.name]["origin"])
         path = self.config.outdir / origin.with_suffix(".lmdb").name
 
         # add id and set id to attrs
-        env.attrs[AttributeDomain.LOCAL.name]["id"] = stable_hash_blake2b(env.main.to_numpy())
-        env.attrs[AttributeDomain.GLOBAL.name]["set_id"] = stable_hash_blake2b(env.attrs[AttributeDomain.GLOBAL.name])
+        _id = stable_hash_blake2b(env.main.to_numpy())
+        _set_id = stable_hash_blake2b(env.attrs[AttributeDomain.GLOBAL.name])
+
+        env.attrs[AttributeDomain.LOCAL.name]["id"] = _id
+        env.attrs[AttributeDomain.GLOBAL.name]["set_id"] = _set_id
 
         # ensure no stale keys
         if path.exists():
             try:
                 path.unlink()
+                logger.debug(f"unlinked file at {path!s}")
             except OSError as e:
                 raise RuntimeError(f"Failed to remove existing LMDB file: {path}") from e
 
@@ -65,6 +83,8 @@ class LMDB(Writer[LMDBWriterConfig]):
             self.write(env, environ, dbs)
         finally:
             environ.close()
+
+        return env
 
     @staticmethod
     def handle(path: str | Path, map_size: int) -> tuple[lmdb.Environment, dict[Literal['data', 'attr'], Any]]:
@@ -146,10 +166,10 @@ class LMDB(Writer[LMDBWriterConfig]):
                 txn.put(key.encode(), self._pack(attr))
 
         # write data in chunks
-        chunk_size = 20000
+        chunk_size = 1000
         columns = list(env.main.columns)
 
-        for start in range(0, len(env.main), chunk_size):
+        for j, start in enumerate(range(0, len(env.main), chunk_size)):
             # set next stop checkpoint
             end = min(start + chunk_size, len(env.main))
 

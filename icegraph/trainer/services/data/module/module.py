@@ -10,7 +10,7 @@ from collections.abc import Sized
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 
-from icegraph.types.data import Split
+from icegraph.types.data import Split, ModelInputRole
 from icegraph.types.common import ArrayUI
 from icegraph.types.plugins import Plugin
 from icegraph.trainer.services.data.store import Store
@@ -60,4 +60,8 @@ class Module(Plugin[C, ModuleContext], Dataset[Data], Sized):
     @property
     @abstractmethod
     def keys(self) -> ArrayUI:
+        ...
+
+    @abstractmethod
+    def columns(self, role: ModelInputRole, aux: bool = False) -> list[str]:
         ...

@@ -72,11 +72,11 @@ class Trainer:
         # global access to current epoch
         self.current_epoch: int = 0
 
-        # slots for active mode and split
+        # slots for active split
         self.split: Split = Split.TRAIN  # first split is always train
 
         # initialize the service manager
-        self.services = ServiceManager.from_config(self, self.config.services.toDict())
+        self.services = ServiceManager.from_config(self, self.config.services)
 
         self.state      = self.services.require("state",    required_by=Trainer)
         self.metrics    = self.services.require("metrics",  required_by=Trainer)
@@ -105,7 +105,7 @@ class Trainer:
     def _construct_component(
             self, factory: type[PluginFactory[T]], config: ComponentOption, ctx: ComponentContext
     ) -> T:
-        component = factory.create(config.name, config=config.kwargs)
+        component = factory.create(config.name, **config.kwargs)
 
         # attach the component using context
         component.attach(ctx)
@@ -192,6 +192,8 @@ class Trainer:
 
     def _set_split(self, split: Split) -> None:
         """Set the current split."""
+        self.split = split
+
         if split == Split.TRAIN:
             self.model.train()
         else:

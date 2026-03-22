@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import Callable, Any, cast
 from abc import abstractmethod, ABC
-from collections import defaultdict
 
 import torch
 from torch import Tensor
@@ -13,9 +12,9 @@ from torch.nn import ModuleDict
 
 # local package
 from icegraph.statistics import StatisticService
-from icegraph.types.transforms import TransformSpec, TransformSpace
+from icegraph.types.transforms import TransformSpace
 from icegraph.types.data import ModelInputRole, Split
-from icegraph.trainer.shared import GroupTransform, BufferedDict
+from icegraph.trainer.shared import GroupTransform, BufferedDict, GroupTransformSpec
 
 from icegraph.trainer.components.normalizer import Normalizer
 
@@ -60,51 +59,26 @@ class AffineNormalizer(Normalizer[Config], ABC):
             # get stats, only want training stats; we don't care about val or test
             stats = data.stats(Split.TRAIN, role)
 
-            # get columns from stat service
-            columns = stats.columns
+            # get columns from data service
+            columns = data.columns(role)
+            stats.filter_to(columns)
 
             # subtract columns as set from invalid_columns
             invalid_columns -= set(columns)
 
             # build specs
-            specs = self._build_spec_list(columns)
+            spec = GroupTransformSpec.from_config(columns, self.config.transforms)
 
             # configure the transform for this role
-            self.transformer(role).configure_from_specs(specs)
+            self.get_transform(role).configure_from_spec(spec)
 
             # eager compute the scale and offset from subclass logic
             # update buffered dicts
-            self._scale[role.name]  = self._resolve(self._build_scale, stats, specs)
-            self._offset[role.name] = self._resolve(self._build_offset, stats, specs)
+            self._scale[role.name]  = self._resolve(self._build_scale, stats, spec)
+            self._offset[role.name] = self._resolve(self._build_offset, stats, spec)
 
         if invalid_columns:
             raise ValueError(f"Got invalid columns in config: {invalid_columns}")
-
-    def _build_spec_list(self, columns: list[str]) -> list[TransformSpec]:
-        # load user config
-        transform_config = self.params.get("transforms", {})
-
-        # build new spec list, maintain correct order
-        specs: list[TransformSpec] = []
-        for column in columns:
-            column_config = transform_config.get(column, {}).copy()
-
-            # default to linear if no transform config provided
-            if not column_config:
-                specs.append(TransformSpec(TransformSpace.LINEAR))
-                continue
-
-            # obtain selected space (required)
-            space_value = column_config.pop("space", None)
-            try:
-                space = TransformSpace(space_value)
-            except ValueError:
-                raise ValueError(f"{type(self).__name__}: unknown space '{space_value}' for column '{column}'")
-
-            # other configurations passed directly to the spec
-            specs.append(TransformSpec(space, **column_config))
-
-        return specs
 
     @abstractmethod
     def _build_scale(self, stats: StatisticService, space: TransformSpace, base: int) -> Tensor:
@@ -118,49 +92,72 @@ class AffineNormalizer(Normalizer[Config], ABC):
     def _resolve(
             build: Callable[[StatisticService, TransformSpace, int], Tensor],
             stats: StatisticService,
-            specs: list[TransformSpec]
+            spec: GroupTransformSpec
     ) -> Tensor:
-        # count of columns
-        spec_count = len(specs)
+        # number of columns defined by the spec
+        spec_count = len(spec)
 
-        # group indices by (space, base)
-        groups: dict[tuple[Any, Any], list[int]] = defaultdict(list)
-        for i, spec in enumerate(specs):
-            groups[(spec.space, spec.base)].append(i)
-
-        # init empty tensor on device
+        # output tensor storing resolved values for each column
+        # safe because we enforce that every column is written exactly once
         out = torch.empty(spec_count, dtype=torch.float32)
 
-        # for each unique set of (space, base), use build method to compute
-        for (space, base), indices in groups.items():
-            # obtain tensor from subclass logic
-            tensor = build(stats, space, base)
+        # track which columns have been assigned
+        # used to detect duplicates and missing columns
+        assigned = torch.zeros(spec_count, dtype=torch.bool)
 
-            # verify tensor dim and shape are correct
-            if tensor.ndim != 1 or tensor.shape[0] != spec_count:
-                raise ValueError(
-                    f"build({space=}, {base=}) returned shape {tuple(tensor.shape)}, expected ({spec_count},)"
-                )
+        # cache build results for each (space, base) pair
+        # avoids recomputing identical transforms
+        cache: dict[tuple[TransformSpace, int], Tensor] = {}
 
-            # grab values at relevant indices
-            idx = torch.tensor(indices, dtype=torch.long)
-            out[idx] = tensor[idx]
+        # iterate through transform groups
+        for space, bases, cols in spec.groups:
+            for base, col in zip(bases, cols, strict=True):
+                key = (space, base)
+
+                # reuse cached build result if available
+                tensor = cache.get(key)
+                if tensor is None:
+                    tensor = build(stats, space, base)
+
+                    # ensure returned tensor covers all columns
+                    if tensor.ndim != 1 or tensor.shape[0] != spec_count:
+                        raise ValueError(
+                            f"build({space=}, {base=}) returned shape {tuple(tensor.shape)}, "
+                            f"expected ({spec_count},)"
+                        )
+
+                    # reject tensors containing nan/inf
+                    if not torch.isfinite(tensor).all():
+                        raise ValueError(f"build({space=}, {base=}) returned non-finite values")
+
+                    cache[key] = tensor
+
+                # detect duplicate column assignment
+                if assigned[col]:
+                    raise ValueError(f"Column {col} assigned more than once")
+
+                # assign value for this column
+                out[col] = tensor[col]
+                assigned[col] = True
+
+        # ensure every column in the spec was assigned
+        if not assigned.all():
+            missing = (~assigned).nonzero(as_tuple=False).flatten().tolist()
+            raise ValueError(f"GroupTransformSpec did not cover all columns, missing: {missing}")
+
+        # final safety check
+        if not torch.isfinite(out).all():
+            raise ValueError("Resolved affine parameters contain non-finite values")
 
         return out
-
-    def get_offset(self, role: ModelInputRole) -> Tensor:
-        return self._offset[role.name]
-
-    def get_scale(self, role: ModelInputRole) -> Tensor:
-        return self._scale[role.name]
 
     def get_transform(self, role: ModelInputRole) -> GroupTransform:
         return cast(GroupTransform, self._transforms[role.name])
 
     def _affine(self, tensor: Tensor, role: ModelInputRole, *, inverse: bool = False) -> Tensor:
         # get scale and offset
-        scale = self.get_scale(role)
-        offset = self.get_offset(role)
+        scale = self._scale[role.name]
+        offset = self._offset[role.name]
 
         # perform affine transform
         if inverse:

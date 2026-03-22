@@ -32,3 +32,13 @@ class TransformSpace(Enum):
     @classmethod
     def non_linear(cls) -> list[TransformSpace]:
         return [space for space in cls.all() if space != cls.LINEAR]
+
+    def format_repr(self, s: str, /) -> str:
+        """Convenience to wrap a value with a latex representation of the space."""
+        if self == TransformSpace.LOG:
+            return rf"\log({s})"
+        elif self == TransformSpace.ASINH:
+            return rf"\mathrm{{asinh}}({s})"
+
+        # if linear, just return str
+        return s

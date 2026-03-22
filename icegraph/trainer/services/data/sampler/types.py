@@ -3,11 +3,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 
 from icegraph.types.plugins import PluginContext
 
 from ..types import SizedDataset
+
+if TYPE_CHECKING:
+    from torch import device
 
 __all__ = ["SamplerContext"]
 
@@ -17,4 +21,5 @@ class SamplerContext(PluginContext):
     dataset:        SizedDataset
     num_replicas:   int
     rank:           int
+    device:         device
     shuffle:        bool            = False

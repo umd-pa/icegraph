@@ -15,5 +15,5 @@ class Config(BaseModel):
 
 
 class TransformSelection(BaseModel):
-    space: TransformSpaceType
-    base: int = 10
+    space:  TransformSpaceType
+    base:   int                 = 10

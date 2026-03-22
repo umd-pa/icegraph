@@ -8,7 +8,7 @@ from icegraph.types.factory import PluginFactory
 from .model import Model
 
 # implementations
-from .standard import GravNet
+from .variants import GravNet
 
 __all__ = ["ModelFactory"]
 

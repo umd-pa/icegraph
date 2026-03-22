@@ -24,7 +24,6 @@ class PluginConfig(BaseModel):
 
 class LoaderConfig(BaseModel):
     batch_size:         int
-    block_size:         int
     num_workers:        int
     prefetch_factor:    int
     mp_context:         Literal["fork", "spawn", "forkserver"]

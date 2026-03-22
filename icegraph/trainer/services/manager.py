@@ -16,10 +16,10 @@ from .strategy import StrategyView
 from .metrics import MetricView
 from .data import DataView
 
+from .types import ServiceView, ServiceContext
+
 if TYPE_CHECKING:
     from ..trainer import Trainer
-
-    from .types import ServiceView, ServiceContext
 
 __all__ = ["ServiceManager"]
 
@@ -77,7 +77,7 @@ class ServiceManager(Mapping[str, Service]):
         # construct all services specified in config
         for name, kwargs in config.items():
             # create and register the service
-            instance._services[name] = ServiceFactory.create(name, config=kwargs)
+            instance._services[name] = ServiceFactory.create(name, **kwargs)
 
         # validate deps
         for n, s in instance._services.items():

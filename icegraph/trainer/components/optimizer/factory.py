@@ -8,7 +8,7 @@ from icegraph.types.factory import PluginFactory
 from .optimizer import Optimizer
 
 # implementations
-from .standard import AdamW, SGD
+from .variants import AdamW, SGD
 
 __all__ = ["OptimizerFactory"]
 

@@ -11,6 +11,8 @@ from torch.nn import Module
 
 class BufferedDict(Module, Mapping[str, Tensor]):
 
+    __hash__ = Module.__hash__
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -46,7 +48,7 @@ class BufferedDict(Module, Mapping[str, Tensor]):
     @staticmethod
     def _buffer_name(key: str) -> str:
         # prefix to avoid collisions with other attributes/methods
-        return f"buffer__{key}"
+        return f"buffer__{key.replace('.', '_')}"
 
     @classmethod
     def from_dict(cls, d: dict[str, Tensor]) -> Self:
@@ -61,13 +63,17 @@ class BufferedDict(Module, Mapping[str, Tensor]):
         return instance
 
     @classmethod
-    def from_keys(cls, keys: Sequence[str], *, dtype: torch.dtype = torch.float32) -> Self:
+    def from_keys(
+            cls, keys: Sequence[str], /, *,
+            dtype: torch.dtype = torch.float32,
+            device: torch.device = torch.device("cpu")
+    ) -> Self:
         """Build a buffered dict from a sequence of keys, each value initialized to empty tensor."""
         # init instance
         instance = cls()
 
         # register each key to None
         for key in keys:
-            instance[key] = torch.empty(0, dtype=dtype)
+            instance[key] = torch.empty(0, dtype=dtype, device=device)
 
         return instance

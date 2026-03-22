@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
+from functools import wraps
 
 from rich.console import Group
 from rich.text import Text
@@ -31,6 +32,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def terminal_only(fn):
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if not getattr(self, "is_terminal", False):
+            return None
+        return fn(self, *args, **kwargs)
+    return wrapper
+
+
 class ConsoleCallback(Callback):
     """Rich-based console UI for training, defaults to standard printouts on incompatible terminals (like IDE's)."""
 
@@ -38,6 +48,8 @@ class ConsoleCallback(Callback):
         super().__init__()
 
         self.console = console
+
+        # is terminal will be flipped to false on non-main rank
         self.is_terminal = self.console.is_terminal
 
         # rich state
@@ -136,51 +148,20 @@ class ConsoleCallback(Callback):
         """Render the info panel for metrics trends."""
 
         def value_fn(metric: ComputedMetric) -> str:
-            return (
-                f"[EMA{metric.span}:{metric.ema:>12.4g}  Δ{metric.span}:{metric.delta:>12.4g}]"
-            )
+            ema = f"{metric.ema:>12.4g}" if metric.ema is not None else f"{'n/a':>12}"
+            delta = f"{metric.delta:>12.4g}" if metric.delta is not None else f"{'n/a':>12}"
+
+            return f"[EMA{metric.span}:{ema}  Δ{metric.span}:{delta}]"
 
         return self._render_metric_panel("Metric Trends", value_fn)
 
     def reset_progress_bar(self, desc: str, total: int) -> None:
-        # no op if not in terminal
-        if not self.is_terminal:
-            return
-
         # ensure task exists
         if self.task_id is None:
             self.task_id = self.progress.add_task(desc, total=total)
         else:
             # reset and update the progress bar
             self.progress.reset(self.task_id, total=total, description=desc)
-
-    # callback hooks
-    def on_execute(self, trainer: Trainer) -> None:
-        # no op if not in terminal
-        if not self.is_terminal:
-            return
-
-        self.layout = self._build_layout(trainer)
-        self.live   = Live(
-            self.layout,
-            console=self.console,
-            refresh_per_second=10,
-            screen=True,
-            redirect_stdout=True,
-            redirect_stderr=True
-        )
-        self.live.start()
-
-    def on_batch_end(self, ctx: context.BatchEndContext) -> None:
-        # no op if not in terminal
-        if not self.is_terminal:
-            return
-
-        # no op if no progress bar is defined
-        if self.task_id is None or self.progress is None:
-            return
-
-        self.progress.advance(self.task_id)
 
     def _on_split_begin(self, trainer: Trainer, split: Split, total: int) -> None:
         epoch = trainer.current_epoch
@@ -191,29 +172,58 @@ class ConsoleCallback(Callback):
         # reset the progress bar for the start of the next split/epoch
         self.reset_progress_bar(desc, total)
 
+    # callback hooks
+    def on_execute(self, ctx: context.ExecuteContext) -> None:
+        # only run on main rank
+        if not ctx.trainer.state.is_main_process():
+            self.is_terminal = False
+
+        # no op if not in terminal
+        if not self.is_terminal:
+            return
+
+        self.layout = self._build_layout(ctx.trainer)
+        self.live = Live(
+            self.layout,
+            console=self.console,
+            refresh_per_second=10,
+            screen=True,
+            redirect_stdout=True,
+            redirect_stderr=True
+        )
+        self.live.start()
+
+    @terminal_only
+    def on_batch_end(self, ctx: context.BatchEndContext) -> None:
+        # no op if no progress bar is defined
+        if self.task_id is None or self.progress is None:
+            return
+
+        self.progress.advance(self.task_id)
+
+    @terminal_only
     def on_train_begin(self, ctx: context.TrainBeginContext) -> None:
         trainer = ctx.trainer
         self._on_split_begin(
             trainer, Split.TRAIN, len(trainer.data.dataloader(Split.TRAIN))
         )
 
+    @terminal_only
     def on_validation_begin(self, ctx: context.ValidationBeginContext) -> None:
         trainer = ctx.trainer
         self._on_split_begin(
             trainer, Split.VAL, len(trainer.data.dataloader(Split.VAL))
         )
 
+    @terminal_only
     def on_test_begin(self, ctx: context.TestBeginContext) -> None:
         trainer = ctx.trainer
         self._on_split_begin(
             trainer, Split.TEST, len(trainer.data.dataloader(Split.TEST))
         )
 
+    @terminal_only
     def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
-        # no op if not in terminal
-        if not self.is_terminal:
-            return
-
         # no op if no layout has been initialized
         if self.layout is None:
             return
@@ -230,11 +240,8 @@ class ConsoleCallback(Callback):
         self.layout["stats"].update(self._render_metrics())
         self.layout["info"].update(self._render_info())
 
+    @terminal_only
     def on_teardown(self, ctx: context.TeardownContext) -> None:
-        # no op if not in terminal
-        if not self.is_terminal:
-            return
-
         try:
             # stop live and progress bar
             if self.live:

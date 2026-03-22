@@ -23,8 +23,6 @@ class BlockModel(Model[C]):
     _blocks:        ModuleList | None
     _activation:    Module | None
     _out:           Module | None
-    _in_channels:   int | None
-    _out_channels:  int | None
 
     def build(self) -> None:
         # cache for activation and blocks
@@ -32,16 +30,14 @@ class BlockModel(Model[C]):
         self._activation    = None
         self._out           = None
 
-        # cache for in and out channels set by the strategy
-        self._in_channels   = None
-        self._out_channels  = None
-
     def on_attach(self) -> None:
         # get strategy service
         strategy = self._ctx.services.require("strategy", required_by=type(self))
 
-        self._in_channels   = strategy.in_channels
-        self._out_channels  = strategy.out_channels
+        # eagerly build out, blocks, and activation
+        self._out           = self._build_out(strategy.in_channels, strategy.out_channels)
+        self._blocks        = ModuleList(self._build_blocks(strategy.in_channels, strategy.out_channels))
+        self._activation    = self._build_activation()
 
     def forward(self, t: Tensor, /, batch: Tensor | None = None) -> Tensor:
         """
@@ -65,20 +61,14 @@ class BlockModel(Model[C]):
 
     @property
     def out(self) -> Module:
-        if self._out is None:
-            self._out = self._build_out(self._in_channels, self._out_channels)
         return self._out
 
     @property
     def blocks(self) -> Sequence[ModuleDict]:
-        if self._blocks is None:
-            self._blocks = ModuleList(self._build_blocks(self._in_channels, self._out_channels))
         return cast(Sequence[ModuleDict], cast(object, self._blocks))
 
     @property
     def activation(self) -> Module:
-        if self._activation is None:
-            self._activation = self._build_activation()
         return self._activation
 
     @abstractmethod

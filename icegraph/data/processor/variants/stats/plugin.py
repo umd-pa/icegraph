@@ -9,7 +9,6 @@ import numpy as np
 
 from icegraph.data.processor import Processor
 from icegraph.data.types import Envelope
-from icegraph.data.shared.profile import profile_stage
 from icegraph.statistics import StatisticService
 from icegraph.types.statistics import  StatisticBundleStruct
 from icegraph.types.data import AttributeDomain
@@ -30,7 +29,6 @@ class Stats(Processor[StatsConfig]):
     def validate_config(cls, config: dict[str, Any]) -> StatsConfig:
         return StatsConfig(**config)
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         self._ensure_selected(env)
         main = env.tmp[env.active]
@@ -55,26 +53,22 @@ class Stats(Processor[StatsConfig]):
             payload[col] = {}
             lut = main[col]
 
-            # load column names from compressed data
             try:
                 names = env.state["compressed"][env.active][col]
             except KeyError:
                 names = None
 
-            for split in np.unique(splitmap):
-                # filter the df rowwise by split
-                split_lut = lut[splitmap == split]
+            unique_splits = np.unique(splitmap)
 
-                # stack all arrays to compute file-wide stats
-                try:
-                    array = np.vstack(split_lut.to_numpy()).astype(np.float64, copy=False)
-                except (TypeError, ValueError) as e:
-                    raise RuntimeError(
-                        f"Non-numeric or non-stackable arrays in column '{col}' for split={int(split)}") from e
+            for split in unique_splits:
+                mask = (splitmap == split)
+                split_lut = lut[mask]
 
-                # compute using the stat service and store struct
+                array = np.vstack(split_lut.to_numpy()).astype(np.float64, copy=False)
+
                 service = StatisticService(stats, names if names is not None else range(array.shape[1]))
                 service.compute_from_array(array)
+
                 payload[col][str(split)] = service.to_struct()
 
         # register stats

@@ -9,7 +9,6 @@ from rich.pretty import pprint
 import pandas as pd
 
 from icegraph.data.processor import Processor
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.types import Envelope
 from icegraph.ui import console
 
@@ -30,7 +29,6 @@ class Inspector(Processor[InspectConfig]):
     def validate_config(cls, config: dict[str, Any]) -> InspectConfig:
         return InspectConfig(**config)
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         main = env.main
 

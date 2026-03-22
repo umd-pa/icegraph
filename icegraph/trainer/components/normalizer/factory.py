@@ -8,7 +8,7 @@ from icegraph.types.factory import PluginFactory
 from .normalizer import Normalizer
 
 # implementations
-from .standard import MinMax, ZScore, Centering, UnitVariance
+from .variants import MinMax, ZScore, Centering, UnitVariance
 
 __all__ = ["NormalizerFactory"]
 

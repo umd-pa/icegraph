@@ -8,7 +8,8 @@ from types import MappingProxyType
 from dataclasses import dataclass
 from collections.abc import Sized
 
-from icegraph.types.data import AttributeDomain, ModelInputRole
+from icegraph.statistics import StatisticService
+from icegraph.types.data import AttributeDomain, ModelInputRole, Split
 
 __all__ = ["Attributes", "GlobalAttributes", "SizedDataset"]
 
@@ -57,6 +58,25 @@ class Attributes(Mapping[AttributeDomain, dict[str, Any]]):
 
         return checksum
 
+    def stats(self, split: Split, role: ModelInputRole) -> StatisticService:
+        stat_structs = self._data[AttributeDomain.LOCAL].get("stats")
+
+        if stat_structs is None:
+            raise RuntimeError(
+                f"Key [{AttributeDomain.LOCAL.name}][stats] not found in attrs. "
+                f"Problematic shard: ID={self.shard_id}."
+            )
+
+        struct = stat_structs.get(role.value, {}).get(str(split.to_int()))
+
+        # ensure struct was found
+        if struct is None:
+            raise RuntimeError(
+                f"No stats found for role={role.value}, split={str(split.to_int())}. "
+                f"Problematic shard: ID={self.shard_id}."
+            )
+
+        return StatisticService.from_struct(struct)
 
 @dataclass(frozen=True)
 class GlobalAttributes(Mapping[str, Any]):

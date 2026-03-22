@@ -2,6 +2,5 @@
 # Developed by Taylor St Jean
 
 from .spaces import TransformSpace, TransformSpaceType
-from .specs import TransformSpec
 
-__all__ = ["TransformSpace", "TransformSpec", "TransformSpaceType"]
+__all__ = ["TransformSpace", "TransformSpaceType"]

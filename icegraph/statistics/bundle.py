@@ -35,8 +35,10 @@ class StatisticBundle:
 
     def compute(self, array: ArrayF) -> Self:
         """Run computation of stats for each stat in the bundle."""
+        # compute all stats
         for stat in self.stats.values():
             stat.compute(array)
+
         return self
 
     @classmethod

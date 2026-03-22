@@ -6,7 +6,6 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from icegraph.data.processor import Processor
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.types import Envelope
 
 from .config import RenameConfig
@@ -26,7 +25,6 @@ class Renamer(Processor[RenameConfig]):
     def build(self) -> None:
         return
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         self._ensure_selected(env)
         main = env.tmp[env.active]

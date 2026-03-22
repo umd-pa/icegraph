@@ -6,6 +6,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Callable, Self, ClassVar, Mapping, TYPE_CHECKING
 import inspect
+import time
 
 # local package
 from icegraph.types.transforms import TransformSpace
@@ -19,6 +20,10 @@ if TYPE_CHECKING:
     from .bundle import StatisticBundle
 
 __all__ = ["Statistic"]
+
+# module logger
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Statistic(ABC):
@@ -93,6 +98,9 @@ class Statistic(ABC):
         Args:
             array: Input data array used to compute the statistic.
         """
+        # start time
+        start = time.perf_counter()
+
         # reset stats first
         self._values.clear()
 
@@ -102,6 +110,12 @@ class Statistic(ABC):
         for space in self.spaces:
             # compute the stat on transformed data in each space
             self._values[space] = self._compute(self.transform[space](array))
+
+        # log time elapsed
+        logger.debug(
+            f"stat={self.name}: compute completed in %.3fms",
+            (time.perf_counter() - start) * 1000,
+        )
 
     @abstractmethod
     def _compute(self, array: ArrayF) -> ArrayF:

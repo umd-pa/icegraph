@@ -18,5 +18,5 @@ class Writer(Stage[C]):
     """Base class for pipeline DataFrame writers."""
 
     @abstractmethod
-    def _process(self, env: Envelope) -> None:
+    def _process(self, env: Envelope) -> Envelope | None:
         ...

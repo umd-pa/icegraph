@@ -1,11 +1,9 @@
 seed: 2729
-
-source: /data/i3store/users/umd-ml/sim/L2/23122/0000000-0000999
-outdir: /data/i3store/users/tstjean/data/processed/23122
+outdir: /data/i3store/users/tstjean/data/test/processed
 
 trainer:
   max_epochs: 10000
-  val_interval: 1
+  val_interval: 5
   save_interval: 100
 
 services:
@@ -43,7 +41,7 @@ services:
     store:
       name: lru-shard
       kwargs:
-        cache_size: 32
+        cache_size: 16
         reader:
           name: lmdb
           kwargs: { }

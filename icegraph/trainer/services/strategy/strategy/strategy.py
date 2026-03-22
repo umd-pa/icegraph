@@ -22,12 +22,7 @@ C = TypeVar("C")
 
 
 class Strategy(Plugin[C, StrategyContext]):
-    """
-    Base class for task-specific training strategies.
-
-    A Strategy defines how a model computes loss, adapts targets,
-    and determines input/output channels.
-    """
+    """Base class for task-specific training strategies."""
 
     @property
     def _data(self) -> DataView:

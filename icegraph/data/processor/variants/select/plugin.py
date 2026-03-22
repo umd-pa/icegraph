@@ -6,7 +6,6 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from icegraph.data.processor import Processor
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.types import Envelope
 
 from .config import SelectConfig
@@ -26,7 +25,6 @@ class Selector(Processor[SelectConfig]):
     def validate_config(cls, config: dict[str, Any]) -> SelectConfig:
         return SelectConfig(**config)
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         # set active frame
         env.active = self.config.key

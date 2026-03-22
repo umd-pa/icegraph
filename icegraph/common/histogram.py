@@ -120,8 +120,9 @@ class Histogram:
         cumulative = np.cumsum(self.histogram, axis=axis)
         totals = cumulative.take(-1, axis=axis)
 
-        # determine median indices
-        median_indices = np.argmax(cumulative >= (threshold * float(totals)), axis=axis)
+        # determine quantile indices
+        targets = np.expand_dims(threshold * totals, axis=axis)
+        median_indices = np.argmax(cumulative >= targets, axis=axis)
 
         # grab axis centers
         centers = self.centers[axis]

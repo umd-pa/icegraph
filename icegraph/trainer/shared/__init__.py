@@ -4,6 +4,7 @@
 # commonly used
 from .transforms import GroupTransform
 from .modules import BufferedDict
+from .transforms import TransformSpec, GroupTransformSpec
 
 
-__all__ = ["GroupTransform", "BufferedDict"]
+__all__ = ["GroupTransform", "BufferedDict", "TransformSpec", "GroupTransformSpec"]

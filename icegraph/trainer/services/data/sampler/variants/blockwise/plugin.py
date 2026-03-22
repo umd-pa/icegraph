@@ -33,18 +33,18 @@ class BlockwiseSampler(Sampler[Config]):
     def validate_config(cls, config: dict[str, Any]) -> Config:
         return Config(**config)
 
-    def build(self) -> None:
+    def on_attach(self) -> None:
         # get dataset length
-        self._n = len(self._dataset)
+        self._n = len(self._ctx.dataset)
 
         # get total block count
         self._block_count = math.ceil(self._n / self.config.block_size)
 
         # pad blocks so each rank gets the same count
-        self._padded_block_count = math.ceil(self._block_count / self._num_replicas) * self._num_replicas
+        self._padded_block_count = math.ceil(self._block_count / self._ctx.num_replicas) * self._ctx.num_replicas
 
         # compute sample count per rank
-        self._n_rankwise = (self._padded_block_count // self._num_replicas) * self.config.block_size
+        self._n_rankwise = (self._padded_block_count // self._ctx.num_replicas) * self.config.block_size
 
     def __len__(self) -> int:
         return self._n_rankwise
@@ -56,18 +56,18 @@ class BlockwiseSampler(Sampler[Config]):
 
         try:
             # global block shuffle if shuffle, else just return block ids in order
-            blocks = torch.randperm(self._block_count).tolist() if self._shuffle else range(self._block_count)
+            blocks = torch.randperm(self._block_count).tolist() if self._ctx.shuffle else range(self._block_count)
             if self._padded_block_count > self._block_count:
                 blocks += blocks[: self._padded_block_count - self._block_count]
 
             # get assigned blocks
-            assigned_blocks = blocks[self._rank :: self._num_replicas]
+            assigned_blocks = blocks[self._ctx.rank :: self._ctx.num_replicas]
 
             for block in assigned_blocks:
                 start = block * self.config.block_size
 
                 # shuffle elements within each block if shuffle is true, else yield the block
-                indices = torch.randperm(self.config.block_size).tolist() if self._shuffle else range(self.config.block_size)
+                indices = torch.randperm(self.config.block_size).tolist() if self._ctx.shuffle else range(self.config.block_size)
                 for index in indices:
                     yield (start + index) % self._n
         finally:

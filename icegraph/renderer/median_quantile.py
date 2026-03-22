@@ -26,6 +26,24 @@ class MedianQuantileBand(Plotter):
         # default: no overlays
         pass
 
+    def set_title(self, title: str) -> None:
+        self._fig.update_layout(
+            title_text=title,
+            title_font=dict(size=24)
+        )
+
+    def set_xlabel(self, label: str) -> None:
+        self._fig.update_xaxes(
+            title_text=label,
+            title_font=dict(size=20)
+        )
+
+    def set_ylabel(self, label: str) -> None:
+        self._fig.update_yaxes(
+            title_text=label,
+            title_font=dict(size=20)
+        )
+
     def _plot_base(self, fig: go.Figure, hist: Histogram) -> None:
         # set plot bounds to data ranges
         ranges = hist.bounds

@@ -29,10 +29,10 @@ class Regression(Strategy[Config]):
         return
 
     def out_channels(self) -> int:
-        return len(self._ctx.data.global_attrs.columns(ModelInputRole.LABELS))
+        return len(self._ctx.data.columns(ModelInputRole.LABELS))
 
     def in_channels(self) -> int:
-        return len(self._ctx.data.global_attrs.columns(ModelInputRole.FEATURES))
+        return len(self._ctx.data.columns(ModelInputRole.FEATURES))
 
     def adapt_targets(self, targets: Tensor) -> Tensor:
         # [y] -> [y, 1]

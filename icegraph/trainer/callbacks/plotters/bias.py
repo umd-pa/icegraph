@@ -60,6 +60,19 @@ class BiasPlotter(BinnedHistogramReducer):
         save_path = self._save_dir / f"{data.name}.bias.{epoch + 1}.html"
 
         plot = BiasPlot(data, epoch=epoch)
+
+        # update title
+        title = "%s <b>Bias</b> [Epoch %d - %s]" % (data.name, trainer.current_epoch + 1, trainer.split.value.title())
+        plot.set_title(title)
+
+        # update axis labels
+        xlabel = r"$\mathrm{(Target - Predicted)/Target}\;%s$" % data.space[0].format_repr(r"\mathrm{%s}" % data.name)
+        ylabel = r"$\mathrm{Target}\;%s$" % data.space[1].format_repr(r"\mathrm{%s}" % data.name)
+
+        plot.set_xlabel(xlabel)
+        plot.set_ylabel(ylabel)
+
+        # plot
         plot.plot(save_path=save_path)
 
         logger.info(f"new bias plot saved: %s", str(save_path))

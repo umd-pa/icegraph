@@ -23,6 +23,7 @@ class StrategyService(Service[StrategyView, StrategyConfig]):
     version: ClassVar[int] = 1
 
     interface = StrategyView
+    deps = ("data",)
 
     # make the type checker happy
     _strategy:      Strategy | None

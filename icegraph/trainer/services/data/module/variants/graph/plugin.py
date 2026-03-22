@@ -35,6 +35,19 @@ class GraphModule(Module[Config]):
     def build(self) -> None:
         self._keys = None
 
+    def columns(self, role: ModelInputRole, aux: bool = False) -> list[str]:
+        if role == ModelInputRole.FEATURES:
+            if self.config.features:
+                return self.config.features
+
+        elif role == ModelInputRole.LABELS:
+            if aux:
+                return self.config.aux
+            if self.config.labels:
+                return self.config.labels
+
+        return self._store.global_attrs.columns(role)
+
     def __len__(self) -> int:
         """
         Return the number of events in the subset.
@@ -70,7 +83,7 @@ class GraphModule(Module[Config]):
 
     def _get_by_role(self, record: dict[str, Any], role: ModelInputRole, index: int, *, filter_to: list[str]) -> Tensor:
         # get the array
-        array: ArrayF = record.get(role.value)
+        array: ArrayG = record.get(role.value)
 
         # ensure it exists
         if array is None:

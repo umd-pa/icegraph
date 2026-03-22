@@ -3,18 +3,19 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import cast
 
 import torch
 from torch import Tensor
 from torch.nn import Module, ModuleDict
 
-from icegraph.types.transforms import TransformSpace, TransformSpec
+from icegraph.types.transforms import TransformSpace
 
 from ..modules import BufferedDict
 
 from .factory import TransformFactory
 from .transform import Transform
+from .types import GroupTransformSpec, TransformSpec
 
 __all__ = ["GroupTransform"]
 
@@ -26,50 +27,33 @@ class GroupTransform(Module):
 
         # one transform for each space (except linear)
         spaces = TransformSpace.non_linear()
-        space_names = [space.name for space in spaces]
 
         # build empty mapping
-        self._mapping: BufferedDict = BufferedDict.from_keys(space_names, dtype=torch.long)
+        self._mapping: BufferedDict = BufferedDict.from_keys([space.name for space in spaces], dtype=torch.long)
 
         # transforms needs to be constant shape, build each empty
         self._transforms: ModuleDict = ModuleDict({
             space.name: TransformFactory.create(space.value) for space in spaces
         })
 
-    @staticmethod
-    def _parse_specs(specs: list[TransformSpec]) -> dict[TransformSpace, dict[str, list[int]]]:
-        # build spec dict by grouping
-        parsed: dict[TransformSpace, dict[str, Any]] = {}
-
-        for i, spec in enumerate(specs):
-            if spec.space == TransformSpace.LINEAR:
-                # skip registration if linear
-                continue
-
-            # initialize if not present
-            parsed.setdefault(spec.space, {})
-
-            parsed[spec.space].setdefault("cols", []).append(i)
-            parsed[spec.space].setdefault("base", []).append(spec.base)
-
-        return parsed
-
-    def configure_from_specs(self, specs: list[TransformSpec]) -> None:
+    def configure_from_spec(self, spec: GroupTransformSpec | TransformSpec) -> None:
         # clear all mappings first
         for space_name in self._mapping:
             self._mapping[space_name] = torch.empty(0, dtype=torch.long)
 
-        for space, params in self._parse_specs(specs).items():
-            # extract mapping, convert to tensor
-            self._mapping[space.name] = torch.tensor(params["cols"], dtype=torch.long)
+        # normalize spec input
+        spec = spec if isinstance(spec, GroupTransformSpec) else GroupTransformSpec([spec])
 
-            # build the transform
-            tensor_params: dict[str, Tensor] = {}
-            if "base" in params:
-                tensor_params["base"] = torch.tensor(params["base"], dtype=torch.float32)
+        for space, bases, cols in spec.groups:
+            if space is TransformSpace.LINEAR:
+                # no transform for linear
+                continue
+
+            # extract mapping, convert to tensor
+            self._mapping[space.name] = torch.tensor(cols, dtype=torch.long)
 
             # configure each transform
-            self.get_transform(space.name).configure(**tensor_params)
+            self.get_transform(space.name).configure(base=torch.tensor(bases, dtype=torch.float32))
 
     def get_transform(self, space_name: str) -> Transform:
         return cast(Transform, self._transforms[space_name])

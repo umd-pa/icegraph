@@ -6,6 +6,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from pathlib import Path
 from typing import final, Iterator, Any, ClassVar, TypeVar
+from functools import cached_property
+
+import numpy as np
 
 from icegraph.types.plugins import Plugin
 from icegraph.trainer.services.data.types import Attributes
@@ -23,13 +26,29 @@ class Reader(Plugin[C, ReaderContext]):
 
     # satisfy the type checker
     _path: Path
-    _attrs: Attributes
+    _attrs: Attributes | None
 
     def on_attach(self) -> None:
         self._path = self._ctx.path
+        self._attrs = None
 
         if not self._path.is_file():
             raise FileNotFoundError(f"Path '{self._path!s}' does not resolve to a valid file.")
+
+        self.validate_file()
+
+    def validate_file(self) -> None:
+        pass
+
+    @final
+    def __len__(self) -> int:
+        # build using subclass logic
+        _len = self._get_len()
+
+        # make sure handles are closed
+        self.sleep()
+
+        return _len
 
     @final
     def __iter__(self) -> Iterator[dict[str, Any]]:
@@ -48,7 +67,7 @@ class Reader(Plugin[C, ReaderContext]):
         record_count = len(self)
 
         # ensure index is an int
-        if not isinstance(index, int):
+        if not isinstance(index, (int, np.integer)):
             raise TypeError(f"Index must be int or slice, got {type(index).__name__}.")
 
         # ensure valid index
@@ -56,7 +75,7 @@ class Reader(Plugin[C, ReaderContext]):
             raise IndexError(f"Index {index} out of bounds for length {record_count}.")
 
         # normalize index
-        index = index % record_count
+        index = int(index % record_count)
         return self.get(index)
 
     def __del__(self) -> None:
@@ -76,17 +95,21 @@ class Reader(Plugin[C, ReaderContext]):
         self.__dict__.update(state)
 
     @final
-    @property
+    @cached_property
     def attrs(self) -> Attributes:
-        if self._attrs is None:
-            self._attrs = self._build_attrs()
-        return self._attrs
+        # build using subclass logic
+        attrs = self._build_attrs()
+
+        # make sure handles are closed
+        self.sleep()
+
+        return attrs
 
     def close(self) -> None:
         self.sleep()
 
     @abstractmethod
-    def __len__(self) -> int:
+    def _get_len(self) -> int:
         ...
 
     @abstractmethod

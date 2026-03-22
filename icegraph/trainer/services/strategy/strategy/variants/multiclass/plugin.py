@@ -50,7 +50,7 @@ class Multiclass(Strategy[Config]):
         return sum(len(m) for m in classmap.values())
 
     def in_channels(self) -> int:
-        return len(self._ctx.data.global_attrs.columns(ModelInputRole.FEATURES))
+        return len(self._ctx.data.columns(ModelInputRole.FEATURES))
 
     def adapt_targets(self, targets: Tensor) -> Tensor:
         # [B]

@@ -8,7 +8,6 @@ from typing import ClassVar, Any
 import pandas as pd
 
 from icegraph.data.processor import Processor
-from icegraph.data.shared.profile import profile_stage
 from icegraph.data.types import Envelope
 
 from .config import MapConfig
@@ -28,7 +27,6 @@ class Mapper(Processor[MapConfig]):
     def validate_config(cls, config: dict[str, Any]) -> MapConfig:
         return MapConfig(**config)
 
-    @profile_stage()
     def _process(self, env: Envelope) -> Envelope | None:
         self._ensure_selected(env)
         main = env.tmp[env.active]

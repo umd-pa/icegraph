@@ -13,8 +13,8 @@ from torch import Tensor
 from icegraph.statistics import StatisticService
 from icegraph.trainer.callbacks.base.accumulator import AccumulatorStore
 from icegraph.trainer.callbacks import Callback
-from icegraph.trainer.shared import GroupTransform
-from icegraph.types.transforms import TransformSpace, TransformSpec
+from icegraph.trainer.shared import GroupTransform, TransformSpec, GroupTransformSpec
+from icegraph.types.transforms import TransformSpace
 from icegraph.types.data import ModelInputRole, Split
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ class Reducer(Callback, ABC):
         )
 
         # group transform
-        self._transform: GroupTransform | None   = None
+        self._transform = GroupTransform()
 
         # device
         self.device: torch.device | None = None
@@ -65,38 +65,35 @@ class Reducer(Callback, ABC):
         trainer = ctx.trainer
 
         # cache the trainer device (will not change over a run)
-        self.device = trainer.device
+        self.device = trainer.state.device
 
         # load aggregate label stats
         self._stats = trainer.data.stats(Split.TRAIN, ModelInputRole.LABELS)
 
         # grab target and auxiliary labels
-        self._target_labels = trainer.config.target_labels
-        self._auxiliary_labels = trainer.config.auxiliary_labels
+        self._target_labels = trainer.data.columns(ModelInputRole.LABELS)
+        self._auxiliary_labels = trainer.data.columns(ModelInputRole.LABELS, aux=True)
 
         # grab trainer output directory and build plot dir
         self._save_dir = trainer.outdir / "plots"
         self._save_dir.mkdir(parents=True, exist_ok=True)
 
-        # build the group transformer
-        self._transform = self._build_transformer()
-
-        # assertions
-        assert self.device is not None
-        assert self._stats is not None
-        assert self._target_labels is not None
-        assert self._auxiliary_labels is not None
+        # configure the group transformer
+        self._configure_transformer()
 
         self._post_init(trainer)
 
-    def _build_transformer(self) -> GroupTransform:
+    def _configure_transformer(self) -> None:
         # build specs
         specs: list[TransformSpec] = []
-        for kind in self._axis_scale:
-            specs.append(TransformSpec(kind, base=10))
+        for space in self._axis_scale:
+            specs.append(TransformSpec(space, base=10))
 
-        # build and return group transform
-        return GroupTransform.from_specs(specs, device=self.device)
+        # configure group transform
+        self._transform.configure_from_spec(GroupTransformSpec(specs))
+
+        # move transform to device
+        self._transform.to(self.device)
 
     def on_batch_end(self, ctx: context.BatchEndContext) -> None:
         trainer = ctx.trainer

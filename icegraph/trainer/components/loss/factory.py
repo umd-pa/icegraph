@@ -8,7 +8,7 @@ from icegraph.types.factory import PluginFactory
 from .loss import LossFunction
 
 # implementations
-from .standard import MSELoss, L1Loss, NLLLoss, CrossEntropyLoss, BCEWithLogitsLoss
+from .variants import MSELoss, L1Loss, NLLLoss, CrossEntropyLoss, BCEWithLogitsLoss
 
 __all__ = ["LossFactory"]
 

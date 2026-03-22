@@ -4,9 +4,12 @@
 from .factory import TransformFactory
 from .transform import Transform
 from .group import GroupTransform
+from .types import TransformSpec, GroupTransformSpec
 
 __all__ = [
     "TransformFactory",
     "Transform",
-    "GroupTransform"
+    "GroupTransform",
+    "TransformSpec",
+    "GroupTransformSpec"
 ]

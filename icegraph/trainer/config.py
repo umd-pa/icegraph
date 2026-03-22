@@ -16,9 +16,7 @@ class Config(BaseModel):
     seed:       int
 
     # paths
-    source:     Path | list[Path]
     outdir:     DirectoryPath
-
 
     trainer:    TrainerConfig
     services:   dict[str, Any]  # validated downstream
