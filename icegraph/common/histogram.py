@@ -1,14 +1,16 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable, Any
 import functools
 
 import numpy as np
 
-from icegraph.types.common import ArrayF32, ArrayF64
-from icegraph.types.transforms import TransformSpace
+from icegraph.typing.common import ArrayF32, ArrayF64, ArrayI64, ArrayG
+from icegraph.common.transforms import TransformSpace
 
 __all__ = ["Histogram"]
 
@@ -24,13 +26,11 @@ def require_bounds(func: Callable[..., Any]) -> Callable[..., Any]:
 
 @dataclass(frozen=True, slots=True)
 class Histogram:
-    name:       str
-    histogram:  ArrayF32
     space:      tuple[TransformSpace, ...]
+    histogram:  ArrayF32
 
     # optional fields
     bounds:     ArrayF64 | None    = None
-    extended:   ArrayF32 | None    = None
     overflow:   ArrayF32 | None    = None
 
     def __post_init__(self) -> None:
@@ -38,10 +38,6 @@ class Histogram:
         # need to use object.__setattr__ as we are working in a frozen dataclass
         histogram = np.asarray(self.histogram, dtype=np.float32)
         object.__setattr__(self, "histogram", histogram)
-
-        if self.extended is not None:
-            # set extended to ArrayF32
-            object.__setattr__(self, "extended", np.asarray(self.extended, dtype=np.float32))
 
         if self.overflow is not None:
             # set overflow to ArrayF32
@@ -52,15 +48,15 @@ class Histogram:
             bounds = np.asarray(self.bounds, dtype=np.float64)
 
             # verify shape
-            if bounds.ndim != 2 or bounds.shape[1] != 2:
-                raise ValueError(f"Bounds must have shape (ndim, 2); got {bounds.shape}.")
+            if bounds.ndim != 2 or bounds.shape[0] != 2:
+                raise ValueError(f"Bounds must have shape (2, ndim); got {bounds.shape}.")
 
             # verify data
-            if np.any(bounds[:, 0] >= bounds[:, 1]):
+            if np.any(bounds[0] >= bounds[1]):
                 raise ValueError("All bounds must satisfy min < max.")
 
             # verify one set of bounds for each histogram dim
-            if histogram.ndim != bounds.shape[0]:
+            if histogram.ndim != bounds.shape[1]:
                 raise ValueError(f"Bounds must be specified for each histogram dimension.")
 
             object.__setattr__(self, "bounds", bounds)
@@ -76,12 +72,12 @@ class Histogram:
     @property
     @require_bounds
     def mins(self) -> ArrayF64:
-        return self.bounds[:, 0]
+        return self.bounds[0]
 
     @property
     @require_bounds
     def maxs(self) -> ArrayF64:
-        return self.bounds[:, 1]
+        return self.bounds[1]
 
     @property
     def bins(self) -> tuple[int, ...]:
@@ -90,23 +86,28 @@ class Histogram:
     @property
     @require_bounds
     def edges(self) -> tuple[ArrayF64, ...]:
-        return tuple(
-            np.linspace(low, high, n + 1) for low, high, n in zip(self.bounds[:, 0], self.bounds[:, 1], self.bins)
+        return tuple(  # type: ignore
+            np.linspace(low, high, n + 1) for low, high, n in zip(self.mins, self.maxs, self.bins)
         )
 
     @property
     @require_bounds
     def widths(self) -> ArrayF64:
-        return (self.bounds[:, 1] - self.bounds[:, 0]) / np.asarray(self.bins, dtype=np.float64)
+        return (self.maxs - self.mins) / np.asarray(self.bins, dtype=np.float64)  # type: ignore
 
     @property
     @require_bounds
     def centers(self) -> tuple[ArrayF64, ...]:
-        return tuple((edge[:-1] + edge[1:]) / 2 for edge in self.edges)
+        return tuple((edge[:-1] + edge[1:]) / 2 for edge in self.edges)  # type: ignore
 
     @require_bounds
-    def count_quantile(self, threshold: float, axis: int = 0) -> ArrayF64:
-        """Computes the count medians along specified axis of the histogram."""
+    def count_quantile(self, threshold: float, axis: int = 0) -> ArrayI64:
+        """
+        Computes count-quantile bin indices along the specified axis.
+
+        Returns an integer array with the reduced shape. Invalid entries
+        (where the total count along the reduced axis is 0) are set to -1.
+        """
         if not (-self.histogram.ndim <= axis < self.histogram.ndim):
             raise ValueError(f"Axis {axis} is out of bounds for histogram.")
 
@@ -122,19 +123,48 @@ class Histogram:
 
         # determine quantile indices
         targets = np.expand_dims(threshold * totals, axis=axis)
-        median_indices = np.argmax(cumulative >= targets, axis=axis)
+        quantile_indices = np.argmax(cumulative >= targets, axis=axis)
 
-        # grab axis centers
-        centers = self.centers[axis]
+        # init invalid output as -1
+        indices = np.full(totals.shape, -1, dtype=np.int64)
 
-        # init nan array, fill with medians later
-        medians = np.full(totals.shape, np.nan, dtype=centers.dtype)
-
-        # mask for valid medians (in case totals = 0 anywhere)
         valid = totals > 0
+        indices[valid] = quantile_indices[valid]
 
-        # apply mask and populate medians array, invalid entries will be nan
-        medians[valid] = centers[median_indices[valid]]
+        return indices  # type: ignore
 
-        return medians
+    def apply(self, fn: Callable[[ArrayG], ArrayG]) -> None:
+        """Applies the given function in-place to histogram data."""
+        object.__setattr__(
+            self,
+            "histogram",
+            np.asarray(fn(self.histogram), dtype=np.float32),
+        )
+
+    def to_struct(self) -> dict[str, Any]:
+        struct: dict[str, Any] = {
+            "space": [space.name for space in self.space],
+            "histogram": self.histogram.tolist(),
+            "bounds": None if self.bounds is None else self.bounds.tolist(),
+            "overflow": None if self.overflow is None else self.overflow.tolist(),
+        }
+
+        return struct
+
+    @classmethod
+    def from_struct(cls, struct: dict[str, Any]) -> Histogram:
+        return cls(
+            space=tuple(TransformSpace[name] for name in struct["space"]),
+            histogram=np.asarray(struct["histogram"], dtype=np.float32),
+            bounds=(
+                None
+                if struct.get("bounds") is None
+                else np.asarray(struct["bounds"], dtype=np.float64)
+            ),
+            overflow=(
+                None
+                if struct.get("overflow") is None
+                else np.asarray(struct["overflow"], dtype=np.float32)
+            ),
+        )
 

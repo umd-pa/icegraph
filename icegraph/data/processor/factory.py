@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 # local package
-from icegraph.types.factory import PluginFactory
+from icegraph.common.factory import PluginFactory
 
 # local subpackage
 from .processor import Processor

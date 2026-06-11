@@ -7,7 +7,7 @@ from abc import abstractmethod
 from typing import TypeVar
 
 from ..stage import Stage
-from ..types import Envelope
+from ..envelope import Envelope
 
 __all__ = ["Writer"]
 

@@ -3,58 +3,49 @@
 
 from __future__ import annotations
 
-from icecube.icetray import I3Tray
-from icecube import hdfwriter, ml_suite
-
-import pandas as pd
-
 
 def main():
+    from icecube import dataio
 
-    tray = I3Tray()
-    tray.Add("I3Reader", Filenamelist=[
-        "/cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz",
-        "/data/i3store/users/umd-ml/sim/cascade/22646/0000000-0000999/DNNCascadeL4_NuGen_22646_00000100.i3.zst"
-    ])
+    def get_i3_livetime_seconds(path: str) -> float:
+        """
+        Return the wall-clock livetime/span of an I3 file in seconds.
 
-    tray.Add(ml_suite.EventFeatureExtractorModule, cfg_file="./test_mlsuite.yaml")
+        This uses the first and last I3EventHeader.start_time found in the file.
+        """
+        first_time = None
+        last_time = None
 
-    tray.AddSegment(
-        hdfwriter.I3HDFWriter,
-        Output="/data/i3store/users/tstjean/test_mlsuite_output.hdf5",
-        Keys=[
-            "ml_suite_features",
-            "I3MCWeightDict"
-        ],
-        SubEventStreams=["InIceSplit"],
-    )
+        i3_file = dataio.I3File(path)
 
-    tray.Execute()
+        try:
+            while i3_file.more():
+                frame = i3_file.pop_frame()
 
+                if "I3EventHeader" not in frame:
+                    continue
 
-def read(visit):
-    import h5py
-    def visitor(name, obj):
-        if isinstance(obj, h5py.Dataset):
-            print(f"[DATASET] {name}")
-            print(f"  shape: {obj.shape}")
-            print(f"  dtype: {obj.dtype}")
-        elif isinstance(obj, h5py.Group):
-            print(f"[GROUP]   {name}")
+                t = frame["I3EventHeader"].start_time
 
+                if first_time is None:
+                    first_time = t
 
-    if visit:
-        with h5py.File("/data/i3store/users/tstjean/test_mlsuite_output.hdf5", "r") as f:
-            print("\nFile: /data/i3store/users/tstjean/test_mlsuite_output.hdf5")
-            f.visititems(visitor)
+                last_time = t
 
-    else:
-        with h5py.File("/data/i3store/users/tstjean/test_mlsuite_output.hdf5", "r") as f:
-            print("\nFile: /data/i3store/users/tstjean/test_mlsuite_output.hdf5")
-            df = pd.DataFrame(f["ml_suite_features"][:])
-            print(df.head(20))
+        finally:
+            i3_file.close()
+
+        if first_time is None or last_time is None:
+            return 0.0
+
+        return (
+                last_time.mod_julian_day_double
+                - first_time.mod_julian_day_double
+        ) * 86400.0
+
+    path = "/data/i3store/users/tstjean/data/runs/00131335/Level2_IC86.2018_data_Run00131335_Subrun00000000_00000001.i3.zst"
+    print(get_i3_livetime_seconds(path))
 
 
 if __name__ == "__main__":
     main()
-    read(False)

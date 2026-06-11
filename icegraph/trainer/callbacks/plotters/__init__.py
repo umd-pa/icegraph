@@ -3,5 +3,19 @@
 
 from .parity import ParityPlotter
 from .bias import BiasPlotter
+from .cm import CMPlotter
+from .p_true import PTruePlotter
+from .roc import ROCPlotter
+from .p_positive import BinaryPPositivePlotter
+from .pr import PrecisionRecallPlotter
 
-__all__ = ["ParityPlotter", "BiasPlotter"]
+
+__all__ = [
+    "ParityPlotter",
+    "BiasPlotter",
+    "CMPlotter",
+    "PTruePlotter",
+    "ROCPlotter",
+    "BinaryPPositivePlotter",
+    "PrecisionRecallPlotter"
+]

@@ -8,4 +8,4 @@ from rich.console import Console
 __all__ = ["console"]
 
 
-console = Console(stderr=True, force_terminal=True)
+console = Console(stderr=True)

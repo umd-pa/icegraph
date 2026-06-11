@@ -7,8 +7,8 @@ from typing import ClassVar, TYPE_CHECKING
 
 import numpy as np
 
-from icegraph.types.transforms import TransformSpace
-from icegraph.types.common import ArrayF
+from icegraph.common.transforms import TransformSpace
+from icegraph.typing.common import ArrayF
 
 from ..statistic import Statistic
 

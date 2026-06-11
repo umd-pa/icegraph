@@ -6,8 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
-from icegraph.types.data import AttributeDomain
+from icegraph.data.envelope import Envelope
 
 from .config import CommitConfig
 
@@ -41,10 +40,5 @@ class Committer(Processor[CommitConfig]):
         # commit each col one at a time so attrs can be set for each
         for col in cols:
             env.commit(main[ids + [col]], on=ids, validate="1:1")
-
-            # if compression data is available, store in attrs
-            compression_map = env.state.get("compressed", {}).get(env.active, {})
-            if col in compression_map:
-                env.attrs[AttributeDomain.GLOBAL.name][col] = compression_map[col]
 
         return env

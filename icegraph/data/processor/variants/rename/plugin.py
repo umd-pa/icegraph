@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 
 from .config import RenameConfig
 
@@ -48,4 +48,8 @@ class Renamer(Processor[RenameConfig]):
 
         # rename and return
         env.tmp[env.active] = main.rename(columns=map_)
+
+        # need to manually update column metadata keys
+        env.sync_column_names(map_)
+
         return env

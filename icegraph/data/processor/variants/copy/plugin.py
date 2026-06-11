@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 
 from .config import CopyConfig
 
@@ -29,10 +29,13 @@ class Copier(Processor[CopyConfig]):
         self._ensure_selected(env)
         main = env.tmp[env.active]
 
+        # resolve by
+        by = env.resolve_cols(self.config.by)
+
         env.merge(
-            main[env.resolve_cols(self.config.cols)],
+            main[list(set(env.resolve_cols(self.config.cols) + by))],
             to=self.config.to,
-            on=env.resolve_cols(self.config.by)
+            on=by
         )
 
         return env

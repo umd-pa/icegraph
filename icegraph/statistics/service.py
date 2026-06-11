@@ -9,25 +9,25 @@ import copy
 
 import numpy as np
 
-from icegraph.types.transforms import TransformSpace
-from icegraph.types.statistics import StatisticBundleStruct
-from icegraph.types.common import ArrayF
+from icegraph.common.transforms import TransformSpace
+from icegraph.typing.common import ArrayF, ArrayI, ArrayB
 
 from .statistic import Statistic
 from .factory import StatisticFactory
 from .bundle import StatisticBundle
+from .types import StatisticBundleStruct
 
 __all__ = ["StatisticService"]
 
 
 class StatisticService:
 
-    def __init__(self, kinds: Iterable[str], columns: list[str]) -> None:
+    def __init__(self, kinds: Iterable[str]) -> None:
         # build the stat bundle
-        self.bundle: StatisticBundle = self._build_bundle(kinds, columns)
+        self.bundle: StatisticBundle = self._build_bundle(kinds)
 
     @staticmethod
-    def _build_bundle(kinds: Iterable[str], columns: list[str]) -> StatisticBundle:
+    def _build_bundle(kinds: Iterable[str]) -> StatisticBundle:
         # initialize statistics dict
         stats: dict[str, Statistic] = {}
 
@@ -35,7 +35,7 @@ class StatisticService:
             # get an instance for each kind requested
             stats[kind] = StatisticFactory.create(kind)
 
-        return StatisticBundle(stats, columns)
+        return StatisticBundle(stats)
 
     def __add__(self, other: StatisticService | Literal[0]) -> StatisticService:
         """Addition of two StatisticService objects yields a single merged instance."""
@@ -55,11 +55,6 @@ class StatisticService:
         # which will fully rebuild the instance
         struct = self.to_struct()
         return self.__class__.from_struct, (struct,)
-
-    @property
-    def columns(self) -> list[str]:
-        """Return the list of column names."""
-        return self.bundle.columns
 
     @classmethod
     def merge(cls, services: Iterable[StatisticService]) -> StatisticService:
@@ -116,12 +111,11 @@ class StatisticService:
     def compute_from_array(self, array: ArrayF) -> None:
         """
         Compute all statistics from a dense array. This method overrides all previously
-        stored statistic information in the bundle (except column names), and is intended to be
+        stored statistic information in the bundle, and is intended to be
         used only once per instance.
 
         The input array is treated as shape (N, F), where N is the number of
-        samples and F is the number of columns. This is designed to directly
-        accept data formatted by the FeatureProcessor during processing.
+        samples and F is the number of columns.
 
         Args:
             array: 2D NumPy array of shape (N, F).
@@ -129,7 +123,7 @@ class StatisticService:
         self.bundle.compute(array)
 
     def to_struct(self) -> StatisticBundleStruct:
-        """Serialize the StatisticService instance into a JSON-friendly dict structure."""
+        """Serialize the StatisticService instance into a packable dict structure."""
         return self.bundle.to_struct()
 
     @classmethod
@@ -142,38 +136,31 @@ class StatisticService:
         """
         return cls._from_bundle(StatisticBundle.from_struct(struct))
 
-    def align_to(self, columns: list[str]) -> Self:
-        """
-        Reorder internal stat arrays in-place to match a new column order.
+    def num_columns(self) -> int:
+        """Return the number of columns tracked by the internal stat bundle."""
+        return self.bundle.num_columns()
 
-        This method only permits reordering of columns; it will raise if the
-        requested column set differs (aside from ordering) from the existing
-        internal column set.
+    def align_to(self, indices: ArrayI) -> Self:
+        """
+        Reorder internal stat arrays in-place to match a new order.
 
         Args:
-            columns: Desired column ordering.
+            indices: Desired index ordering.
         """
-        self.bundle.align_to(columns)
+        self.bundle.align_to(indices)
         return self
 
-    def filter_to(self, columns: list[str]) -> Self:
+    def filter_to(self, mask: ArrayB) -> Self:
         """
         Filter internal stat arrays in-place.
 
-        This method only permits filtering of columns and does not reorder.
+        This method only permits filtering and does not reorder.
 
         Args:
-            columns: Desired columns to filter to.
+            mask: Mask to filter to.
         """
-        self.bundle.filter_to(columns)
+        self.bundle.filter_to(mask)
         return self
-
-    def index_of(self, columns: str | list[str]) -> int | list[int]:
-        """Given one or more column names, return associated indices."""
-        if isinstance(columns, list):
-            return [self.index_of(col) for col in columns]
-
-        return self.bundle.index_of(columns)
 
     def copy(self) -> Self:
         """Return a copy of this instance."""

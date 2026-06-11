@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from icegraph.types.common import ArrayF
+from icegraph.typing.common import ArrayF
 
 __all__ = ["linear_transform", "log_transform", "asinh_transform"]
 

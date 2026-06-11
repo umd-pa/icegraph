@@ -12,8 +12,7 @@ from icecube.icetray import OMKey
 from icecube.dataclasses import I3Geometry
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
-from icegraph.types.data import AttributeDomain
+from icegraph.data.envelope import Envelope
 
 from .config import DOMConfig
 
@@ -40,7 +39,12 @@ class DOMProcessor(Processor[DOMConfig]):
 
         # get geometry frame from gcd if not yet stashed
         if self._geometry is None:
-            gcd_path = env.attrs[AttributeDomain.GLOBAL.name]["gcd"]
+            gcd_path = env.get_global_attr("gcd", None)
+
+            # ensure a gcd path was provided
+            if gcd_path is None:
+                raise RuntimeError("GCD file path must be provided to compute DOM coordinates.")
+
             self._geometry = self._get_geometry(gcd_path)
 
         # get string, om, pmt cols
@@ -52,7 +56,7 @@ class DOMProcessor(Processor[DOMConfig]):
 
         # compute positions from ids
         dom_ids = lut.to_numpy(dtype=np.int64, copy=False)
-        pos = np.empty((len(lut), 3), dtype=np.float32)  # allocate empty array
+        pos = np.empty((len(lut), 3), dtype=np.float64)  # allocate empty array
         for i, (s, om, pmt) in enumerate(dom_ids):
             pos[i] = self._id_to_position(int(s), int(om), int(pmt))
 

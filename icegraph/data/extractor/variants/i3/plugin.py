@@ -12,9 +12,8 @@ import h5py
 
 from icegraph.utils.stdout import suppress_output
 from icegraph.exceptions import IceCubeImportError
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 from icegraph.data.extractor import Extractor
-from icegraph.types.data import AttributeDomain
 
 from .config import I3ExtractorConfig
 
@@ -22,19 +21,20 @@ with suppress_output():
     try:
         from icecube.icetray import I3Tray
         from icecube import hdfwriter, ml_suite
-        from icecube.sim_services.label_events import MCLabeler
     except ImportError:
         I3Tray = IceCubeImportError.IceCubeMissingBase  # type: ignore[assignment]
-        MCLabeler = IceCubeImportError.IceCubeMissingBase  # type: ignore[assignment]
         hdfwriter = IceCubeImportError()  # type: ignore[assignment]
         ml_suite = IceCubeImportError()  # type: ignore[assignment]
 
 __all__ = ["I3Extractor"]
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class I3Extractor(Extractor[I3ExtractorConfig]):
     """Extracts features from I3 files using the IceTray module `ml_suite`."""
-    name: ClassVar[str] = "i3_extractor"
+    name: ClassVar[str] = "i3"
     version: ClassVar[int] = 1
 
     file_ext: ClassVar[str] = "i3.zst"
@@ -54,7 +54,6 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
 
             tray.Add("I3Reader", Filenamelist=files)
             tray.Add(ml_suite.EventFeatureExtractorModule, cfg_file=self.config.ml_suite, output_key="features")
-            tray.Add(MCLabeler, **self.config.mclabeler)
 
             tray.AddSegment(
                 hdfwriter.I3HDFWriter,
@@ -70,15 +69,29 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             # load each into a dict to pass to envelope
             data: dict[str, pd.DataFrame] = {}
             with h5py.File(out.name, "r") as f:
+
+                # ensure key exists in file
+                available = list(f.keys())
                 for key in self.config.include:
+                    if key not in available:
+                        # if skip missing is set to True, just skip the file and continue
+                        if self.config.skip_missing:
+                            logger.warning(f"skipping file {infile}, missing key '{key}', available keys: {available}")
+                            return None
+
+                        # if skip missing is set to False, raise and break out
+                        raise KeyError(
+                            f"Missing HDF5 key '{key}' for input file {infile}. Available keys: {available}"
+                        )
+
                     data[key] = pd.DataFrame(f[key][:])
 
         # create the envelope
         env = Envelope(data=data)
 
         # register metadata
-        env.attrs[AttributeDomain.LOCAL.name]["origin"] = str(infile)
-        env.attrs[AttributeDomain.GLOBAL.name]["gcd"] = str(self.config.gcd_path)
+        env.set_local_attr("origin", str(infile))
+        env.set_global_attr("gcd", str(self.config.gcd_path))
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext

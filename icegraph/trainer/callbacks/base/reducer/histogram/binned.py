@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Iterator
+from typing import Callable
+
+from abc import abstractmethod
+from functools import cached_property
 
 import torch
 from torch import Tensor
@@ -12,220 +14,155 @@ from torch import Tensor
 # local package
 from icegraph.common.histogram import Histogram
 from icegraph.common.tensors import DualResidentTensor
-from icegraph.trainer.callbacks.base.accumulator import (
-    Accumulator, AccumulatorStore, dense_histogram_accumulator, sparse_histogram_accumulator
-)
+from icegraph.common.data import Split, DataRole
+from icegraph.common.mapping import MemoMap
+from icegraph.trainer.callbacks.base.accumulator import Accumulator
 from icegraph.statistics import StatisticService
+from icegraph.common.transforms import TransformSpace
 
 # local subpackage
-from .histogram import HistogramReducer
-from ._utils import build_label_index_map, flatten
+from .base import HistogramReducer
+from .types import DualResidentBounds
 
-if TYPE_CHECKING:
-    from icegraph.trainer import Trainer
-
-import logging
-logger = logging.getLogger(__name__)
+__all__ = ["BHistogramReducer"]
 
 
-class BinnedHistogramReducer(HistogramReducer, ABC):
-    # accumulator names
-    CORE        = "core"
-    EXTENDED    = "extended"
-    OVERFLOW    = "overflow"
+class BHistogramReducer(HistogramReducer):
 
-    # accumulator dtypes
-    CORE_DTYPE      = torch.long
-    EXTENDED_DTYPE  = torch.long
-    OVERFLOW_DTYPE  = torch.long
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        # params required
-        self._bins:     DualResidentTensor | None = None
-        self._margin:   DualResidentTensor | None = None
-        self._bounds:   DualResidentTensor | None = None
-        self._scale:    DualResidentTensor | None = None
-
-    def _post_init(self, trainer: Trainer) -> None:
-        self._bins      = DualResidentTensor(self._build_bins())
-        self._margin    = DualResidentTensor(self._build_margin())
-
-        # bounds needs to be transformed appropriately
-        _bounds = self._build_bounds(self._stats.copy())
-
-        # temporarily move to device for transform, then return after
-        _bounds = _bounds.to(self.device)
-        _bounds = self._transform(_bounds)
-        _bounds = _bounds.to("cpu")
-
-        self._bounds    = DualResidentTensor(_bounds)
-        self._scale     = DualResidentTensor(self._build_scale())
-
-        # assertions
-        assert self._bins is not None
-        assert self._margin is not None
-        assert self._bounds is not None
-        assert self._scale is not None
-
-    @abstractmethod
-    def _build_bins(self) -> Tensor:
-        ...
-
-    @abstractmethod
-    def _build_bounds(self, stats: StatisticService) -> Tensor:
-        ...
-
-    @abstractmethod
-    def _build_margin(self) -> Tensor:
-        ...
-
-    def _build_scale(self) -> Tensor:
-        # grab bounds on correct device
-        bounds_cpu = self._bounds.on("cpu")
-
-        # scale = nbins / (max - min) for each axis
-        numerator = self._bins.on("cpu") - 1
-        denominator = bounds_cpu[:, 1, :] - bounds_cpu[:, 0, :]
-
-        # clamp to avoid div by 0
-        return numerator / denominator.clamp_min(1e-12)
-
-    def _post_reduce(self, data: Tensor) -> Tensor:
-        # obtain device from data
-        device = data.device
-
-        # run transformation on data
-        self._transform(data)
-
-        # compute continuous bin indices
-        mins    = self._bounds.on(device)[:, 0, :].unsqueeze(0)
-        scale   = self._scale.on(device).unsqueeze(0)
-        indices = (data - mins) * scale
-
-        # floor to get discrete indices
-        indices = torch.floor_(indices).to(torch.long)
-
-        return indices
-
-    def _build_accumulators(self, device: torch.device) -> dict[str, Accumulator]:
-        # grab params on correct device
-        bx, by = self._bins.on("cpu").tolist()
-
-        # the core accumulator is a 3D dense histogram with shape (label_count, nbin_y, nbin_x)
-        # extended is sparse histogram with ndim=2
-        # overflow is a scalar for each label, so dense histogram with size (label_count,)
-        accumulators: dict[str, Accumulator] = {
-            self.CORE:      dense_histogram_accumulator((len(self._target_labels), by, bx), device, self.CORE_DTYPE),
-            self.EXTENDED:  sparse_histogram_accumulator(2, device, self.EXTENDED_DTYPE),
-            self.OVERFLOW:  dense_histogram_accumulator((len(self._target_labels),), device, self.OVERFLOW_DTYPE)
+    @cached_property
+    def transforms(self) -> tuple[Callable[[Tensor], Tensor], ...]:
+        options = {
+            TransformSpace.LOG: torch.log10,
+            TransformSpace.ASINH: torch.asinh,
+            TransformSpace.LINEAR: lambda t: t
         }
 
-        return accumulators
+        transforms = tuple(options[space] for space in self.scale)
 
-    def _build_masks(self, indices: Tensor) -> dict[str, Tensor]:
-        # grab device from indices
-        device = indices.device
+        return transforms
 
-        # grab bins on device
-        bins_c_cuda = self._bins.on(device)
+    def transform(self, t: Tensor, /) -> Tensor:
+        # get transforms
+        transforms = self.transforms
 
-        # init masks dict
-        masks: dict[str, Tensor] = {}
+        if all(f is transforms[0] for f in transforms):
+            return transforms[0](t)
 
-        # build mask for core
-        masks[self.CORE] = ((indices >= 0) & (indices < bins_c_cuda)).all(dim=-1)
-
-        # get extended region
-        bins_e_cuda = self._margin.on(device) * bins_c_cuda
-
-        # within extended region but not in core
-        mask_ec = ((indices >= -bins_e_cuda) & (indices < bins_e_cuda)).all(dim=-1)
-        masks[self.EXTENDED] = mask_ec & (~masks[self.CORE])
-
-        # not in extended region or core
-        masks[self.OVERFLOW] = ~mask_ec
-
-        return masks
-    
-    def _encode_c(self, indices: Tensor, mask: Tensor, index_map: Tensor) -> Tensor:
-        # grab label count from indices
-        label_count = indices.size(1)
-
-        # apply mask and flatten core
-        flat_c = flatten(indices[mask], index_map[mask].squeeze(-1), self._bins.on(indices.device))
-
-        # minlength ensures a non-sparse result, as core should be dense
-        bins_c_cpu = self._bins.on("cpu")
-        return (torch
-            .bincount(flat_c, minlength=label_count * torch.prod(bins_c_cpu).item())
-            .view(label_count, bins_c_cpu[1].item(), bins_c_cpu[0].item())
-            .to(dtype=self.CORE_DTYPE)
-        )
-
-    def _encode_e(self, indices: Tensor, mask: Tensor, index_map: Tensor) -> Tensor:
-        # for extended region, do things a little different
-        tuples_e = torch.cat([index_map, indices], dim=-1)[mask].reshape(-1, 3)
-
-        # count unique values using torch.unique, not using bincount here
-        unique_e, count_e = torch.unique(tuples_e, dim=0, return_counts=True)
-
-        return (torch
-            .cat([unique_e, count_e.unsqueeze(1)], dim=1)
-            .to(dtype=self.EXTENDED_DTYPE)
-        )
-
-    def _encode_o(self, indices: Tensor, mask: Tensor, index_map: Tensor) -> Tensor:
-        label_count = indices.size(1)
-
-        # build flattened 1D tensor with an entry for each overflow under each label
-        overflow_labels = index_map[mask].reshape(-1)
-
-        # minlength ensures a dense result in case one or more labels have no overflow
-        return (torch
-            .bincount(overflow_labels, minlength=label_count)
-            .to(dtype=self.OVERFLOW_DTYPE)
-        )
-
-    def _build_payload(self, indices: Tensor, masks: dict[str, Tensor], index_map: Tensor) -> dict[str, Tensor]:
-        payload: dict[str, Tensor] = {
-            self.CORE:      self._encode_c(indices, masks[self.CORE], index_map),
-            self.EXTENDED:  self._encode_e(indices, masks[self.EXTENDED], index_map),
-            self.OVERFLOW:  self._encode_o(indices, masks[self.OVERFLOW], index_map)
-        }
-
-        return payload
-
-    def _encode(self, indices: Tensor) -> dict[str, Tensor]:
-        # build masks
-        masks = self._build_masks(indices)
-
-        # build label index mapping
-        label_index_map = build_label_index_map(indices)
-
-        payload = self._build_payload(indices, masks, label_index_map)
-
-        return payload
-
-    def _emit_artifacts(self, trainer: Trainer, accumulator: AccumulatorStore) -> Iterator[Histogram]:
-        # align for proper ordering
-        accumulator.align_to([self.CORE, self.EXTENDED, self.OVERFLOW])
-
-        # get bounds on cpu
-        bounds_cpu = self._bounds.on("cpu")
-
-        # enumerate all accumulators and build/yield histogram objects
-        for index, (core, extended, overflow) in accumulator.enum_all():
-            # core must exist for each label
-            assert core is not None, f"Missing core histogram for label {self._target_labels[index]}."
-
-            histogram = Histogram(
-                name=self._target_labels[index],
-                histogram=core.cpu().numpy(),
-                space=self._axis_scale,
-                bounds=bounds_cpu[index].transpose(0, 1).numpy(),
-                extended=extended.cpu().numpy() if (extended is not None and extended.numel() > 0) else None,
-                overflow=overflow.cpu().numpy() if (overflow is not None and overflow.numel() > 0) else None
+        if t.shape[-1] != len(transforms):
+            raise ValueError(
+                f"Expected last dimension size {len(transforms)}, got {t.shape[-1]}."
             )
-            yield histogram
+
+        parts = t.unbind(dim=-1)
+
+        transformed = [
+            transform(part)
+            for part, transform in zip(parts, transforms, strict=True)
+        ]
+
+        return torch.stack(transformed, dim=-1)
+
+    def _apply_margin(self, mins: Tensor, maxs: Tensor) -> tuple[Tensor, Tensor]:
+        margin = self._kwargs.get("margin")
+        if margin is None:
+            return mins, maxs
+
+        span = maxs - mins  # [d]
+
+        # normalize margin
+        margin = torch.as_tensor(margin, dtype=span.dtype, device=span.device)
+
+        if margin.numel() != 2 * span.numel():
+            raise ValueError(f"expected {2 * span.numel()} margin values")
+
+        margin = margin.view(span.numel(), 2).T  # [2, d]
+
+        mins = mins - span * margin[0]
+        maxs = maxs + span * margin[1]
+
+        return mins, maxs
+
+    @cached_property
+    def bin_scale(self) -> dict[str, DualResidentTensor]:
+        bin_scales: dict[str, DualResidentTensor] = {}
+
+        # build the scale for each label
+        for label in self._target_labels:
+            mins, maxs = self.bounds[label].on("cpu")
+
+            # build scale using bins / (max - min)
+            bin_scales[label] = DualResidentTensor(
+                self.bins.on("cpu") / (maxs - mins).clamp_min(1e-12)
+            )
+
+        return bin_scales
+
+    def _encode(self, data: Tensor, label: str) -> Tensor:
+        # make sure data has correct shape
+        self.ensure_shape(data)
+
+        # transform data to space
+        data = self.transform(data)
+
+        # grab mins and bin scale for current label
+        mins, maxs = self.bounds[label].on(data.device)
+        bin_scale = self.bin_scale[label].on(data.device)
+
+        # mask to within bounds, including the upper edge
+        mask = ((data >= mins.unsqueeze(0)) & (data <= maxs.unsqueeze(0))).all(dim=-1)
+        data = data[mask]
+
+        # continuous -> discrete bin indices
+        indices = (data - mins.unsqueeze(0)) * bin_scale.unsqueeze(0)
+        indices = torch.floor(indices).to(torch.int64)
+
+        # make right edge inclusive by assigning max values to final bin
+        indices = torch.clamp(indices, min=0)
+        indices = torch.minimum(indices, self.bins.on(data.device).unsqueeze(0) - 1)
+
+        # flatten indices
+        flat = self._flatten(indices)
+
+        # return dense histogram
+        return self._to_dense(flat)
+
+    def _build_artifact(self, accumulator: Accumulator, label: str) -> Histogram:
+        # stack bounds as expected by the histogram
+        bounds = torch.stack(self.bounds[label].on("cpu"), dim=0).numpy()
+
+        # build histogram object
+        return Histogram(
+            space=self.scale,
+            histogram=accumulator.data.cpu().numpy(),
+            bounds=bounds
+        )
+
+    @cached_property
+    def bounds(self) -> MemoMap[str, DualResidentBounds]:
+        return MemoMap(self._bounds)
+
+    def _bounds(self, label: str) -> DualResidentBounds:
+        # create a copy of stats to pass downstream
+        stats = self._ctx.trainer.decode.get_stats(Split.TRAIN, DataRole.TARGETS).copy()
+
+        # iterate over each label
+        mins, maxs = self._build_bounds(stats, label)
+
+        # transform each according to scaling
+        mins = self.transform(mins)
+        maxs = self.transform(maxs)
+
+        # ensure min stays min and max stays max
+        mins, maxs = torch.minimum(mins, maxs), torch.maximum(mins, maxs)
+
+        # apply margin factor
+        mins, maxs = self._apply_margin(mins, maxs)
+
+        return DualResidentBounds(
+            mins=DualResidentTensor(mins),
+            maxs=DualResidentTensor(maxs),
+        )
+
+    @abstractmethod
+    def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
+        ...

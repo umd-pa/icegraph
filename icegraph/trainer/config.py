@@ -4,36 +4,53 @@
 from __future__ import annotations
 
 from typing import Any
-from pathlib import Path
+from typing_extensions import TypedDict  # python < 3.12
 
 from pydantic import BaseModel, DirectoryPath
 
-__all__ = ["Config", "ComponentOption"]
+__all__ = ["TrainerConfig", "ComponentOption"]
 
 
-class Config(BaseModel):
-    # seed for training determinism
-    seed:       int
+class TrainerConfig(BaseModel):
+    # trainer config
+    seed:           int
+    max_epochs:     int
+    val_interval:   int
 
     # paths
     outdir:     DirectoryPath
 
-    trainer:    TrainerConfig
-    services:   dict[str, Any]  # validated downstream
+    # training policy
+    policy:     str
+
+    # engine config
+    services:   ServicesConfig
     components: ComponentConfig
 
+    # debug mode
+    debug: bool = False
 
-class TrainerConfig(BaseModel):
-    max_epochs:     int
-    val_interval:   int
-    save_interval:  int
+
+class ServicesConfig(TypedDict):
+    # these are required services
+    state:      dict[str, Any]  # validated downstream
+    record:     dict[str, Any]  # validated downstream
+    data:       dict[str, Any]  # validated downstream
+    metrics:    dict[str, Any]  # validated downstream
+    decode:     dict[str, Any]  # validated downstream
 
 
 class ComponentConfig(BaseModel):
-    model:      ComponentOption
-    normalizer: ComponentOption
-    optimizer:  ComponentOption
-    loss:       ComponentOption
+    model:          ComponentOption
+    normalizer:     ComponentOption
+    optimizer:      ComponentOption
+    loss:           ComponentOption
+    transformer:    ComponentOption
+    adapter:        FixedComponentOption
+
+
+class FixedComponentOption(BaseModel):
+    kwargs: dict[str, Any]
 
 
 class ComponentOption(BaseModel):

@@ -6,15 +6,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 # local package
-from icegraph.trainer.callbacks import Callback
-from icegraph.types.data import Split
+from icegraph.common.data import Split
+
+from ..callback import Callback
 
 # local subpackage
 from .service import TensorBoardService
 
 if TYPE_CHECKING:
     from .. import context
-    from icegraph.trainer.services.metrics import ComputedMetric
+    from icegraph.engine.services.metrics import ComputedMetric
 
 __all__ = ["TensorBoardCallback"]
 

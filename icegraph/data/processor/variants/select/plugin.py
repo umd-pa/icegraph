@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 
 from .config import SelectConfig
 

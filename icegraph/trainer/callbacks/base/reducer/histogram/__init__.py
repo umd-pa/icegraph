@@ -1,8 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .histogram import HistogramReducer
-from .binned import BinnedHistogramReducer
-from .categorical import CategoricalHistogramReducer
+from .binned import BHistogramReducer
+from .categorical import CHistogramReducer
 
-__all__ = ["HistogramReducer", "BinnedHistogramReducer", "CategoricalHistogramReducer"]
+__all__ = ["BHistogramReducer", "CHistogramReducer"]

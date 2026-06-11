@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
-from icegraph.types.factory import Factory
-from icegraph.types.statistics import StatisticStruct
+from icegraph.common.factory import Factory
 
 from . import variants
 from .statistic import Statistic
+from .types import StatisticStruct
 
 __all__ = ["StatisticFactory"]
 
@@ -21,7 +21,7 @@ class StatisticFactory(Factory[Statistic]):
         return spec.from_struct(struct)
 
 
-for name in variants.__all__:
-    StatisticFactory.register(getattr(variants, name))
+for name_ in variants.__all__:
+    StatisticFactory.register(getattr(variants, name_))
 
 

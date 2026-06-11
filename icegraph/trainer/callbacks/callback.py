@@ -4,15 +4,8 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING
-
-from torch_geometric.data import Batch
-from torch import Tensor
 
 from . import context
-
-if TYPE_CHECKING:
-    from icegraph.trainer import Trainer
 
 __all__ = ["Callback"]
 
@@ -68,14 +61,6 @@ class Callback(ABC):
             ctx (context.BatchBeginContext): Batch-begin context (includes the current PyG Batch).
         """
         pass
-
-    def on_batch_transfer(self, ctx: context.BatchTransferContext) -> None:
-        """
-        Called immediately after batch has been transferred to GPU.
-
-        Args:
-            ctx (context.BatchTransferContext): Batch-transfer context (includes the current PyG Batch).
-        """
 
     def on_batch_end(self, ctx: context.BatchEndContext) -> None:
         """

@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias
 
 from torch import Tensor
-from torch_geometric.data import Batch
+
+from icegraph.common.data import GraphBatch, ProcessedGraphBatch
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -24,8 +25,13 @@ class Context:
 
 
 @dataclass(frozen=True, slots=True)
-class BatchContext(Context):
-    batch: Batch
+class GraphBatchContext(Context):
+    batch: GraphBatch
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessedGraphBatchContext(Context):
+    batch: ProcessedGraphBatch
 
 
 # TRAINER-ONLY HOOK CONTEXTS
@@ -63,17 +69,11 @@ class TeardownContext(Context): ...
 
 # BATCH HOOK CONTEXTS
 @dataclass(frozen=True, slots=True)
-class BatchBeginContext(BatchContext): ...
+class BatchBeginContext(GraphBatchContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class BatchTransferContext(BatchContext): ...
-
-
-@dataclass(frozen=True, slots=True)
-class BatchEndContext(BatchContext):
-    out: Tensor
-    target: Tensor
+class BatchEndContext(ProcessedGraphBatchContext):
     loss: Loss
 
 

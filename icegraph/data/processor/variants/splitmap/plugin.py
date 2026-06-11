@@ -8,8 +8,7 @@ from typing import ClassVar, Any
 import numpy as np
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
-from icegraph.types.data import AttributeDomain
+from icegraph.data.envelope import Envelope
 
 from .config import SplitMapConfig
 
@@ -29,33 +28,38 @@ class SplitMapper(Processor[SplitMapConfig]):
     name: ClassVar[str] = "splitmap"
     version: ClassVar[int] = 1
 
-    warning_emitted: bool
+    _warning_emitted: bool
+    _counter: int
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> SplitMapConfig:
         return SplitMapConfig(**config)
 
     def build(self) -> None:
-        self.warning_emitted = False
+        self._counter = 0
+        self._warning_emitted = False
 
     def _process(self, env: Envelope) -> Envelope | None:
         self._ensure_selected(env)
         main = env.tmp[env.active]
 
-        rng = np.random.default_rng(self.config.seed)
+        rng = np.random.default_rng(self.config.seed + self._counter)
         weights = np.asarray(self.config.weights, dtype=np.float64)
 
-        # stash the split map where it is expected in attrs
-        # only store as uint8 as we will almost never have more than 255 splits
+        # stash the split map in attrs
+        # only store as uint8 as we will never have more than 255 splits
         splits = rng.choice(self.config.range_, size=len(main), p=weights)
-        env.attrs[AttributeDomain.LOCAL.name]["splitmap"] = splits.astype(np.uint8)
+        env.set_local_attr("splitmap", np.asarray(splits, dtype=np.uint8))
 
-        if not self.warning_emitted:
+        if not self._warning_emitted:
             logger.warning(
                 "Split map computed. Row order is now assumed fixed. Any reordering or "
-                "filtering of rows without updating the splitmap will corrupt split-specific statistics. "
+                "filtering of rows without updating the splitmap may corrupt split-specific statistics. "
                 "This warning is shown once and will be suppressed for the rest of program execution."
             )
-            self.warning_emitted = True
+            self._warning_emitted = True
+
+        # increment counter for seed
+        self._counter += 1
 
         return env

@@ -3,25 +3,28 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, ClassVar
 from functools import wraps
 
 from rich.console import Group
 from rich.text import Text
+from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn, TaskID
 from rich.live import Live
 from rich.layout import Layout
 from rich.align import Align
 
-from icegraph.types.data import Split
+from torch import Tensor
+
+from icegraph.common.data import Split
 from icegraph.ui import console
 
 from ..callback import Callback
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
-    from icegraph.trainer.services.metrics import ComputedMetric
+    from icegraph.engine.services.metrics import ComputedMetric
 
     from .. import context
 
@@ -43,6 +46,9 @@ def terminal_only(fn):
 
 class ConsoleCallback(Callback):
     """Rich-based console UI for training, defaults to standard printouts on incompatible terminals (like IDE's)."""
+
+    # default dead-zone for the trend indicator
+    _DEFAULT_EPS: ClassVar[float] = 1e-4
 
     def __init__(self) -> None:
         super().__init__()
@@ -105,69 +111,110 @@ class ConsoleCallback(Callback):
             ), name="top", size=_init_top_size
         )
 
-        # init mid panel (for metrics)
-        mid_panel = Layout(name="mid", ratio=1, minimum_size=_init_mid_size)
+        # init mid panel: single combined metrics + trends table
+        mid_panel = Layout(self._render_metrics(), name="mid", ratio=1, minimum_size=_init_mid_size)
 
         # stack all vertically
         layout.split_column(header_panel, progress_panel, mid_panel)
 
-        # split mid for metrics and trends
-        layout["mid"].split_row(
-            Layout(self._render_metrics(), name="stats", ratio=2),
-            Layout(self._render_info(), name="info", ratio=3)
-        )
-
         # return initialized layout
         return layout
 
-    def _render_metric_panel(self, title: str, value_fn: Callable[[ComputedMetric], str]) -> Panel:
-        lines: list[str] = []
+    @staticmethod
+    def _as_list(x: Tensor | None) -> list[float] | None:
+        if x is None:
+            return None
+        return x.reshape(-1).tolist()
 
-        for metric in self._latest_metrics:
-            formatted_value = value_fn(metric)
-            label = metric.name.upper().ljust(10)
-            lines.append(f"{label}: {formatted_value}")
+    @classmethod
+    def _cell(
+        cls,
+        value: float,
+        ema: float | None,
+        optimum: float | None
+    ) -> Text:
+        """
+        One head's value plus a trend glyph.
 
-        if not lines:
-            lines.append("—")
+        Arrow shows raw direction relative to the smoothed trend (value vs ema).
+        Color shows desirability: green if this reading is closer to the
+        metric's optimum than its ema (gap shrank), red if farther (gap grew),
+        dim '-' if flat.
+        """
+        val = Text(f"{value:.4g}")
 
-        content = Align(Group(*(Text(line) for line in lines)), align="center")
-        return Panel(content, title=title, padding=(1, 2))
+        # no smoothing history yet so direction undefined, show value only
+        if ema is None:
+            return val
+
+        rising = value > ema
+        glyph  = "▲" if rising else "▼"  # dont feel like finding the ascii codes for these chars
+
+        # desirability: did the gap to the optimum shrink vs the trend
+        gap_now = abs(value - optimum)
+        gap_ema = abs(ema   - optimum)
+        diff    = gap_ema - gap_now          # > 0 means moved closer to optimum
+
+        if abs(diff) < cls._DEFAULT_EPS:
+            val.append(" –", style="dim")    # flat or jsut noise
+            return val
+
+        style = "bold green" if diff > 0 else "bold red"
+        val.append(f" {glyph}", style=style)
+        return val
 
     def _render_metrics(self) -> Panel:
-        """Render the metrics panel."""
+        title = "Metrics/Trends"
 
-        def value_fn(metric: ComputedMetric) -> str:
-            return (
-                f"{metric.value:.6g}" if isinstance(metric.value, (int, float)) else str(metric.value)
-            )
+        if not self._latest_metrics:
+            placeholder = Align(Text("— no metrics yet —", style="dim"), align="center")
+            return Panel(placeholder, title=title, padding=(1, 2))
 
-        return self._render_metric_panel("Latest Val Metric", value_fn)
+        # flatten every metric's per-head fields up front; heads may differ in count
+        prepared: list[tuple[ComputedMetric, list[float], list[float] | None, float | None]] = []
+        max_heads = 0
+        for metric in self._latest_metrics:
+            values  = self._as_list(metric.value) or []
+            emas    = self._as_list(metric.ema)
+            optimum = metric.optimum
+            max_heads = max(max_heads, len(values))
+            prepared.append((metric, values, emas, optimum))
 
-    def _render_info(self) -> Panel:
-        """Render the info panel for metrics trends."""
+        table = Table(expand=True, header_style="bold", pad_edge=False, show_edge=False, border_style="dim")
+        table.add_column("Metric", style="cyan", no_wrap=True)
+        for h in range(max_heads):
+            table.add_column(f"Head {h}", justify="right")
 
-        def value_fn(metric: ComputedMetric) -> str:
-            ema = f"{metric.ema:>12.4g}" if metric.ema is not None else f"{'n/a':>12}"
-            delta = f"{metric.delta:>12.4g}" if metric.delta is not None else f"{'n/a':>12}"
+        for metric, values, emas, optimum in prepared:
+            cells: list[Any] = [f"{metric.repr}  (s={metric.span})"]
+            for h in range(max_heads):
+                if h >= len(values):
+                    cells.append("")                 # this metric has fewer heads
+                    continue
+                ema_h = emas[h] if (emas is not None and h < len(emas)) else None
+                cells.append(self._cell(values[h], ema_h, optimum))
+            table.add_row(*cells)
 
-            return f"[EMA{metric.span}:{ema}  Δ{metric.span}:{delta}]"
-
-        return self._render_metric_panel("Metric Trends", value_fn)
+        return Panel(table, title=title, padding=(1, 2))
 
     def reset_progress_bar(self, desc: str, total: int) -> None:
-        # ensure task exists
+        if self.progress is None:
+            return
+
         if self.task_id is None:
             self.task_id = self.progress.add_task(desc, total=total)
         else:
-            # reset and update the progress bar
-            self.progress.reset(self.task_id, total=total, description=desc)
+            self.progress.reset(
+                self.task_id,
+                total=total,
+                description=desc,
+            )
 
     def _on_split_begin(self, trainer: Trainer, split: Split, total: int) -> None:
         epoch = trainer.current_epoch
 
         # format description
-        desc = f"{split.name:>5} Epoch {epoch + 1}/{trainer.config.trainer.max_epochs}"
+        desc = f"{split.name:>5} Epoch {epoch + 1}/{trainer.config.max_epochs}"
 
         # reset the progress bar for the start of the next split/epoch
         self.reset_progress_bar(desc, total)
@@ -186,7 +233,7 @@ class ConsoleCallback(Callback):
         self.live = Live(
             self.layout,
             console=self.console,
-            refresh_per_second=10,
+            refresh_per_second=4,
             screen=True,
             redirect_stdout=True,
             redirect_stderr=True
@@ -236,9 +283,8 @@ class ConsoleCallback(Callback):
         # cache validation metrics
         self._latest_metrics = metrics
 
-        # update info and stats
-        self.layout["stats"].update(self._render_metrics())
-        self.layout["info"].update(self._render_info())
+        # refresh the combined metrics + trends panel
+        self.layout["mid"].update(self._render_metrics())
 
     @terminal_only
     def on_teardown(self, ctx: context.TeardownContext) -> None:

@@ -8,7 +8,7 @@ from typing import ClassVar, Any
 import pandas as pd
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 
 from .config import MapConfig
 

@@ -1,67 +1,83 @@
 seed: 2729
-outdir: /data/i3store/users/tstjean/data/test/processed
+outdir: /data/i3store/users/tstjean/BSN
 
-trainer:
-  max_epochs: 10000
-  val_interval: 5
-  save_interval: 100
+# training policy
+policy: multiclass
+
+# epochs and val interval
+max_epochs: 10000
+val_interval: 5
 
 services:
   state: { }
 
-  strategy:
-    strategy:
-      name: regression
-      kwargs: { }
-
   data:
-    loader:
-      # batch size controls how many samples are passed at a time in each
-      # training batch (see torch DataLoader batch_size argument)
-      batch_size: 2048
-      num_workers: 6
-      prefetch_factor: 8
-      mp_context: fork
-      persistent_workers: true
+    # batch size controls how many samples are passed at a time in each
+    # training batch (see torch DataLoader batch_size argument)
+    batch_size: 2048
+    num_workers: 6
+    prefetch_factor: 8
+    mp_context: fork
+    persistent_workers: true
 
     sampler:
       name: blockwise
       kwargs:
         block_size: 8192
 
-    module:
-      name: graph
-      kwargs:
-        features: [ ]
-        labels:   [ PrimaryEnergy ]
-        aux:      [ ]
-        # aux is for any non-target labels to include (not used in training), useful for plotting.
-        # these labels are served to callbacks by the trainer during validation and test steps
+  decode:
+    features:   [ ]
+    targets:    [ bundle ]
+
+    # auxiliary is for any non-target labels to include (not used in training), useful for plotting,
+    # these labels are served to callbacks by the trainer during validation and test steps,
+    # but are NOT used for loss computation
+    auxiliary:  [ ]
+
+    keymap:
+      truth: targets
+      edge_attr: edge_weight
+
+    attrs:
+      name: standard
+      kwargs: { }
+
+    records:
+      name: standard
+      kwargs: { }
+
+  record:
+    source:
+      - /scratch/users/tstjean/23122
+      - /scratch/users/tstjean/23016
+
+    reader:
+      name: lmdb
+      kwargs: { }
 
     store:
       name: lru-shard
       kwargs:
-        cache_size: 16
-        reader:
-          name: lmdb
-          kwargs: { }
+        cache_size: 32
 
   metrics:
     select:
-      - name: mse
-        kwargs: { }
-
-      - name: mae
-        kwargs: { }
-
-      - name: rmse
+      - name: top-k-acc
         kwargs: { }
 
 components:
+  adapter:
+    kwargs: { }
+
+  transformer:
+    name: standard
+    kwargs:
+      transforms: { }
+
   model:
     name: gravnet
     kwargs:
-      hidden_layers: 5
+      hidden_layers: 4
       hidden_channels: 256
       num_neighbors: 16
       space_dimensions: 4
@@ -69,11 +85,7 @@ components:
 
   normalizer:
     name: zscore
-    kwargs:
-      transforms:
-        PrimaryEnergy:
-          space: asinh
-          base: 10
+    kwargs: { }
 
   optimizer:
     name: adam
@@ -82,5 +94,5 @@ components:
       weight_decay: 0.00005
 
   loss:
-    name: mse
+    name: cross-entropy
     kwargs: { }

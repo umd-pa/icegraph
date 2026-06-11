@@ -9,12 +9,12 @@ import inspect
 import time
 
 # local package
-from icegraph.types.transforms import TransformSpace
-from icegraph.types.common import ArrayF, ArrayB, ArrayI
-from icegraph.types.statistics import StatisticStruct
+from icegraph.common.transforms import TransformSpace
+from icegraph.typing.common import ArrayF, ArrayB, ArrayI
 
 # local subpackage
 from .transforms import linear_transform, log_transform, asinh_transform
+from .types import StatisticStruct
 
 if TYPE_CHECKING:
     from .bundle import StatisticBundle
@@ -158,6 +158,22 @@ class Statistic(ABC):
         """
         ...
 
+    def num_columns(self) -> int:
+        """Return the number of columns tracked by this statistic."""
+        if not self._values:
+            raise RuntimeError(
+                f"{type(self).__name__}.num_columns: no values computed yet."
+            )
+
+        widths = {array.shape[-1] for array in self._values.values()}
+        if len(widths) != 1:
+            raise RuntimeError(
+                f"{type(self).__name__}.num_columns: inconsistent column counts "
+                f"across spaces: {sorted(widths)}"
+            )
+
+        return widths.pop()
+
     def align_to(self, indices: ArrayI) -> None:
         """
         Reorder internal statistic data in-place to match a given index ordering.
@@ -189,7 +205,10 @@ class Statistic(ABC):
         for space, array in list(self._values.items()):
             # make sure shape matches
             if array.shape[-1] != len(mask):
-                raise ValueError(f"{type(self).__name__}.filter_to, {space}: last axis does not match mask")
+                raise ValueError(
+                    f"{type(self).__name__}.filter_to, {space}: mask must have same length as stat array; "
+                    f"expected {array.shape[-1]}, got {len(mask)}"
+                )
 
             # apply filter
             self._values[space] = array[..., mask]

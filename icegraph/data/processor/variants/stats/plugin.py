@@ -8,10 +8,9 @@ from typing import Any, ClassVar
 import numpy as np
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 from icegraph.statistics import StatisticService
-from icegraph.types.statistics import  StatisticBundleStruct
-from icegraph.types.data import AttributeDomain
+from icegraph.statistics.types import StatisticBundleStruct
 
 from .config import StatsConfig
 
@@ -34,9 +33,8 @@ class Stats(Processor[StatsConfig]):
         main = env.tmp[env.active]
 
         # grab splitmap from envelope
-        try:
-            splitmap = env.attrs[AttributeDomain.LOCAL.name]["splitmap"]
-        except KeyError:
+        splitmap = env.get_local_attr("splitmap", None)
+        if splitmap is None:
             raise RuntimeError("No splitmap found. Must assign splits before computing statistics.")
 
         # double check splitmap is correct shape for current table
@@ -48,15 +46,10 @@ class Stats(Processor[StatsConfig]):
         stats = self.config.stats
 
         # build stats
-        payload: dict[str, dict[str, StatisticBundleStruct]] = {}
+        payload: dict[str | int, dict[str, StatisticBundleStruct]] = {}
         for col in cols:
             payload[col] = {}
             lut = main[col]
-
-            try:
-                names = env.state["compressed"][env.active][col]
-            except KeyError:
-                names = None
 
             unique_splits = np.unique(splitmap)
 
@@ -66,11 +59,11 @@ class Stats(Processor[StatsConfig]):
 
                 array = np.vstack(split_lut.to_numpy()).astype(np.float64, copy=False)
 
-                service = StatisticService(stats, names if names is not None else range(array.shape[1]))
+                service = StatisticService(stats)
                 service.compute_from_array(array)
 
                 payload[col][str(split)] = service.to_struct()
 
         # register stats
-        env.attrs[AttributeDomain.LOCAL.name]["stats"] = payload
+        env.set_local_attr("stats", payload)
         return env

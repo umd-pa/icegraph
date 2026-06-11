@@ -3,45 +3,41 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, Self, Callable, Iterator
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from typing import Self
 
+import torch
 from torch import Tensor
 
-__all__ = ["Accumulator", "Combiner", "Enumerator"]
-
-Combiner:   TypeAlias = Callable[[Tensor, Tensor], Tensor | None]
-Enumerator: TypeAlias = Callable[[Tensor], Iterator[tuple[int, Tensor]]]
+__all__ = ["Accumulator"]
 
 
 @dataclass
-class Accumulator:
-    tensor:     Tensor
-    combiner:   Combiner
-    enumerator: Enumerator
+class Accumulator(ABC):
 
-    def __iadd__(self, other: Tensor) -> Self:
-        self.accumulate(other)
-        return self
+    @abstractmethod
+    def update(self, data: Tensor, /) -> None:
+        ...
 
-    def accumulate(self, other: Tensor) -> None:
+    @property
+    @abstractmethod
+    def data(self) -> Tensor:
+        ...
 
-        # ensure dtypes and devices match
-        if other.dtype != self.tensor.dtype:
-            raise TypeError(
-                f"dtype mismatch in {type(self).__name__}: "
-                f"expected {self.tensor.dtype}, got {other.dtype}."
-            )
-        if other.device != self.tensor.device:
-            raise ValueError(
-                f"device mismatch in {type(self).__name__}: "
-                f"expected {self.tensor.device}, got {other.device}."
-            )
+    @data.setter
+    @abstractmethod
+    def data(self, data: Tensor) -> None:
+        ...
 
-        # in place combine if possible
-        combined = self.combiner(self.tensor, other)
-        if combined is not None:
-            self.tensor = combined
+    @abstractmethod
+    def reset(self) -> None:
+        ...
 
-    def enum(self) -> Iterator[tuple[int, Tensor]]:
-        return self.enumerator(self.tensor)
+    @abstractmethod
+    def is_empty(self) -> bool:
+        ...
+
+    @abstractmethod
+    def to(self, device: torch.device | str) -> Self:
+        ...

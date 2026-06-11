@@ -8,7 +8,7 @@ from typing import ClassVar, TypeVar
 from pathlib import Path
 
 from ..stage import Stage
-from ..types import Envelope
+from ..envelope import Envelope
 
 __all__ = ["Extractor"]
 

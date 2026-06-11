@@ -3,19 +3,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Generic, TypeVar
 from abc import ABC, abstractmethod
 from pathlib import Path
+from functools import cached_property
 
 import torch
 from torch import Tensor
 
-from icegraph.statistics import StatisticService
-from icegraph.trainer.callbacks.base.accumulator import AccumulatorStore
 from icegraph.trainer.callbacks import Callback
-from icegraph.trainer.shared import GroupTransform, TransformSpec, GroupTransformSpec
-from icegraph.types.transforms import TransformSpace
-from icegraph.types.data import ModelInputRole, Split
+from icegraph.common.data import Split, DataRole
+
+from ..accumulator import Accumulator
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -23,153 +22,188 @@ if TYPE_CHECKING:
 
 __all__ = ["Reducer"]
 
+import logging
+logger = logging.getLogger(__name__)
 
-class Reducer(Callback, ABC):
+
+T = TypeVar("T")
+
+
+class Reducer(Callback, ABC, Generic[T]):
     """
     Base class for online data reduction during testing/validation splits.
 
     Reducers accumulate batch-level data and emit reduced artifacts
-    (e.g. histograms) that are later consumed by renderers.
+    (e.g. histograms).
     """
+
+    _save_dir:          Path
+    _ctx:               context.InitContext
 
     def __init__(self, **kwargs) -> None:
         super().__init__()
 
-        # cache user plot scale choice
-        _axis_scale: tuple[str, str] = kwargs.get("scale") or ("linear", "linear")
-        self._axis_scale: tuple[TransformSpace, TransformSpace] = (
-            TransformSpace(_axis_scale[0]),
-            TransformSpace(_axis_scale[1]),
-        )
+        # store kwargs
+        self._kwargs = kwargs
 
-        # group transform
-        self._transform = GroupTransform()
-
-        # device
-        self.device: torch.device | None = None
-
-        # main accumulator
-        self._accumulator: AccumulatorStore | None = None
-
-        # cache label stats
-        self._stats: StatisticService | None = None
-
-        # save dir
-        self._save_dir: Path | None = None
-
-        # cache training labels
-        self._target_labels:    list[str] | None = None
-        self._auxiliary_labels: list[str] | None = None
+        # dict of accumulators
+        self._accumulators: dict[str, dict[int, Accumulator]] = {}
 
     def on_init(self, ctx: context.InitContext) -> None:
-        trainer = ctx.trainer
+        # cache ctx
+        self._ctx = ctx
 
-        # cache the trainer device (will not change over a run)
-        self.device = trainer.state.device
-
-        # load aggregate label stats
-        self._stats = trainer.data.stats(Split.TRAIN, ModelInputRole.LABELS)
-
-        # grab target and auxiliary labels
-        self._target_labels = trainer.data.columns(ModelInputRole.LABELS)
-        self._auxiliary_labels = trainer.data.columns(ModelInputRole.LABELS, aux=True)
+        # break out if not rank 0
+        if not ctx.trainer.state.is_main_process():
+            return
 
         # grab trainer output directory and build plot dir
-        self._save_dir = trainer.outdir / "plots"
+        self._save_dir = ctx.trainer.outdir / "plots"
         self._save_dir.mkdir(parents=True, exist_ok=True)
 
-        # configure the group transformer
-        self._configure_transformer()
-
-        self._post_init(trainer)
-
-    def _configure_transformer(self) -> None:
-        # build specs
-        specs: list[TransformSpec] = []
-        for space in self._axis_scale:
-            specs.append(TransformSpec(space, base=10))
-
-        # configure group transform
-        self._transform.configure_from_spec(GroupTransformSpec(specs))
-
-        # move transform to device
-        self._transform.to(self.device)
+    @cached_property
+    def _target_labels(self) -> list[str]:
+        return self._ctx.trainer.decode.get_columns(DataRole.TARGETS)
 
     def on_batch_end(self, ctx: context.BatchEndContext) -> None:
         trainer = ctx.trainer
-        # skip if not in eval
-        if trainer.split == Split.TRAIN:
+
+        # break out if not rank 0 and in eval
+        if not trainer.state.is_main_process() or trainer.split not in Split.eval():
             return
 
-        # reduce data using client logic and accumulate
-        reduced_data = self._reduce(ctx)
+        for out, target, label in zip(
+            ctx.batch.out,
+            ctx.batch.targets,
+            ctx.batch.out.names,
+            strict=True
+        ):
+            # reduce data using subclass logic
+            reduced = self._reduce(out, target, ctx)
 
-        # run any internal post reduction
-        post_reduced_data = self._post_reduce(reduced_data)
+            if isinstance(reduced, tuple):
+                data, acc_idx = reduced
 
-        # send to accumulator
-        self._accumulate(post_reduced_data)
+                # ensure acc_idx is torch.long
+                acc_idx = acc_idx.long()
+            else:
+                # if only one accumulator, set each sample to map to it
+                data = reduced
+                acc_idx = torch.zeros(data.size(0), dtype=torch.long, device=data.device)
 
-    def _accumulate(self, data: Tensor) -> None:
-        # build the accumulator lazily on first call of each split
-        if self._accumulator is None:
-            self._accumulator = self._init_accumulator(self.device)
+            if data.ndim != 2:
+                raise ValueError(
+                    f"{type(self).__name__}._reduce must return data with shape [B, D]. "
+                    f"For 1D data, use shape [B, 1], not [B]. "
+                    f"Got shape {tuple(data.shape)}."
+                )
 
-        # encode data to accumulator format
-        encoded_data = self._encode(data)
+            if acc_idx.ndim != 1:
+                raise ValueError(
+                    f"{type(self).__name__}._reduce must return acc_idx with shape [B]. "
+                    f"Got shape {tuple(acc_idx.shape)}."
+                )
 
-        # add to the central accumulator
-        self._accumulator += encoded_data
+            if data.size(0) != acc_idx.size(0):
+                raise ValueError(
+                    f"{type(self).__name__}._reduce returned mismatched batch sizes: "
+                    f"data.shape={tuple(data.shape)}, acc_idx.shape={tuple(acc_idx.shape)}."
+                )
+
+            for i in torch.unique(acc_idx):
+                # encode data to accumulator format
+                encoded = self._encode(data[acc_idx == i], label)
+
+                # update the central accumulators
+                (self._accumulators
+                    .setdefault(label, {})
+                    .setdefault(int(i.item()), self._build_accumulator())
+                    .update(encoded)
+                )
 
     def finalize(self, trainer: Trainer) -> None:
-        # dont do anything if there is no accumulator
-        if self._accumulator is None:
-            return
+        # iterate over artifacts and dispatch
+        for label, acc_bundle in self._accumulators.items():
+            # perform any postprocessing
+            processed_acc_bundle = self._postprocess_accumulator(acc_bundle, label)
 
-        # iterate over artifacts (user decides how to build artifacts) and dispatch
-        for item in self._emit_artifacts(trainer, self._accumulator):
-            self._dispatch(trainer, item)
+            # get any empty accumulators
+            empty = [a.is_empty() for a in processed_acc_bundle.values()]
+
+            # if all are empty, warn and skip
+            if all(empty):
+                logger.warning(
+                    "%s has no data for label %r; all accumulators are empty. Skipping dispatch.",
+                    type(self).__name__,
+                    label
+                )
+                continue
+
+            # if some are empty, warn but dispatch
+            if any(empty):
+                empty_indices = [
+                    idx for idx, acc in processed_acc_bundle.items()
+                    if acc.is_empty()
+                ]
+
+                logger.warning(
+                    "%s has empty accumulator(s) for label %r: %s. "
+                    "Dispatching remaining non-empty accumulators.",
+                    type(self).__name__,
+                    label,
+                    empty_indices
+                )
+
+            # build all artifacts
+            artifacts = {i: self._build_artifact(a, label) for i, a in processed_acc_bundle.items() if not a.is_empty()}
+
+            self._dispatch(trainer, artifacts, label, self._save_dir)
 
         # reset for the next split
         self.reset()
 
     def reset(self) -> None:
-        # wipe the tensor store
-        self._accumulator = None
+        # reset all accumulators
+        for acc_bundle in self._accumulators.values():
+            for a in acc_bundle.values():
+                a.reset()
 
     # link callback hooks to methods (only call on validation and test splits)
     def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
+        # break out if not rank 0
+        if not ctx.trainer.state.is_main_process():
+            return
+
         self.finalize(ctx.trainer)
 
     def on_test_end(self, ctx: context.TestEndContext) -> None:
+        # break out if not rank 0
+        if not ctx.trainer.state.is_main_process():
+            return
+        
         self.finalize(ctx.trainer)
 
     ### Abstract methods for subclassing ###
 
-    def _post_init(self, trainer: Trainer) -> None:
-        # default: dont do anything
-        pass
-
-    def _post_reduce(self, data: Tensor) -> Tensor:
-        # default: dont do anything
+    def _postprocess_accumulator(self, data: dict[int, Accumulator], label: str) -> dict[int | str, Accumulator]:
         return data
 
     @abstractmethod
-    def _encode(self, indices: Tensor) -> dict[str, Tensor]:
+    def _build_accumulator(self) -> Accumulator:
         ...
 
     @abstractmethod
-    def _emit_artifacts(self, trainer: Trainer, accumulator: AccumulatorStore) -> Iterator[Any]:
+    def _build_artifact(self, accumulator: Accumulator, label: str) -> T:
         ...
 
     @abstractmethod
-    def _init_accumulator(self, device: torch.device) -> AccumulatorStore:
+    def _encode(self, indices: Tensor, label: str) -> Tensor:
         ...
 
     @abstractmethod
-    def _reduce(self, ctx: context.BatchEndContext) -> Tensor:
+    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor | tuple[Tensor, Tensor]:
         ...
 
     @abstractmethod
-    def _dispatch(self, trainer: Trainer, data: Any) -> None:
+    def _dispatch(self, trainer: Trainer, data: dict[int | str, T], label: str, save_dir: Path) -> None:
         ...

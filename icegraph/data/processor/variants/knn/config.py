@@ -12,6 +12,6 @@ __all__ = ["KNNConfig"]
 
 class KNNConfig(BaseModel):
     by:     Columns
-    col:    Columns
+    col:    str | int
     out:    Columns
     k:      int

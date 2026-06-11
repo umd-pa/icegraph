@@ -12,7 +12,7 @@ __all__ = ["I3ExtractorConfig"]
 
 
 class I3ExtractorConfig(BaseModel):
-    gcd_path:   FilePath
-    include:    list[str]
-    ml_suite:   dict[str, Any]  # validation is up to ml_suite
-    mclabeler:  dict[str, Any]  # validation is up to mclabeler
+    gcd_path:       FilePath
+    include:        list[str]
+    ml_suite:       dict[str, Any]  # validation is up to ml_suite
+    skip_missing:   bool            = False  # skip any files with no frames

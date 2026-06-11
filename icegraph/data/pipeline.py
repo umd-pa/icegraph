@@ -13,7 +13,7 @@ import itertools
 import yaml
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
-from icegraph.types.files import SourceType, Source
+from icegraph.common.files import SourceType, Source
 from icegraph.ui import console
 
 from .stage import Stage
@@ -21,8 +21,8 @@ from .shared.queue import IterableQueue
 from .config import Config
 from .types import StageContext
 
-from .processor import Processor, ProcessorFactory
 from .extractor import Extractor, ExtractorFactory
+from .processor import Processor, ProcessorFactory
 from .writer import Writer, WriterFactory
 
 __all__ = ["Pipeline"]
@@ -162,7 +162,8 @@ class Pipeline:
             transient=False,
             expand=True,
             console=console,
-            refresh_per_second=10
+            refresh_per_second=10,
+            speed_estimate_period=300.0  # processing is slower, so average eta over 5m is more accurate
         )
 
         with progress:
@@ -177,7 +178,7 @@ class Pipeline:
 
     def close(self) -> None:
         """Signal stages to stop, flush queues, and clean temporary resources."""
-        # execute stop process on children
+        # execute children
         if self._stages:
             for stage in self._stages:
                 stage.close()

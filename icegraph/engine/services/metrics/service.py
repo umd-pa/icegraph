@@ -1,0 +1,65 @@
+# Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
+# Developed by Taylor St Jean
+
+from __future__ import annotations
+
+from typing import Any, ClassVar
+from functools import cached_property
+
+from icegraph.common.tensors import SegmentedTensor
+
+from ..service import Service
+
+from .metric import Metric, MetricFactory, MetricContext
+from .types import ComputedMetric
+from .config import MetricConfig
+
+__all__ = ["MetricService"]
+
+
+class MetricService(Service[MetricConfig]):
+    name: ClassVar[str] = "metrics"
+    version: ClassVar[int] = 1
+
+    def build(self) -> None:
+        return
+
+    @classmethod
+    def validate_config(cls, config: dict[str, Any]) -> MetricConfig:
+        return MetricConfig(**config)
+
+    @cached_property
+    def _metrics(self) -> list[Metric]:
+        # load user metric selections
+        metrics: list[Metric] = []
+        for selection in self.config.select:
+            # build metric, structure of config is enforced by pydantic
+            metric = MetricFactory.create(selection.name, **selection.kwargs)
+
+            # attach the metric
+            ctx = MetricContext()
+            metric.attach(ctx)
+
+            # verify metric compatibility
+            self._ctx.ensure_compatible(metric)
+
+            metrics.append(metric)
+
+        return metrics
+
+    def update(self, out: SegmentedTensor, target: SegmentedTensor) -> None:
+        """Update each metric."""
+        for metric in self._metrics:
+            metric.update(out, target)
+
+    def compute(self) -> list[ComputedMetric]:
+        """Return list of computed metrics."""
+        return [metric.compute() for metric in self._metrics]
+
+    def update_summaries(self) -> None:
+        for metric in self._metrics:
+            metric.update_summaries()
+
+    def reset(self) -> None:
+        for metric in self._metrics:
+            metric.reset()

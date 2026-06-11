@@ -5,7 +5,7 @@ from .commit import Committer
 from .compress import Compressor
 from .copy import Copier
 from .dom import DOMProcessor
-from .group import Grouper
+from .alias import Aliaser
 from .knn import KNN
 from .map import Mapper
 from .pivot import Pivoter
@@ -14,13 +14,16 @@ from .select import Selector
 from .splitmap import SplitMapper
 from .stats import Stats
 from .inspect import Inspector
+from .fill import Filler
+from .unique import Unique
+from .simweights import Simweighter
 
 __all__ = [
     "Committer",
     "Compressor",
     "Copier",
     "DOMProcessor",
-    "Grouper",
+    "Aliaser",
     "KNN",
     "Mapper",
     "Pivoter",
@@ -28,5 +31,8 @@ __all__ = [
     "Selector",
     "SplitMapper",
     "Stats",
-    "Inspector"
+    "Inspector",
+    "Filler",
+    "Unique",
+    "Simweighter"
 ]

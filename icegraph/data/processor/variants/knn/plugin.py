@@ -10,8 +10,8 @@ import pandas as pd
 from scipy.spatial import cKDTree
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
-from icegraph.types.common import ArrayF32, ArrayI64
+from icegraph.data.envelope import Envelope
+from icegraph.typing.common import ArrayF64, ArrayI64
 
 from .config import KNNConfig
 
@@ -37,16 +37,24 @@ class KNN(Processor[KNNConfig]):
         self._ensure_selected(env)
         main = env.tmp[env.active]
 
+        # load config
         by = env.resolve_cols(self.config.by)
-        cols = env.resolve_cols(self.config.col)
+        col = self.config.col
 
+        # edges
         edge_index: list[ArrayI64] = []
-        edge_weight: list[ArrayF32] = []
+        edge_weight: list[ArrayF64] = []
 
-        rows = main[cols].to_numpy(object)
-        for row in rows:
-            pos = np.column_stack(row).astype(np.float32, copy=False)
+        # iterate over each event dom data
+        for row in main[col]:
+            # each row is of shape (N, 3) where N is dom count and 3 for x, y, z coordinates
+            # thus this is already in the correct shape for cKDTree
+            pos = np.asarray(row, dtype=np.float64)
+
+            # drop any infinite values (unlikely, just in case)
             mask = np.isfinite(pos).all(axis=1)
+
+            # compute edge index/weight
             ei, ew = self.compute_edges(pos[mask])
             edge_index.append(ei)
             edge_weight.append(ew)
@@ -72,12 +80,12 @@ class KNN(Processor[KNNConfig]):
 
         return env.merge(payload, to=env.active, on=by, validate="1:1")
 
-    def compute_edges(self, pos: ArrayF32) -> tuple[ArrayI64, ArrayF32]:
-        pos = np.ascontiguousarray(pos, dtype=np.float32)
+    def compute_edges(self, pos: ArrayF64) -> tuple[ArrayI64, ArrayF64]:
+        pos = np.ascontiguousarray(pos, dtype=np.float64)
 
         n = pos.shape[0]
         if n <= 1:
-            return np.empty((2, 0), dtype=np.int64), np.empty((0,), dtype=np.float32)
+            return np.empty((2, 0), dtype=np.int64), np.empty((0,), dtype=np.float64)
 
         # get effective k
         k = min(self.config.k, n - 1)
@@ -102,5 +110,5 @@ class KNN(Processor[KNNConfig]):
         edge_index[0] = src
         edge_index[1] = dst
 
-        edge_weight = dists.reshape(-1).astype(np.float32, copy=False)
+        edge_weight = dists.reshape(-1).astype(np.float64, copy=False)
         return edge_index, edge_weight

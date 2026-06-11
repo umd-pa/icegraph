@@ -7,11 +7,14 @@ from pydantic import BaseModel
 
 from ...types import Columns
 
-__all__ = ["CompressConfig"]
+__all__ = ["CompressorConfig"]
 
 
-class CompressConfig(BaseModel):
+class CompressorConfig(BaseModel):
     to:     str
     by:     Columns
     cols:   Columns
     out:    str | int
+    dtype:  str | None = None
+    record_names: bool = True
+    record_offset: bool = True

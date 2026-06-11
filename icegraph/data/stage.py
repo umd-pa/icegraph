@@ -9,10 +9,10 @@ from pathlib import Path
 from threading import Timer
 import time
 
-from icegraph.types.plugins import Plugin
-from icegraph.types.data import AttributeDomain
+from icegraph.common.plugins import Plugin
 
-from .types import Envelope, StageContext
+from .types import StageContext
+from .envelope import Envelope
 
 __all__ = ["Stage"]
 
@@ -43,10 +43,6 @@ class Stage(Plugin[C, StageContext]):
         """Consume inputs, process them, and emit results downstream."""
         logger.debug("stage %s starting", self.name)
 
-        # cache stage info
-        cls = type(self)
-        stage_info = {"name": cls.name, "version": cls.version, "plugin": f"{cls.__module__}.{cls.__qualname__}"}
-
         try:
             for i, item in enumerate(self._ctx.src):
                 # if we are on last stage, need to devivify the env before processing
@@ -54,7 +50,7 @@ class Stage(Plugin[C, StageContext]):
                     item.devivify()
 
                 # start the timer
-                timer = Timer(self.warning_timeout, self._warn, args=(cls.name, i, self.warning_timeout))
+                timer = Timer(self.warning_timeout, self._warn, args=(type(self).name, i, self.warning_timeout))
                 timer.daemon = True
                 timer.start()
 
@@ -78,12 +74,11 @@ class Stage(Plugin[C, StageContext]):
 
                 # continue if dropped
                 if out is None:
+                    logger.warning("envelope dropped at stage %s", self.name)
                     continue
 
-                # log plugin version info
-                out.attrs[AttributeDomain.GLOBAL.name].setdefault("stage_manifest", []).append(stage_info.copy())
-
                 self._ctx.dst.put(out)  # blocks when full, backpressure
+
         finally:
             # Always signal end-of-stream downstream
             self._ctx.dst.close()

@@ -12,10 +12,10 @@ import lmdb
 import pandas as pd
 
 from icegraph import __version__
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 from icegraph.data.writer import Writer
 from icegraph.utils.hashutils import stable_hash_blake2b
-from icegraph.types.data import AttributeDomain
+from icegraph.common.data import AttributeDomain
 
 from .config import LMDBWriterConfig
 
@@ -55,15 +55,16 @@ class LMDB(Writer[LMDBWriterConfig]):
 
     def _process(self, env: Envelope) -> Envelope | None:
         # build output file path
-        origin = Path(env.attrs[AttributeDomain.LOCAL.name]["origin"])
+        origin = Path(env.get_local_attr("origin"))
         path = self.config.outdir / origin.with_suffix(".lmdb").name
 
         # add id and set id to attrs
         _id = stable_hash_blake2b(env.main.to_numpy())
         _set_id = stable_hash_blake2b(env.attrs[AttributeDomain.GLOBAL.name])
 
-        env.attrs[AttributeDomain.LOCAL.name]["id"] = _id
-        env.attrs[AttributeDomain.GLOBAL.name]["set_id"] = _set_id
+        # register ids
+        env.set_local_attr("id", _id)
+        env.set_global_attr("set_id", _set_id)
 
         # ensure no stale keys
         if path.exists():

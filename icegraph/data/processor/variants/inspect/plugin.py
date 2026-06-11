@@ -9,7 +9,7 @@ from rich.pretty import pprint
 import pandas as pd
 
 from icegraph.data.processor import Processor
-from icegraph.data.types import Envelope
+from icegraph.data.envelope import Envelope
 from icegraph.ui import console
 
 from .config import InspectConfig
