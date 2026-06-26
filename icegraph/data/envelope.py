@@ -51,7 +51,7 @@ class Envelope:
             return
         self.state["active"] = key
 
-    def resolve_cols(self, value: str | int | list[str | int], *, _seen: set[str | int] | None = None) -> list[str | int]:
+    def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str | int] | None = None) -> list[str | int]:
         _seen = set() if _seen is None else _seen
 
         if isinstance(value, list):
@@ -63,9 +63,10 @@ class Envelope:
             raise RuntimeError(f"Cyclic group reference detected for '{value}'")
         _seen.add(value)
 
-        # first check if it is column (prioritize col over group, helps prevent infinite recursion)
-        if value in self.tmp[self.active].columns:
-            return [value]
+        # first check if it is column in the active frame (prioritize col over group, helps prevent infinite recursion)
+        if self.active:
+            if value in self.tmp[self.active].columns:
+                return [value]
 
         # resolve group or raise if not found in groups
         groups = self.state.get("alias", {})

@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from typing import Any, ClassVar
-
 import torch
 from torch import Tensor
+
+import numpy as np
 
 from icegraph.common.record import Record
 
@@ -28,10 +29,20 @@ class StandardRecordDecoder(RecordDecoder[StandardRecordDecoderConfig]):
     def validate_config(cls, config: dict[str, Any]) -> StandardRecordDecoderConfig:
         return StandardRecordDecoderConfig(**config)
 
-    def extract(self, record: Record, key: str) -> Tensor:
-        array = record.data.get(key)
+    def extract(self, record: Record, key: str) -> Tensor | None:
+        data = record.data.get(key)
 
-        if array is None:
-            return torch.empty((0,))
+        # if key not present in the record, return None
+        if data is None:
+            return None
+
+        # try to convert it to a tensor, if it raises, try to be helpful
+        try:
+            tensor = torch.tensor(data)
+        except Exception as e:
+            raise RuntimeError(
+                f"{type(self).__name__}.extract: could not convert loaded "
+                f"data (type={type(data).__name__}) to a torch.Tensor"
+            ) from e
         
-        return torch.tensor(array)
+        return tensor

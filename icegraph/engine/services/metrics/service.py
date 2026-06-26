@@ -40,9 +40,6 @@ class MetricService(Service[MetricConfig]):
             ctx = MetricContext()
             metric.attach(ctx)
 
-            # verify metric compatibility
-            self._ctx.ensure_compatible(metric)
-
             metrics.append(metric)
 
         return metrics

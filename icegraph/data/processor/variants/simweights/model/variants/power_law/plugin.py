@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from numpy.typing import ArrayLike
+import numpy as np
 
 from icegraph.data.processor.variants.simweights.model import FluxModel
 
@@ -26,5 +27,7 @@ class PowerLaw(FluxModel[PowerLawConfig]):
     def validate_config(cls, config: dict[str, Any]) -> PowerLawConfig:
         return PowerLawConfig(**config)
 
-    def __call__(self, energy: ArrayLike) -> ArrayLike:
+    # need to do some Liskov violations because simweights was designed strangely
+    def __call__(self, energy: ArrayLike) -> ArrayLike:  # pyright: ignore[reportIncompatibleMethodOverride]
+        energy = np.asarray(energy, dtype=np.float64)
         return self.config.phi0 * (energy / self.config.e0) ** -self.config.g

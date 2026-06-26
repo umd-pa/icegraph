@@ -3,24 +3,48 @@
 
 from __future__ import annotations
 
-from typing import Literal, Any
+from typing import Literal, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["DataConfig"]
 
 
 class DataConfig(BaseModel):
     batch_size:         int
+    chunk_size:         int
+    shuffle_chunks:     bool = False
+    buffer_size:        int
     num_workers:        int
     prefetch_factor:    int
     mp_context:         Literal["fork", "spawn", "forkserver"]
     persistent_workers: int
 
-    # plugins
-    sampler:    PluginConfig
+    @model_validator(mode="after")
+    def validate_buffer_size(self) -> Self:
+        if self.buffer_size < 1:
+            raise ValueError("Buffer size must be equal to or greater than 1.")
 
+        return self
 
-class PluginConfig(BaseModel):
-    name:   str
-    kwargs: dict[str, Any]
+    @model_validator(mode="after")
+    def validate_chunk_size(self) -> Self:
+        if self.chunk_size < 1:
+            raise ValueError("Chunk size must be equal to or greater than 1.")
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_chunk_to_buffer_ratio(self) -> Self:
+        if 1 < self.buffer_size < self.chunk_size * 10:
+            logger.warning(
+                f"Buffer size ({self.buffer_size}) is less than 10x chunk size "
+                + f"({self.chunk_size}); buffer spans only "
+                + f"{self.buffer_size / self.chunk_size:.1f} chunks, which may give poor "
+                + "mixing across chunk boundaries. Aim for a buffer:chunk ratio above 10:1."
+            )
+
+        return self

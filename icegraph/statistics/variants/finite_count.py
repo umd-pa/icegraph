@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import ClassVar, TYPE_CHECKING
+from typing_extensions import override
 
 import numpy as np
 
@@ -23,11 +24,13 @@ class FiniteCount(Statistic):
     degree = 0
     spaces = (TransformSpace.LINEAR,)
 
+    @override
     def _compute(self, array: ArrayF) -> ArrayF:
         # per-column count of finite values (excludes NaN and +-inf)
         return np.isfinite(array).sum(axis=0).astype(float)
 
     @classmethod
+    @override
     def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
         # simple add for merge
         return a.get(cls.name).value(space) + b.get(cls.name).value(space)

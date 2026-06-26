@@ -8,18 +8,19 @@ from typing import Any, TypeAlias
 import cbor2
 
 import numpy as np
+import numpy.typing as npt
 
 __all__ = ["stable_hash_blake2b"]
 
 
 Primitive: TypeAlias = int | float | str | bool | None
-NumpyScalar: TypeAlias = np.integer | np.floating
+NumpyScalar: TypeAlias = np.integer[Any] | np.floating[Any]
 
 CBORHashable: TypeAlias = (
     Primitive
-    | np.integer
-    | np.floating
-    | np.ndarray
+    | np.integer[Any]
+    | np.floating[Any]
+    | npt.NDArray[Any]
     | list["CBORHashable"]
     | tuple["CBORHashable", ...]
     | set["CBORHashable"]
@@ -55,5 +56,4 @@ def stable_hash_blake2b(obj: CBORHashable) -> str:
     return hashlib.blake2b(payload, digest_size=32).hexdigest()
 
 
-stable_hash_blake2b.name = "cbor2(canonical)+blake2b-256"
-
+setattr(stable_hash_blake2b, "name", "cbor2(canonical)+blake2b-256")

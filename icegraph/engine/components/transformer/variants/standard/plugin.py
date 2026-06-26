@@ -4,15 +4,13 @@
 from __future__ import annotations
 
 from typing import Any, ClassVar
-from functools import cached_property
-import dataclasses
+from functools import lru_cache
 
 import torch
 from torch import Tensor
 
 from icegraph.common.transforms import TransformSpace
 from icegraph.common.data import DataRole, ColumnarRole
-from icegraph.common.mapping import MemoMap
 from icegraph.common.tensors import SegmentedTensor
 from icegraph.engine.components.transformer import Transformer
 from icegraph.engine.components.transformer.types import TransformerSpec
@@ -73,22 +71,9 @@ class StandardTransformer(Transformer[TransformerConfig]):
 
         return specs
 
-    @cached_property
-    def _spec_lists(self) -> MemoMap[ColumnarRole, list[TransformerSpec]]:
-        return MemoMap(self._build_spec_list)
-
-    def spec_list(self, role: ColumnarRole) -> list[TransformerSpec]:
-        return self._spec_lists[role]
-
-    def _build_transformer_module(self, space: TransformSpace) -> TransformerModule:
-        return TransformerModuleFactory.create(space.value)
-
-    @cached_property
-    def _transformer_modules(self) -> MemoMap[TransformSpace, TransformerModule]:
-        return MemoMap(self._build_transformer_module)
-
+    @lru_cache(maxsize=None)
     def transformer_module(self, space: TransformSpace) -> TransformerModule:
-        return self._transformer_modules[space]
+        return TransformerModuleFactory.create(space.value)
 
     def log_base(self, role: ColumnarRole) -> Tensor:
         buffer_name = f"_log_base_{role.name}"

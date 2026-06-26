@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import override
+
 import plotly.graph_objects as go
 
 from icegraph.common.histogram import Histogram
@@ -21,6 +23,7 @@ class Scatter(HistogramPlotterModule):
         self._overlay_data = data
         self._overlay_name = name
 
+    @override
     def overlay(self, fig: go.Figure, data: dict[str | int, Histogram]) -> None:
         # grab centers from hist
         centers = self._overlay_data.centers[0]

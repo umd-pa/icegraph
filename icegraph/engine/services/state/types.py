@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import Protocol
 
-__all__ = ["ProcInfo"]
+from torch import Tensor
+
+from icegraph.common.tensors import SegmentedTensor
+
+__all__ = ["BoundModel"]
 
 
-@dataclass(frozen=True)
-class ProcInfo:
-    rank:       int = 0
-    world:      int = 1
-    local_rank: int = 0
+class BoundModel(Protocol):
+    def __call__(self, t: SegmentedTensor, /, batch: Tensor | None = None) -> SegmentedTensor: ...

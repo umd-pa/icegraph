@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import ClassVar, TYPE_CHECKING
+from typing_extensions import override
 
 import numpy as np
 
@@ -23,10 +24,12 @@ class TotalCount(Statistic):
     degree = 0
     spaces = (TransformSpace.LINEAR,)
 
+    @override
     def _compute(self, array: ArrayF) -> ArrayF:
         return np.full(array.shape[1], float(array.shape[0]))
 
     @classmethod
+    @override
     def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
         # simple add for merge
         return a.get(cls.name).value(space) + b.get(cls.name).value(space)

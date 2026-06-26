@@ -39,9 +39,9 @@ class SplitMapper(Processor[SplitMapConfig]):
         self._counter = 0
         self._warning_emitted = False
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         rng = np.random.default_rng(self.config.seed + self._counter)
         weights = np.asarray(self.config.weights, dtype=np.float64)
@@ -49,7 +49,7 @@ class SplitMapper(Processor[SplitMapConfig]):
         # stash the split map in attrs
         # only store as uint8 as we will never have more than 255 splits
         splits = rng.choice(self.config.range_, size=len(main), p=weights)
-        env.set_local_attr("splitmap", np.asarray(splits, dtype=np.uint8))
+        item.set_local_attr("splitmap", np.asarray(splits, dtype=np.uint8))
 
         if not self._warning_emitted:
             logger.warning(
@@ -62,4 +62,4 @@ class SplitMapper(Processor[SplitMapConfig]):
         # increment counter for seed
         self._counter += 1
 
-        return env
+        return item

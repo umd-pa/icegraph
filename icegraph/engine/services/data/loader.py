@@ -2,25 +2,24 @@
 # Developed by Taylor St Jean
 
 from functools import partial
-from typing import Any, Mapping
+from typing import Any, TYPE_CHECKING, Iterator, cast
 
 from torch.utils.data import DataLoader
+from torch_geometric.data.data import BaseData
 
-from icegraph.common.data import DataRole
-from icegraph.common.data import RawGraphBatch
-from icegraph.common.tensors import SegmentLayout
+from icegraph.common.data import RawGraphBatch, GraphData
 
 from .dataset import GraphDataset
 
 
 def graph_collate(
-    data_list: list[Any],
+    data_list: list[GraphData],
     follow_batch: list[str] | None = None,
     exclude_keys: list[str] | None = None,
 ) -> RawGraphBatch:
     # build batch as normal
     batch = RawGraphBatch.from_data_list(
-        data_list, follow_batch=follow_batch, exclude_keys=exclude_keys
+        cast("list[BaseData]", data_list), follow_batch=follow_batch, exclude_keys=exclude_keys
     )
 
     return batch
@@ -41,3 +40,13 @@ class GraphDataLoader(DataLoader):
         )
 
         super().__init__(dataset, **kwargs)
+
+    def set_epoch(self, epoch: int) -> None:
+        """Forwards epoch to the dataset, epoch update is visible to each worker."""
+        dataset: GraphDataset = self.dataset  # type: ignore
+        dataset.set_epoch(epoch)
+
+    if TYPE_CHECKING:
+        # the idiots who made pytorch dont know how to use generics
+        # so now I have to do it myself
+        def __iter__(self) -> Iterator[RawGraphBatch]: ...  # pyright: ignore[reportIncompatibleMethodOverride]

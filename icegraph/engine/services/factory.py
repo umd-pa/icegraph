@@ -22,5 +22,11 @@ class ServiceFactory(PluginFactory[Service[Any]]):
 
 
 # want to register each explicitly
-for service in [DataService, MetricService, StateService, RecordService, DecodeService]:
+for service in [
+    DataService,
+    MetricService,
+    StateService,
+    RecordService,
+    DecodeService
+]:
     ServiceFactory.register(service)

@@ -22,7 +22,7 @@ __all__ = ["Metric"]
 
 
 C = TypeVar("C")  # plugin config type (unchanged)
-S = TypeVar("S")  # accumulator state — chosen freely by each metric
+S = TypeVar("S")  # accumulator state chosen freely by each metric
 
 
 class Metric(Plugin[C, MetricContext], Generic[C, S]):
@@ -82,7 +82,7 @@ class Metric(Plugin[C, MetricContext], Generic[C, S]):
     @final
     def _invalidate(self) -> None:
         # drop the cached finalize result
-        self.__dict__.pop("computed", None)
+        vars(self).pop("computed", None)
 
     @final
     def update(self, out: SegmentedTensor, target: SegmentedTensor) -> None:

@@ -86,7 +86,7 @@ class Reader(Plugin[C, ReaderContext]):
         return self.__dict__.copy()
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        self.__dict__.update(state)
+        vars(self).update(state)
 
     def validate_file(self) -> None:
         pass

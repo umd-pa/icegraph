@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from typing_extensions import override
 from pathlib import Path
+from collections.abc import Mapping
 
 import torch
 from torch import Tensor
@@ -29,16 +31,20 @@ logger = logging.getLogger(__name__)
 
 class CMPlotter(CHistogramReducer):
 
-    def _build_bins(self) -> tuple[int, ...]:
-        return 2, 2
+    @override
+    def _build_bins(self) -> Tensor:
+        return torch.tensor([2, 2])
 
+    @override
     def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor:
         # stack data by axis
         return torch.cat((target, out.argmax(dim=-1, keepdim=True)), dim=1)
 
-    def _postprocess_accumulator(self, data: dict[int, HistogramAccumulator], label: str) -> dict[int | str, HistogramAccumulator]:
+    @override
+    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
         return {"Data": list(data.values())[0]}  # only one so this is fine
 
+    @override
     def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
         epoch = trainer.current_epoch
 

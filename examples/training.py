@@ -1,6 +1,6 @@
 import argparse
 
-from icegraph.trainer import Trainer
+from icegraph.engine import Trainer
 from icegraph.data import DatasetRegistry
 from icegraph.config import IGConfig
 

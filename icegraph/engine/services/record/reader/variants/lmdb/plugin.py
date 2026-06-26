@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing_extensions import Buffer
 
 import lmdb
 from typing import Any, ClassVar
@@ -38,7 +39,8 @@ class LMDB(Reader[Config]):
 
     def record_count(self) -> int:
         with self.env.begin(db=self.dbs["data"]) as txn:
-            return txn.stat()["entries"]
+            # this is correct, likely stub issue with lmdb
+            return int(txn.stat()["entries"])  # pyright: ignore[reportCallIssue]
 
     def validate_file(self) -> None:
         with self.env.begin(db=self.dbs["data"]) as txn, txn.cursor() as cur:
@@ -57,7 +59,7 @@ class LMDB(Reader[Config]):
 
     @cached_property
     def env(self) -> lmdb.Environment:
-        return lmdb.open(  # type: ignore
+        return lmdb.open(
             str(self._path),
             readonly=True,
             lock=False,
@@ -67,11 +69,11 @@ class LMDB(Reader[Config]):
         )
 
     @cached_property
-    def dbs(self) -> dict[str, Any]:
+    def dbs(self) -> dict[str, lmdb._Database]:
         return {key: self.env.open_db(key.encode()) for key in ["data", "attr"]}
 
     @staticmethod
-    def _unpack(value: bytes, **kwargs) -> Any:
+    def _unpack(value: Buffer, **kwargs) -> Any:
         """Unpack a byte value using msgpack."""
         return msgpack.unpackb(value, object_hook=m.decode, raw=False, **kwargs)
 
@@ -113,8 +115,7 @@ class LMDB(Reader[Config]):
 
     def sleep(self) -> None:
         # close the environment and remove all references
-        self.__dict__.pop("dbs", None)
-
-        env = self.__dict__.pop("env", None)
+        vars(self).pop("dbs", None)
+        env = vars(self).pop("env", None)
         if env is not None:
             env.close()

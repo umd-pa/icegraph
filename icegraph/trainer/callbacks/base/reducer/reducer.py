@@ -7,11 +7,12 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 from abc import ABC, abstractmethod
 from pathlib import Path
 from functools import cached_property
+from collections.abc import Mapping
 
 import torch
 from torch import Tensor
 
-from icegraph.trainer.callbacks import Callback
+from icegraph.trainer.callbacks import TrainerCallback
 from icegraph.common.data import Split, DataRole
 
 from ..accumulator import Accumulator
@@ -27,9 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
+A = TypeVar("A", bound="Accumulator")
 
 
-class Reducer(Callback, ABC, Generic[T]):
+class Reducer(TrainerCallback, ABC, Generic[T, A]):
     """
     Base class for online data reduction during testing/validation splits.
 
@@ -47,26 +49,26 @@ class Reducer(Callback, ABC, Generic[T]):
         self._kwargs = kwargs
 
         # dict of accumulators
-        self._accumulators: dict[str, dict[int, Accumulator]] = {}
+        self._accumulators: dict[str, dict[int, A]] = {}
 
     def on_init(self, ctx: context.InitContext) -> None:
         # cache ctx
         self._ctx = ctx
 
         # break out if not rank 0
-        if not ctx.trainer.state.is_main_process():
+        if not ctx.engine.state.is_main_process():
             return
 
         # grab trainer output directory and build plot dir
-        self._save_dir = ctx.trainer.outdir / "plots"
+        self._save_dir = ctx.engine.outdir / "plots"
         self._save_dir.mkdir(parents=True, exist_ok=True)
 
     @cached_property
     def _target_labels(self) -> list[str]:
-        return self._ctx.trainer.decode.get_columns(DataRole.TARGETS)
+        return self._ctx.engine.decode.get_columns(DataRole.TARGETS)
 
     def on_batch_end(self, ctx: context.BatchEndContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
 
         # break out if not rank 0 and in eval
         if not trainer.state.is_main_process() or trainer.split not in Split.eval():
@@ -171,33 +173,33 @@ class Reducer(Callback, ABC, Generic[T]):
     # link callback hooks to methods (only call on validation and test splits)
     def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
         # break out if not rank 0
-        if not ctx.trainer.state.is_main_process():
+        if not ctx.engine.state.is_main_process():
             return
 
-        self.finalize(ctx.trainer)
+        self.finalize(ctx.engine)
 
     def on_test_end(self, ctx: context.TestEndContext) -> None:
         # break out if not rank 0
-        if not ctx.trainer.state.is_main_process():
+        if not ctx.engine.state.is_main_process():
             return
         
-        self.finalize(ctx.trainer)
+        self.finalize(ctx.engine)
 
     ### Abstract methods for subclassing ###
 
-    def _postprocess_accumulator(self, data: dict[int, Accumulator], label: str) -> dict[int | str, Accumulator]:
+    def _postprocess_accumulator(self, data: Mapping[int, A], label: str) -> Mapping[int, A] | Mapping[str, A]:
         return data
 
     @abstractmethod
-    def _build_accumulator(self) -> Accumulator:
+    def _build_accumulator(self) -> A:
         ...
 
     @abstractmethod
-    def _build_artifact(self, accumulator: Accumulator, label: str) -> T:
+    def _build_artifact(self, accumulator: A, label: str) -> T:
         ...
 
     @abstractmethod
-    def _encode(self, indices: Tensor, label: str) -> Tensor:
+    def _encode(self, data: Tensor, label: str) -> Tensor:
         ...
 
     @abstractmethod

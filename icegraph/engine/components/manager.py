@@ -3,111 +3,190 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Iterator, Self, Any, overload, Literal, TypedDict
+from typing import Mapping, Iterator, Any, TypeVar, overload, Literal, TYPE_CHECKING
 from dataclasses import dataclass, field
 
-from icegraph.common.engine import Engine
+from icegraph.common.engine import ComponentKind
 
 from .component import Component
-from .types import ComponentContext, ContractComponentContext
+from .types import ComponentContext
+from .config import ComponentConfig
+from .factory import ComponentFactoryBase
 
 # import each built in component
-from .adapter import Adapter, AdapterFactory, AdapterContext
-from .loss import LossFunction, LossFactory, LossContext
-from .model import Model, ModelFactory, ModelContext
-from .normalizer import Normalizer, NormalizerFactory, NormalizerContext
-from .optimizer import Optimizer, OptimizerFactory, OptimizerContext
-from .transformer import Transformer, TransformerFactory, TransformerContext
+from .loss import LossFunction, LossFactory
+from .model import Model, ModelFactory
+from .normalizer import Normalizer, NormalizerFactory
+from .optimizer import Optimizer, OptimizerFactory
+from .transformer import Transformer, TransformerFactory
+
+if TYPE_CHECKING:
+    from ..services import ServiceManager
+
+    from icegraph.engine.policy import Policy
+
+    from ..engine import Engine, EngineConfig
+
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["ComponentManager"]
 
 
-ComponentSpec = TypedDict("ComponentSpec", {"name": str, "kwargs": dict[str, Any]})
+_BUILD_ORDER: tuple[ComponentKind, ...] = (
+    ComponentKind.MODEL,
+    ComponentKind.TRANSFORMER,
+    ComponentKind.NORMALIZER,
+    ComponentKind.LOSS,
+    ComponentKind.OPTIMIZER,
+)
+
+
+E = TypeVar("E", bound="Engine[EngineConfig]")
 
 
 @dataclass
-class ComponentManager(Mapping[str, Component[Any, ComponentContext]]):
-    _components: dict[str, Component[Any, ComponentContext]] = field(default_factory=dict)
+class ComponentManager(Mapping[ComponentKind, Component[Any]]):
+    _components: dict[ComponentKind, Component[Any]] = field(default_factory=dict)
 
-    def __getitem__(self, component: str) -> Component[Any, ComponentContext]:
+    def __getitem__(self, component: ComponentKind) -> Component[Any]:
         return self._components[component]
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterator[ComponentKind]:
         yield from self._components
 
     def __len__(self) -> int:
         return len(self._components)
 
     @overload
-    def require(self, service: Literal["adapter"], *, required_by: type[Any] | None = None) -> Adapter[Any]: ...
+    def require(self, component: Literal[ComponentKind.LOSS], *, required_by: type[Any] | None = None) -> LossFunction[Any]: ...
     @overload
-    def require(self, service: Literal["loss"], *, required_by: type[Any] | None = None) -> LossFunction[Any]: ...
+    def require(self, component: Literal[ComponentKind.MODEL], *, required_by: type[Any] | None = None) -> Model[Any]: ...
     @overload
-    def require(self, service: Literal["model"], *, required_by: type[Any] | None = None) -> Model[Any]: ...
+    def require(self, component: Literal[ComponentKind.NORMALIZER], *, required_by: type[Any] | None = None) -> Normalizer[Any]: ...
     @overload
-    def require(self, service: Literal["normalizer"], *, required_by: type[Any] | None = None) -> Normalizer[Any]: ...
+    def require(self, component: Literal[ComponentKind.OPTIMIZER], *, required_by: type[Any] | None = None) -> Optimizer[Any]: ...
     @overload
-    def require(self, service: Literal["optimizer"], *, required_by: type[Any] | None = None) -> Optimizer[Any]: ...
+    def require(self, component: Literal[ComponentKind.TRANSFORMER], *, required_by: type[Any] | None = None) -> Transformer[Any]:...
     @overload
-    def require(self, service: Literal["transformer"], *, required_by: type[Any] | None = None) -> Transformer[Any]:...
-    @overload
-    def require(self, service: str, *, required_by: type[Any] | None = None) -> Component[Any, ComponentContext]: ...
+    def require(self, component: ComponentKind, *, required_by: type[Any] | None = None) -> Component[Any]: ...
 
-    def require(self, service: str, *, required_by: type[Any] | None = None) -> Component[Any, ComponentContext]:
-        value = self._services.get(service)
+    def require(self, component: ComponentKind, *, required_by: type[Any] | None = None) -> Component[Any]:
+        value = self._components.get(component)
 
         if value is None:
             who = required_by.__name__ if required_by is not None else "<unknown>"
             raise KeyError(
-                f"The component '{service}' was requested by '{who}', but has "
+                f"The component '{component}' was requested by '{who}', but has "
                 f"not been initialized or does not exist."
             )
 
         return value
 
+    def register(
+            self,
+            name: ComponentKind,
+            component: Component[Any],
+            *,
+            overwrite: bool = False,
+    ) -> None:
+        if not overwrite and name in self._components:
+            raise KeyError(
+                f"A component is already registered under '{name}'. Pass "
+                f"overwrite=True to replace it."
+            )
+
+        self._components[name] = component
+
+    @staticmethod
+    def _get_component_factory(kind: ComponentKind) -> type[ComponentFactoryBase[Component[Any]]]:
+        return {
+            ComponentKind.MODEL: ModelFactory,
+            ComponentKind.NORMALIZER: NormalizerFactory,
+            ComponentKind.TRANSFORMER: TransformerFactory,
+            ComponentKind.OPTIMIZER: OptimizerFactory,
+            ComponentKind.LOSS: LossFactory
+        }[kind]
+
     @classmethod
     def from_config(
             cls,
-            engine: Engine,
-            config: dict[str, ComponentSpec]
-    ) -> Self:
-        if "adapter" not in config:
-            raise RuntimeError(f"Adapter configurations are required regardless of Engine.")
-
+            config: dict[ComponentKind, ComponentConfig], *,
+            services: ServiceManager,
+            debug: bool,
+            policy: Policy | None = None,
+            state_dicts: dict[str, dict[str, Any]] | None = None
+    ) -> ComponentManager:
         # iteratively construct manager
-        instance = cls()
+        components = cls()
 
-        # start with the adapter
-        adapter = cls._adapter_constructor(
-            config["adapter"]["name"], config["adapter"]["kwargs"]
-        )
-        instance._components["adapter"] = adapter
-
-        # build the rest if required
-        if "transformer" in config:
-            instance._components["transformer"] = cls._transformer_constructor(
-                config["transformer"]["name"], config["transformer"]["kwargs"], instance._components["adapter"]
+        # ensure config provides keys present in build order
+        extra = set(config.keys()) - set(_BUILD_ORDER)
+        if extra:
+            logger.warning(
+                "%s: got extra component keys in config not present in _BUILD_ORDER: %s. These keys will be ignored.",
+                cls.__name__, str(list(extra))
             )
 
-        return instance
+        # build in preconfigured order
+        for kind in _BUILD_ORDER:
+            if kind not in config:
+                continue
 
-    @staticmethod
-    def _adapter_constructor(name: str, kwargs: dict[str, Any]) -> Adapter[Any]:
+            c = config[kind]
 
-    @staticmethod
-    def _optimizer_constructor(name: str, kwargs: dict[str, Any], adapter: Adapter[Any]) -> Optimizer[Any]:
+            factory = cls._get_component_factory(kind)
+            component = factory.create(c.name, **c.kwargs)
 
-    @staticmethod
-    def _normalizer_constructor(name: str, kwargs: dict[str, Any], adapter: Adapter[Any]) -> Normalizer[Any]:
+            # this components checkpoint, if any
+            state = state_dicts.get(kind) if state_dicts is not None else None
 
-    @staticmethod
-    def _transformer_constructor(name: str, kwargs: dict[str, Any], adapter: Adapter[Any]) -> Transformer[Any]:
+            # preload state
+            if state is not None:
+                component.on_preload(dict(state))
 
-    @staticmethod
-    def _model_constructor(name: str, kwargs: dict[str, Any], adapter: Adapter[Any]) -> Model[Any]:
+            # run attach phase
+            ctx = ComponentContext(
+                services=services,
+                components=components,
+                contract=policy.get_contract_for(kind) if policy is not None else None,
+                debug=debug
+            )
+            component.attach(ctx)
 
-    @staticmethod
-    def _loss_constructor(name: str, kwargs: dict[str, Any], adapter: Adapter[Any]) -> LossFunction[Any]:
+            # full load state
+            if state is not None:
+                component.load_state_dict(state)
+
+            component.to_device()
+            components.register(kind, component)
+
+            logger.info(f"built component={kind}")
+
+        # run binds
+        components = cls._bind(components, services)
+
+        return components
+
+    @classmethod
+    def _bind(cls, components: ComponentManager, services: ServiceManager) -> ComponentManager:
+        # need to bind model to state if present
+        try:
+            model = components.require(ComponentKind.MODEL, required_by=cls)
+        except KeyError:
+            # no model in this run, so no need to bind
+            return components
+
+        state = services.require("state", required_by=cls)
+
+        # perform bind
+        model = state.bind_model(model)
+
+        # overwrite model with bound
+        # bound model is techincally not Component[Any] so this needs to be fixed
+        components.register(ComponentKind.MODEL, model, overwrite=True)  # pyright: ignore[reportArgumentType]
+
+        return components
 
     def close(self) -> None:
         for component in self._components.values():

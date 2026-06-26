@@ -11,16 +11,13 @@ from torch import Tensor
 from icegraph.common.tensors import SegmentedTensor
 
 from ..component import Component
-
-from .types import LossContext
-
 __all__ = ["LossFunction"]
 
 
 C = TypeVar("C")
 
 
-class LossFunction(Component[C, LossContext], ABC):
+class LossFunction(Component[C], ABC):
 
     @final
     def forward(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
@@ -34,7 +31,7 @@ class LossFunction(Component[C, LossContext], ABC):
             )
 
         # run contract validator
-        self._ctx.contract.forward_validator(loss, self._ctx.debug)
+        self._run_forward_validator(loss)
 
         return loss
 

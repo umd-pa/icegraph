@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import ClassVar, TYPE_CHECKING
+from typing_extensions import override
 
 import numpy as np
 
@@ -17,15 +18,18 @@ if TYPE_CHECKING:
 
 __all__ = ["Mean"]
 
+
 class Mean(Statistic):
     name: ClassVar[str] = "mean"
     degree = 1
 
+    @override
     def _compute(self, array: ArrayF) -> ArrayF:
         # take mean, ignore nans
         return np.nanmean(array, axis=0)
 
     @classmethod
+    @override
     def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
         linear = TransformSpace.LINEAR
 

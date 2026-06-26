@@ -43,8 +43,8 @@ class MAE(Metric[MAEConfig, MAEState]):
         self, state: MAEState, out: SegmentedTensor, target: SegmentedTensor
     ) -> MAEState:
         # both are already on accelerator
-        ids     = out.kernel_view.ids
-        widths  = out.kernel_view.widths
+        ids     = out.ids
+        widths  = out.widths
 
         o = out.data     # [B, V]
         t = target.data  # [B, V]

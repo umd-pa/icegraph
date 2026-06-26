@@ -1,6 +1,8 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from typing import Generic, TypeVar, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -103,8 +105,8 @@ class Plotter(ABC, Generic[T, M]):
             showline=True, linecolor=PLOT_STYLE.border_color, linewidth=1.25, mirror=True
         )
 
-        fig.update_xaxes(**axis_kwargs)
-        fig.update_yaxes(**axis_kwargs)
+        fig.update_xaxes(**axis_kwargs)  # pyright: ignore[reportArgumentType]
+        fig.update_yaxes(**axis_kwargs)  # pyright: ignore[reportArgumentType]
 
         # force scientific notation for axis ticks
         fig.update_xaxes(
@@ -117,7 +119,7 @@ class Plotter(ABC, Generic[T, M]):
         )
 
     def plot(self, data: T, path: str | Path, **kwargs) -> None:
-        path: Path = Path(path)
+        path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)  # ensure path exists before save
 
         # apply default plot layout

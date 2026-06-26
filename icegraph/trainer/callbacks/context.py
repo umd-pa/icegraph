@@ -4,90 +4,72 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
 from torch import Tensor
 
+from icegraph.engine.callbacks import Context, InitContext  # import without usage is intentional
 from icegraph.common.data import GraphBatch, ProcessedGraphBatch
 
 if TYPE_CHECKING:
-    from icegraph.trainer import Trainer
-
-
-Loss: TypeAlias = float | Tensor
-EpochLoss: TypeAlias = float
-
-
-# BASE CONTEXTS
-@dataclass(frozen=True, slots=True)
-class Context:
-    trainer: Trainer
+    from ..trainer import Trainer
 
 
 @dataclass(frozen=True, slots=True)
-class GraphBatchContext(Context):
-    batch: GraphBatch
+class TrainerContext(Context["Trainer"]): ...
 
 
 @dataclass(frozen=True, slots=True)
-class ProcessedGraphBatchContext(Context):
-    batch: ProcessedGraphBatch
-
-
-# TRAINER-ONLY HOOK CONTEXTS
-@dataclass(frozen=True, slots=True)
-class InitContext(Context): ...
+class ExecuteContext(TrainerContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class ExecuteContext(Context): ...
+class EpochBeginContext(TrainerContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class EpochBeginContext(Context): ...
+class EpochEndContext(TrainerContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class EpochEndContext(Context): ...
+class TrainBeginContext(TrainerContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class TrainBeginContext(Context): ...
+class ValidationBeginContext(TrainerContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class ValidationBeginContext(Context): ...
+class TestBeginContext(TrainerContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class TestBeginContext(Context): ...
-
-
-@dataclass(frozen=True, slots=True)
-class TeardownContext(Context): ...
+class TeardownContext(TrainerContext): ...
 
 
 # BATCH HOOK CONTEXTS
 @dataclass(frozen=True, slots=True)
-class BatchBeginContext(GraphBatchContext): ...
+class BatchBeginContext(TrainerContext):
+    batch: GraphBatch
 
 
 @dataclass(frozen=True, slots=True)
-class BatchEndContext(ProcessedGraphBatchContext):
-    loss: Loss
+class BatchEndContext(TrainerContext):
+    batch: ProcessedGraphBatch
+    loss: Tensor
 
 
 # END-OF-PHASE CONTEXTS
 @dataclass(frozen=True, slots=True)
-class TrainEndContext(Context):
-    loss: EpochLoss
+class TrainEndContext(TrainerContext):
+    loss: Tensor
 
 
 @dataclass(frozen=True, slots=True)
-class ValidationEndContext(Context):
-    loss: EpochLoss
+class ValidationEndContext(TrainerContext):
+    loss: Tensor
 
 
 @dataclass(frozen=True, slots=True)
-class TestEndContext(Context):
-    loss: EpochLoss
+class TestEndContext(TrainerContext):
+    loss: Tensor

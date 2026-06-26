@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
+from typing import TypeVar, Generic
 from abc import abstractmethod
 from pathlib import Path
 from threading import Timer
@@ -22,9 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 C = TypeVar("C")
+I = TypeVar("I", bound="Envelope |  Path")
 
 
-class Stage(Plugin[C, StageContext]):
+class Stage(Plugin[C, StageContext[I]], Generic[C, I]):
     """
     Abstract base class for a single stage in the data pipeline.
 
@@ -43,10 +44,13 @@ class Stage(Plugin[C, StageContext]):
         """Consume inputs, process them, and emit results downstream."""
         logger.debug("stage %s starting", self.name)
 
+
         try:
             for i, item in enumerate(self._ctx.src):
                 # if we are on last stage, need to devivify the env before processing
                 if self._ctx.index == self._ctx.total - 1:
+                    if isinstance(item, Path):
+                        raise TypeError("Cannot devivify a Path.")
                     item.devivify()
 
                 # start the timer
@@ -77,19 +81,25 @@ class Stage(Plugin[C, StageContext]):
                     logger.warning("envelope dropped at stage %s", self.name)
                     continue
 
-                self._ctx.dst.put(out)  # blocks when full, backpressure
+                if self._ctx.dst is None:
+                    logger.warning("stage %s has no destination queue", self.name)
+                else:
+                    self._ctx.dst.put(out)  # blocks when full, backpressure
 
         finally:
             # Always signal end-of-stream downstream
-            self._ctx.dst.close()
+            if self._ctx.dst is None:
+                logger.warning("stage %s has no destination queue", self.name)
+            else:
+                self._ctx.dst.close()
             logger.debug("stage %s finished, sentinel emitted and queue closed", self.name)
 
     @abstractmethod
-    def _process(self, item: Path | Envelope) -> Envelope | None:
+    def _process(self, item: I) -> Envelope | None:
         """
         Apply processing to input item, always emitting Envelope (or None to drop).
 
         Args:
-            item (Path | Envelope): Input item.
+            item (I): Input item.
         """
         ...

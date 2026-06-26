@@ -1,7 +1,7 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from typing import TypeAlias
+from typing import TypeAlias, Any
 
 import numpy.typing as npt
 import numpy as np
@@ -31,7 +31,7 @@ __all__ = [
 
 # general arrays
 ArrayG:     TypeAlias = npt.NDArray[np.generic]
-ArrayF:     TypeAlias = npt.NDArray[np.floating]
+ArrayF:     TypeAlias = npt.NDArray[np.floating[Any]]
 ArrayB:     TypeAlias = npt.NDArray[np.bool_]
 ArrayI:     TypeAlias = npt.NDArray[np.intp]
 ArrayUI:    TypeAlias = npt.NDArray[np.uintp]

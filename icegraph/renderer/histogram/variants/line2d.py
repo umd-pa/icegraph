@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import override
+
 import plotly.graph_objects as go
 
 from icegraph.common.histogram import Histogram
@@ -14,6 +16,7 @@ __all__ = ["Line2D"]
 
 class Line2D(HistogramPlotter1D):
 
+    @override
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:
         fig.add_trace(
             go.Scatter(
@@ -27,6 +30,7 @@ class Line2D(HistogramPlotter1D):
             )
         )
 
+    @override
     def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:
         fig.update_yaxes(
             type="linear",

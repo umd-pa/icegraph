@@ -27,9 +27,9 @@ class Mapper(Processor[MapConfig]):
     def validate_config(cls, config: dict[str, Any]) -> MapConfig:
         return MapConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # load config values
         col = self.config.col
@@ -38,11 +38,11 @@ class Mapper(Processor[MapConfig]):
 
         # ensure col is valid
         if col not in main.columns:
-            raise RuntimeError(f"Missing column '{col}' in active table '{env.active}'")
+            raise RuntimeError(f"Missing column '{col}' in active table '{item.active}'")
 
         # ensure col is valid
         if out in main.columns and out != col:
-            raise RuntimeError(f"Output column '{out}' already exists in active table '{env.active}'")
+            raise RuntimeError(f"Output column '{out}' already exists in active table '{item.active}'")
 
         # get unique set of values in col
         values = pd.unique(main[col])
@@ -60,4 +60,4 @@ class Mapper(Processor[MapConfig]):
         mapped = main[col].map(map_)
         main[out] = mapped if self.config.strict else mapped.fillna(main[col])
 
-        return env
+        return item

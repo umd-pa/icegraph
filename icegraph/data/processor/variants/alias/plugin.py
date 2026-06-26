@@ -25,14 +25,14 @@ class Aliaser(Processor[Config]):
     def validate_config(cls, config: dict[str, Any]) -> Config:
         return Config(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
+    def _process(self, item: Envelope) -> Envelope | None:
         # only need to check keys, values are already either cols or valid aliases
         # need to check against every frame
-        for frame in env.tmp.values():
+        for frame in item.tmp.values():
             if any(name in frame.columns for name in self.config.map_):
                 raise RuntimeError("Aliases and columns cannot have identical names.")
 
         # add to state as new group
-        env.state["alias"].update(self.config.map_)
+        item.state["alias"].update(self.config.map_)
         
-        return env
+        return item

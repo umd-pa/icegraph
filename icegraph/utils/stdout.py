@@ -20,13 +20,13 @@ def suppress_output():
 
     try:
         # Redirect to /dev/null
-        os.dup2(devnull_fd, 1)
-        os.dup2(devnull_fd, 2)
+        _ = os.dup2(devnull_fd, 1)
+        _ = os.dup2(devnull_fd, 2)
         yield
     finally:
         # Restore original fds
-        os.dup2(saved_stdout, 1)
-        os.dup2(saved_stderr, 2)
+        _ = os.dup2(saved_stdout, 1)
+        _ = os.dup2(saved_stderr, 2)
         os.close(saved_stdout)
         os.close(saved_stderr)
         os.close(devnull_fd)

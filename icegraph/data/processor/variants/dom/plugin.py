@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 from typing import ClassVar, Any
+from functools import cached_property
 
 import numpy as np
 
-from icecube import dataio
-from icecube.icetray import OMKey
-from icecube.dataclasses import I3Geometry
+from icecube import dataio                  # pyright: ignore[reportMissingImports]
+from icecube.icetray import OMKey           # pyright: ignore[reportMissingImports]
+from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
@@ -33,13 +34,13 @@ class DOMProcessor(Processor[DOMConfig]):
     def build(self) -> None:
         self._geometry = None
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # get geometry frame from gcd if not yet stashed
         if self._geometry is None:
-            gcd_path = env.get_global_attr("gcd", None)
+            gcd_path = item.get_global_attr("gcd", None)
 
             # ensure a gcd path was provided
             if gcd_path is None:
@@ -48,8 +49,8 @@ class DOMProcessor(Processor[DOMConfig]):
             self._geometry = self._get_geometry(gcd_path)
 
         # get string, om, pmt cols
-        cols = env.resolve_cols(self.config.cols)
-        out = env.resolve_cols(self.config.out)
+        cols = item.resolve_cols(self.config.cols)
+        out = item.resolve_cols(self.config.out)
 
         # get list of all unique dom ids in frame
         lut = main[cols].drop_duplicates(subset=cols).copy()
@@ -64,11 +65,17 @@ class DOMProcessor(Processor[DOMConfig]):
         lut[out] = pos
 
         # merge to tmp and return
-        return env.merge(lut, to=env.active, on=cols, validate="m:1")
+        return item.merge(lut, to=active, on=cols, validate="m:1")
+
+    @cached_property
+    def geometry(self) -> I3Geometry:
+        if self._geometry is None:
+            raise RuntimeError("Cannot get geometry frame before first file has been passed through.")
+        return self._geometry
 
     def _id_to_position(self, string: int, om: int, pmt: int) -> tuple[float, float, float]:
         # get position and return as tuple
-        p = self._geometry.omgeo[OMKey(string, om, pmt)].position
+        p = self.geometry.omgeo[OMKey(string, om, pmt)].position
         return p.x, p.y, p.z
 
     @staticmethod

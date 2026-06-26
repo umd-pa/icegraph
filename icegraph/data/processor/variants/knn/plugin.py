@@ -7,11 +7,11 @@ from typing import ClassVar, Any
 
 import numpy as np
 import pandas as pd
-from scipy.spatial import cKDTree
+from scipy.spatial import KDTree
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
-from icegraph.typing.common import ArrayF64, ArrayI64
+from icegraph.typing.common import ArrayF64, ArrayI64, ArrayI
 
 from .config import KNNConfig
 
@@ -33,12 +33,12 @@ class KNN(Processor[KNNConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # load config
-        by = env.resolve_cols(self.config.by)
+        by = item.resolve_cols(self.config.by)
         col = self.config.col
 
         # edges
@@ -60,7 +60,7 @@ class KNN(Processor[KNNConfig]):
             edge_weight.append(ew)
 
         # set up payload
-        out = env.resolve_cols(self.config.out)
+        out = item.resolve_cols(self.config.out)
         if len(out) != 2:
             raise RuntimeError(f"KNN: expected out to have two elements, got {out}")
 
@@ -78,7 +78,7 @@ class KNN(Processor[KNNConfig]):
         payload[out[0]] = pd.Series(edge_index, index=payload.index, dtype="object")
         payload[out[1]] = pd.Series(edge_weight, index=payload.index, dtype="object")
 
-        return env.merge(payload, to=env.active, on=by, validate="1:1")
+        return item.merge(payload, to=active, on=by, validate="1:1")
 
     def compute_edges(self, pos: ArrayF64) -> tuple[ArrayI64, ArrayF64]:
         pos = np.ascontiguousarray(pos, dtype=np.float64)
@@ -91,10 +91,12 @@ class KNN(Processor[KNNConfig]):
         k = min(self.config.k, n - 1)
 
         # build kdtree
-        tree = cKDTree(pos)
+        tree = KDTree(pos)
 
         # query self + k neighbors, then drop self column
-        dists, indices = tree.query(pos, k=k + 1)
+        dists_raw, indices_raw = tree.query(pos, k=k + 1)
+        dists: ArrayF64 = np.asarray(dists_raw)
+        indices: ArrayI = np.asarray(indices_raw)
 
         if k == 1:
             dists = dists[:, None]

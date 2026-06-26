@@ -29,8 +29,8 @@ class Inspector(Processor[InspectConfig]):
     def validate_config(cls, config: dict[str, Any]) -> InspectConfig:
         return InspectConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        main = env.main
+    def _process(self, item: Envelope) -> Envelope | None:
+        main = item.main
 
         # print the dataframe info
         pd.set_option("display.max_columns", None)
@@ -41,7 +41,7 @@ class Inspector(Processor[InspectConfig]):
         console.print(main.head())
 
         # print attrs
-        attrs = env.attrs
+        attrs = item.attrs
         pprint(attrs, max_length=200)
 
-        return env
+        return item

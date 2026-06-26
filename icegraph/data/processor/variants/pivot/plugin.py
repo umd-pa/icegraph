@@ -25,8 +25,9 @@ class Pivoter(Processor[PivotConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        main = env.tmp.get(env.active)
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # load config
         col = self.config.col
@@ -37,15 +38,24 @@ class Pivoter(Processor[PivotConfig]):
             if key not in main.columns:
                 raise RuntimeError(f"Missing expected column '{key}' in dataframe.")
 
-        # equivalent to pivot_table but faster and more stable
-        keys = env.resolve_cols(self.config.index) + [col]
-        env.tmp[env.active] = (
-            main
-            .sort_values(keys, kind="mergesort")
-            .drop_duplicates(subset=keys, keep="first")
-            .set_index(keys)[values]
-            .unstack(col)
-            .reset_index()
-        )
+        index_cols = [str(c) for c in item.resolve_cols(self.config.index)]
+        keys = index_cols + [col]
 
-        return env
+        # fast path: pivot assumes uniqueness so only run here on no dupe dfs
+        if not main.duplicated(subset=keys).any():
+            item.tmp[active] = (
+                main
+                .pivot(index=index_cols, columns=col, values=values)
+                .reset_index()
+            )
+        else:
+            # fallback
+            item.tmp[active] = (
+                main
+                .groupby(keys, sort=True, observed=True)[values]
+                .first()
+                .unstack(col)
+                .reset_index()
+            )
+
+        return item

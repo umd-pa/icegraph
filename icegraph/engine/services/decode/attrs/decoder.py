@@ -32,6 +32,9 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
             global_attrs=self._ctx.global_attrs
         )
 
+        if columns is None:
+            return []
+
         cls = type(self).__name__
 
         if not isinstance(columns, list):
@@ -52,7 +55,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
     def _extract_columns(
             self, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> list[str]:
+    ) -> list[str] | None:
         ...
 
     @final
@@ -62,6 +65,9 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
             attrs=self._ctx.attrs,
             global_attrs=self._ctx.global_attrs
         )
+
+        if offsets is None:
+            return np.zeros(1).astype(np.int64)
 
         cls = type(self).__name__
 
@@ -113,12 +119,12 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
     def _extract_offsets(
             self, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> ArrayI:
+    ) -> ArrayI | None:
         ...
 
     @final
     def extract_keys(self, split: int) -> ArrayI:
-        splitmap = self._extract_keys(
+        keys = self._extract_keys(
             split,
             attrs=self._ctx.attrs,
             global_attrs=self._ctx.global_attrs
@@ -126,25 +132,25 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
         cls = type(self).__name__
 
-        if not isinstance(splitmap, np.ndarray):
+        if not isinstance(keys, np.ndarray):
             raise TypeError(
                 f"{cls}._extract_keys() must return a numpy ndarray, "
-                f"got {type(splitmap).__name__}."
+                f"got {type(keys).__name__}."
             )
 
-        if not np.issubdtype(splitmap.dtype, np.integer):
+        if not np.issubdtype(keys.dtype, np.integer):
             raise TypeError(
                 f"{cls}._extract_keys() must return an integer array, "
-                f"got dtype {splitmap.dtype.__name__}."
+                f"got dtype {keys.dtype.str}."
             )
 
-        return splitmap
+        return keys
 
     @abstractmethod
     def _extract_keys(
             self, split: int, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> ArrayI:
+    ) -> ArrayI | None:
         ...
 
     @final
@@ -170,4 +176,39 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
             self, split: int, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
     ) -> StatisticService:
+        ...
+
+    def extract_count_by_weight_group(self) -> dict[str, int]:
+        counts = self._extract_count_by_weight_group(
+            attrs=self._ctx.attrs,
+            global_attrs=self._ctx.global_attrs
+        )
+
+        cls = type(self).__name__
+
+        if not isinstance(counts, dict):
+            raise TypeError(
+                f"{cls}._extract_count_by_weight_group() must return a dict, "
+                f"got {type(counts).__name__}."
+            )
+
+        for k, v in counts.items():
+            if not isinstance(k, str):
+                raise TypeError(
+                    f"{cls}._extract_count_by_weight_group() keys must be str, "
+                    f"got {type(k).__name__}: {k!r}."
+                )
+            if not isinstance(v, int):
+                raise TypeError(
+                    f"{cls}._extract_count_by_weight_group() values must be int, "
+                    f"got {type(v).__name__} for key {k!r}: {v!r}."
+                )
+
+        return counts
+
+    @abstractmethod
+    def _extract_count_by_weight_group(
+            self, *,
+            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
+    ) -> dict[str, int]:
         ...

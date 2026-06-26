@@ -4,26 +4,20 @@
 from __future__ import annotations
 
 from abc import ABC
+from typing import TYPE_CHECKING
+
+from icegraph.engine.callbacks import Callback
 
 from . import context
 
-__all__ = ["Callback"]
+if TYPE_CHECKING:
+    from ..trainer import Trainer
+
+__all__ = ["TrainerCallback"]
 
 
-class Callback(ABC):
-    """
-    Abstract base class defining hooks into the Trainer lifecycle.
-    """
-
-    def on_init(self, ctx: context.InitContext) -> None:
-        """
-        Called once, at the end of Trainer.__init__, after
-        the model, optimizer, and all attributes are set up.
-
-        Args:
-            ctx (context.InitContext): Initialization context.
-        """
-        pass
+class TrainerCallback(Callback["Trainer"], ABC):
+    """Hooks into the Trainer lifecycle."""
 
     def on_execute(self, ctx: context.ExecuteContext) -> None:
         """
@@ -45,8 +39,7 @@ class Callback(ABC):
 
     def on_epoch_end(self, ctx: context.EpochEndContext) -> None:
         """
-        Called at the end of each epoch, after training (and optional testing)
-        for that epoch has completed.
+        Called at the end of each epoch.
 
         Args:
             ctx (context.EpochEndContext): Epoch-end context.
@@ -55,10 +48,10 @@ class Callback(ABC):
 
     def on_batch_begin(self, ctx: context.BatchBeginContext) -> None:
         """
-        Called immediately before each batch is processed in training or eval.
+        Called immediately before each batch is processed.
 
         Args:
-            ctx (context.BatchBeginContext): Batch-begin context (includes the current PyG Batch).
+            ctx (context.BatchBeginContext): Batch-begin context.
         """
         pass
 
@@ -67,7 +60,7 @@ class Callback(ABC):
         Called immediately after each batch is processed.
 
         Args:
-            ctx (context.BatchEndContext): Batch-end context (includes batch, out, target, and loss).
+            ctx (context.BatchEndContext): Batch-end context.
         """
         pass
 
@@ -85,7 +78,7 @@ class Callback(ABC):
         Called after the training epoch finishes.
 
         Args:
-            ctx (context.TrainEndContext): Train-end context (includes epoch loss).
+            ctx (context.TrainEndContext): Train-end context.
         """
         pass
 
@@ -103,7 +96,7 @@ class Callback(ABC):
         Called after validation completes for a given epoch.
 
         Args:
-            ctx (context.ValidationEndContext): Validation-end context (includes epoch loss).
+            ctx (context.ValidationEndContext): Validation-end context.
         """
         pass
 
@@ -121,14 +114,13 @@ class Callback(ABC):
         Called after testing completes for a given epoch.
 
         Args:
-            ctx (context.TestEndContext): Test-end context (includes epoch loss).
+            ctx (context.TestEndContext): Test-end context.
         """
         pass
 
     def on_teardown(self, ctx: context.TeardownContext) -> None:
         """
-        Called at the very end of Trainer.run(), after train, validate, and
-        any final cleanup are complete.
+        Called once, during teardown.
 
         Args:
             ctx (context.TeardownContext): Teardown context.

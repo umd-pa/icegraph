@@ -7,6 +7,7 @@ from typing import Any, ClassVar, Iterator, Callable
 import itertools
 from operator import add
 from functools import reduce
+from collections import defaultdict
 
 import numpy as np
 
@@ -34,7 +35,7 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
         return StandardAttributeDecoderConfig(**config)
 
     @staticmethod
-    def _column_metadata(field: str, global_attrs: GlobalAttributes) -> dict[str, Any]:
+    def _column_metadata(global_attrs: GlobalAttributes) -> dict[str, Any]:
         columns = global_attrs.get("columns")
 
         if columns is None:
@@ -48,29 +49,29 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
                 f"got {type(columns).__name__}."
             )
 
-        metadata = columns.get(field)
-
-        if metadata is None:
-            raise KeyError(
-                f"Missing key 'columns.{field}' in dataset global attributes."
-            )
-
-        if not isinstance(metadata, dict):
-            raise TypeError(
-                f"Global attribute 'columns.{field}' must be a dict, "
-                f"got {type(metadata).__name__}."
-            )
-
-        return metadata
+        return columns
 
     def _extract_columns(
             self, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> list[str]:
-        columns = self._column_metadata(role, global_attrs)
-        names = columns.get("names")
+    ) -> list[str] | None:
+        columns = self._column_metadata(global_attrs)
+        metadata = columns.get(role)
+
+        if metadata is None:
+            # if no metadata is found for this role
+            return None
+
+        if not isinstance(metadata, dict):
+            raise TypeError(
+                f"Global attribute 'columns.{role}' must be a dict, "
+                f"got {type(metadata).__name__}."
+            )
+
+        names = metadata.get("names")
 
         if names is None:
+            # if the role is present, names need to be specified even if empty
             raise KeyError(
                 f"Missing key 'columns.{role}.names' in dataset global attributes."
             )
@@ -93,9 +94,21 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
     def _extract_offsets(
             self, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> ArrayI:
-        columns = self._column_metadata(role, global_attrs)
-        offsets = columns.get("offset")
+    ) -> ArrayI | None:
+        columns = self._column_metadata(global_attrs)
+        metadata = columns.get(role)
+
+        if metadata is None:
+            # if no metadata is found for this role
+            return None
+
+        if not isinstance(metadata, dict):
+            raise TypeError(
+                f"Global attribute 'columns.{role}' must be a dict, "
+                f"got {type(metadata).__name__}."
+            )
+
+        offsets = metadata.get("offset")
 
         if offsets is None:
             raise KeyError(
@@ -183,3 +196,30 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
 
         # merge and return using functools reduce
         return reduce(add, stats, first)  # type: ignore[args]
+
+    def _extract_count_by_weight_group(
+            self, *,
+            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
+    ) -> dict[str, int]:
+        count: dict[str, int] = defaultdict(int)
+
+        # loop over each shards attributes
+        for attr in attrs():
+            weight_group = attr[AttributeDomain.LOCAL].get("weight_group")
+
+            if weight_group is None:
+                raise RuntimeError(
+                    f"Local attribute 'weight_group' not found in shard ID={attr.shard_id}. This error might "
+                    "occur if you are trying to load simweights from a file that does not contain any."
+                )
+
+            if not isinstance(weight_group, str):
+                raise TypeError(
+                    f"Local attribute 'weight_group' must be a str, got "
+                    f"{type(weight_group)} in shard ID={attr.shard_id}."
+                )
+
+            # count this weight group
+            count[weight_group] += 1
+
+        return count

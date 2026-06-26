@@ -49,8 +49,8 @@ class RMSE(Metric[RMSEConfig, RMSEState]):
         self, state: RMSEState, out: SegmentedTensor, target: SegmentedTensor
     ) -> RMSEState:
         # both are already on accelerator
-        ids     = out.kernel_view.ids
-        widths  = out.kernel_view.widths
+        ids     = out.ids
+        widths  = out.widths
 
         o = out.data     # [B, V]
         t = target.data  # [B, V]

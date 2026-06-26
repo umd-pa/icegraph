@@ -25,20 +25,24 @@ class Renamer(Processor[RenameConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # load rename map or cols/out
         map_ = self.config.map_
 
-        cols = env.resolve_cols(self.config.cols)
-        out = env.resolve_cols(self.config.out)
+        if map_ is None:
+            # these should both be covered by pydantic
+            assert self.config.cols is not None
+            assert self.config.out is not None
 
-        if len(cols) != len(out):
-            raise RuntimeError("Renamer: resolved 'cols' and 'out' must have the same length.")
+            cols = item.resolve_cols(self.config.cols)
+            out = item.resolve_cols(self.config.out)
 
-        if not map_:
+            if len(cols) != len(out):
+                raise RuntimeError("Renamer: resolved 'cols' and 'out' must have the same length.")
+
             map_ = dict(zip(cols, out))
 
         # ensure no missing keys
@@ -47,9 +51,9 @@ class Renamer(Processor[RenameConfig]):
             raise KeyError(f"Columns not found in frame: {missing}")
 
         # rename and return
-        env.tmp[env.active] = main.rename(columns=map_)
+        item.tmp[active] = main.rename(columns=map_)
 
         # need to manually update column metadata keys
-        env.sync_column_names(map_)
+        item.sync_column_names(map_)
 
-        return env
+        return item

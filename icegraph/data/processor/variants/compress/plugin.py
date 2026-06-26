@@ -36,21 +36,21 @@ class Compressor(Processor[CompressorConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # grab from config
-        by = env.resolve_cols(self.config.by)
+        by = item.resolve_cols(self.config.by)
         to = self.config.to
         out = self.config.out
-        cols = env.resolve_cols(self.config.cols)
+        cols = item.resolve_cols(self.config.cols)
         dtype = self.config.dtype
 
         # ensure to is not the active frame
-        if to == env.active:
+        if to == item.active:
             raise RuntimeError(
-                f"`to` must differ from the active frame {env.active!r}: "
+                f"`to` must differ from the active frame {item.active!r}: "
                 f"compression reduces row count and cannot be merged back "
                 f"onto its source."
             )
@@ -95,13 +95,14 @@ class Compressor(Processor[CompressorConfig]):
 
         # build the output frame
         result = pd.DataFrame(keys, columns=by)
-        result[out] = packed
+        # this is fine at runtime, just stubs being strict
+        result[out] = packed  # pyright: ignore[reportArgumentType, reportCallIssue]
 
         # record the compression
         if self.config.record_names:
-            env.set_column_attr(out, "names", cols, domain=AttributeDomain.GLOBAL)
+            item.set_column_attr(out, "names", cols, domain=AttributeDomain.GLOBAL)
         if self.config.record_offset:
-            env.set_column_attr(out, "offset", offset, domain=AttributeDomain.GLOBAL)
+            item.set_column_attr(out, "offset", offset, domain=AttributeDomain.GLOBAL)
 
         # merge to frame and return
-        return env.merge(result, to=to, on=by, validate="1:1")
+        return item.merge(result, to=to, on=by, validate="1:1")

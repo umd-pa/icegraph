@@ -22,5 +22,5 @@ class FluxModel(Plugin[C, FluxModelContext], ABC):
     """Flux model compatible with simweights weighting."""
 
     @abstractmethod
-    def __call__(self, **kwargs: ArrayLike) -> ArrayLike:
+    def __call__(self, *args: ArrayLike, **kwargs: ArrayLike) -> ArrayLike:
         ...

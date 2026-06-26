@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self, cast, Any, Callable, Mapping
+from typing import TYPE_CHECKING, Self, cast, Callable, Mapping
 
 from torch_geometric.data import Data, Batch
+from torch_geometric.data.data import BaseData
 from jaxtyping import Int, Float
 import torch
 
@@ -20,19 +21,21 @@ __all__ = ["GraphData", "RawGraphBatch", "GraphBatch", "ProcessedGraphBatch"]
 
 
 class GraphData(Data):
-    # features
-    features:       Float[Tensor, "N F"]
+    if TYPE_CHECKING:
+        # features
+        features:       Float[Tensor, "N F"]
 
-    # truth
-    targets:        Float[Tensor, "1 T"] | Int[Tensor, "1 T"]
-    auxiliary:      Float[Tensor, "1 A"] | Int[Tensor, "1 A"]
+        # truth
+        targets:        Float[Tensor, "1 T"] | Int[Tensor, "1 T"]
+        auxiliary:      Float[Tensor, "1 A"] | Int[Tensor, "1 A"]
 
-    # weights
-    simweights:     Float[Tensor, "0"] | Float[Tensor, "1"]
+        # weights
+        simweights:     Float[Tensor, "0"] | Float[Tensor, "1"]
 
-    # edges
-    edge_index:     Int[Tensor, "2 E"]
-    edge_attr:      Float[Tensor, "E ATTR"]
+        # edges
+        # this is just type hinting so ignore pyright complaints
+        edge_index:     Int[Tensor, "2 E"]          # pyright: ignore[reportIncompatibleMethodOverride]
+        edge_attr:      Float[Tensor, "E ATTR"]     # pyright: ignore[reportIncompatibleMethodOverride]
 
     def __cat_dim__(self, key: str, value: Tensor, *args, **kwargs) -> int:
         if key in {"features", "targets", "auxiliary", "edge_attr"}:
@@ -42,38 +45,40 @@ class GraphData(Data):
 
 
 class RawGraphBatch(Batch):
-    # features
-    features:       Float[Tensor, "M F"]  # M = sum(N_i)
+    if TYPE_CHECKING:
+        # features
+        features:       Float[Tensor, "M F"]  # M = sum(N_i)
 
-    # truth
-    targets:        Float[Tensor, "B T"] | Int[Tensor, "B T"]
-    auxiliary:      Float[Tensor, "B A"] | Int[Tensor, "B A"]
+        # truth
+        targets:        Float[Tensor, "B T"] | Int[Tensor, "B T"]
+        auxiliary:      Float[Tensor, "B A"] | Int[Tensor, "B A"]
 
-    # weights
-    simweights:     Float[Tensor, "0"] | Float[Tensor, "B"]
+        # weights
+        simweights:     Float[Tensor, "0"] | Float[Tensor, "B"]
 
-    # edges
-    edge_index:     Int[Tensor, "2 K"]  # K = sum(E_i)
-    edge_attr:      Float[Tensor, "K ATTR"]
+        # edges
+        edge_index:     Int[Tensor, "2 K"]  # K = sum(E_i)
+        edge_attr:      Float[Tensor, "K ATTR"]
 
-    # batch vector
-    batch:          Int[Tensor, "M"]
+        # batch vector
+        batch:          Int[Tensor, "M"]
 
     def to_device(
         self,
         device: torch.device | str | int | None = None, *,
         non_blocking: bool = False,
     ) -> Self:
-        return super().to(device=device, non_blocking=non_blocking)
+        # .to exists, just not stubbed
+        return super().to(device=device, non_blocking=non_blocking)  # pyright: ignore[reportAttributeAccessIssue]
 
-    @classmethod
-    def from_data_list(
-        cls,
-        data_list: list[GraphData],
-        follow_batch: list[str] | None = None,
-        exclude_keys: list[str] | None = None,
-    ) -> Self:
-        return cast(Self, super().from_data_list(data_list, follow_batch, exclude_keys))
+    if TYPE_CHECKING:
+        @classmethod
+        def from_data_list(
+            cls,
+            data_list: list[BaseData],
+            follow_batch: list[str] | None = None,
+            exclude_keys: list[str] | None = None,
+        ) -> Self: ...
 
 
 class GraphBatch(Batch):
@@ -138,10 +143,14 @@ class GraphBatch(Batch):
         kwargs: dict[str, Tensor | SegmentedTensor] = {
             role.value: getattr(batch, role.value) for role in DataRole.all()
         }
+
+        # pack to segmented tensor for specified roles
         for role in DataRole.columnar():
-            role: ColumnarRole  # role is a columnar role because it comes from DataRole.columnar()
-            data: Tensor = kwargs[role.value]  # type: ignore
-            kwargs[role.value] = SegmentedTensor(data, get_layout(role, data.device))
+            tensor = kwargs[role.value]
+            assert not isinstance(tensor, SegmentedTensor)
+
+            layout = get_layout(role, tensor.device)
+            kwargs[role.value] = SegmentedTensor(tensor, layout)
 
         return cls(**kwargs)
 

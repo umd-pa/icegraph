@@ -3,6 +3,5 @@
 
 from .optimizer import Optimizer
 from .factory import OptimizerFactory
-from .types import OptimizerContext
 
-__all__ = ["Optimizer", "OptimizerFactory", "OptimizerContext"]
+__all__ = ["Optimizer", "OptimizerFactory"]

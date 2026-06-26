@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from typing_extensions import override
 from pathlib import Path
+from collections.abc import Mapping
 
 import torch
 from torch import Tensor
@@ -30,14 +32,17 @@ logger = logging.getLogger(__name__)
 
 class PrecisionRecallPlotter(BHistogramReducer):
 
+    @override
     def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
         mins = torch.as_tensor([0], dtype=torch.float32)
         maxs = torch.as_tensor([1], dtype=torch.float32)
         return mins, maxs
 
-    def _build_bins(self) -> tuple[int, ...]:
-        return 5000,
+    @override
+    def _build_bins(self) -> Tensor:
+        return torch.tensor([5000])
 
+    @override
     def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> tuple[Tensor, Tensor]:
         # one-vs-rest precision-recall for all N classes
         probs = out.softmax(dim=-1)  # [B, C]
@@ -53,7 +58,8 @@ class PrecisionRecallPlotter(BHistogramReducer):
 
         return probs.flatten().unsqueeze(1), keys.flatten()
 
-    def _postprocess_accumulator(self, data: dict[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
+    @override
+    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
         processed: dict[str, HistogramAccumulator] = {}
 
         # load class count
@@ -115,6 +121,7 @@ class PrecisionRecallPlotter(BHistogramReducer):
 
         return processed
 
+    @override
     def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
         epoch = trainer.current_epoch
 

@@ -1,29 +1,27 @@
-seed: 2729
 outdir: /data/i3store/users/tstjean/BSN
-
-# training policy
-policy: multiclass
 
 # epochs and val interval
 max_epochs: 10000
 val_interval: 5
 
 services:
-  state: { }
+  state:
+    seed: 2747
 
   data:
     # batch size controls how many samples are passed at a time in each
     # training batch (see torch DataLoader batch_size argument)
     batch_size: 2048
-    num_workers: 6
+
+    # buffer and chunk size configure the buffer sample count and the chunk size
+    # chunks are shuffled as blocks
+    buffer_size: 16384
+    chunk_size: 4096
+
+    num_workers: 8
     prefetch_factor: 8
     mp_context: fork
     persistent_workers: true
-
-    sampler:
-      name: blockwise
-      kwargs:
-        block_size: 8192
 
   decode:
     features:   [ ]
@@ -65,23 +63,21 @@ services:
       - name: top-k-acc
         kwargs: { }
 
-components:
-  adapter:
-    kwargs: { }
+policy:
+  name: multiclass
+  kwargs: { }
 
+components:
   transformer:
     name: standard
     kwargs:
       transforms: { }
 
   model:
-    name: gravnet
+    name: gcn
     kwargs:
       hidden_layers: 4
       hidden_channels: 256
-      num_neighbors: 16
-      space_dimensions: 4
-      propagate_dimensions: 12
 
   normalizer:
     name: zscore

@@ -29,17 +29,17 @@ class Unique(Processor[UniqueConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # grab from config
-        cols = env.resolve_cols(self.config.cols)
+        cols = item.resolve_cols(self.config.cols)
 
         # update for each col
         for col in cols:
-            env.set_column_attr(
+            item.set_column_attr(
                 col, "unique", main[col].dropna().unique().tolist(), domain=AttributeDomain.LOCAL
             )
 
-        return env
+        return item

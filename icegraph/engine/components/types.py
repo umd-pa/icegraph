@@ -3,30 +3,35 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING, TypeVar, Generic
 from dataclasses import dataclass
 
 from torch import Tensor
 
 from icegraph.common.plugins import PluginContext
 
-from ..services import ServiceManager
+if TYPE_CHECKING:
+    from ..services import ServiceManager
 
-__all__ = ["ComponentContext", "ContractComponentContext", "ComponentContract"]
+    from .component import Component
+    from .manager import ComponentManager
+
+__all__ = ["ComponentContext", "ComponentContract"]
+
+
+_CMPT = TypeVar("_CMPT", bound="Component[Any]")
+
+
+@dataclass(frozen=True)
+class ComponentContract(Generic[_CMPT]):
+    kwargs: dict[str, Any]
+    validator: Callable[[_CMPT], None]
+    forward_validator: Callable[[Tensor, bool], None] | None  # some components have no forward, like optimizer
 
 
 @dataclass(frozen=True)
 class ComponentContext(PluginContext):
     services: ServiceManager
+    components: ComponentManager
+    contract: ComponentContract | None
     debug: bool
-
-
-@dataclass(frozen=True)
-class ContractComponentContext(ComponentContext):
-    contract: ComponentContract
-
-
-@dataclass(frozen=True)
-class ComponentContract:
-    kwargs: dict[str, Any]
-    forward_validator: Callable[[Tensor, bool], None]

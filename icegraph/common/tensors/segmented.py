@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Iterator, Self
+from typing import Iterator, Self, overload
 from collections.abc import Sequence
 
 import torch
@@ -14,7 +14,7 @@ from torch import Tensor
 __all__ = ["SegmentedTensor", "SegmentLayout"]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class _DeviceTensors:
     """Device-resident tensors that move with data."""
     ids:    Tensor
@@ -33,7 +33,7 @@ class _DeviceTensors:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class SegmentLayout:
     offsets:            Tensor  # [L + 1], CPU tensor
     names:              list[str]  # [L]
@@ -104,14 +104,19 @@ class SegmentedTensor(Sequence[Tensor]):
 
         if self.layout.device != self.data.device:
             raise ValueError(
-                f"Device mismatch: {type(self.layout).__name__} on {self.layout.device}, data on {self.data.device}"
+                f"Device mismatch: {type(self.layout).__name__} on {self.layout.device}, data on {self.device}"
             )
 
     def __len__(self) -> int:
         # number of logical indices
         return len(self.offsets) - 1
 
-    def __getitem__(self, index: int) -> Tensor:
+    @overload
+    def __getitem__(self, index: int) -> Tensor: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[Tensor]: ...
+
+    def __getitem__(self, index: int | slice) -> Tensor | Sequence[Tensor]:
         # dont allow slicing
         if not isinstance(index, int):
             raise TypeError(f"{type(self).__name__} does not support slicing.")
@@ -124,6 +129,10 @@ class SegmentedTensor(Sequence[Tensor]):
         # iterate over logical indices along dim 1
         for i in range(len(self)):
             yield self[i]
+
+    @property
+    def device(self) -> torch.device:
+        return self.data.device
 
     @property
     def offsets(self) -> Tensor:

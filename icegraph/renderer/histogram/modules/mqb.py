@@ -1,7 +1,10 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from typing import Iterator
+from typing_extensions import override
 
 import plotly.graph_objects as go
 import numpy as np
@@ -19,6 +22,7 @@ __all__ = ["MedianQuantileBand"]
 class MedianQuantileBand(HistogramPlotterModule):
     compatible = (HistogramPlotter2D,)
 
+    @override
     def overlay(self, fig: go.Figure, data: dict[str | int, Histogram]) -> None:
         for i, (key, item) in enumerate(data.items()):
             self._overlay_trace(fig, item, str(key))

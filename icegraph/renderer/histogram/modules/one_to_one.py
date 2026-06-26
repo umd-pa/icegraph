@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import override
+
 import plotly.graph_objects as go
 import numpy as np
 
@@ -18,6 +20,7 @@ __all__ = ["OneToOne"]
 class OneToOne(HistogramPlotterModule):
     compatible = (HistogramPlotter,)
 
+    @override
     def overlay(self, fig: go.Figure, data: dict[str | int, Histogram]) -> None:
         # grab bounds from hist
         lo = np.min([h.mins.min() for h in data.values()])

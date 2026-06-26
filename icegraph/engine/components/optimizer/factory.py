@@ -4,7 +4,7 @@
 from typing import Any
 
 # local package
-from icegraph.common.factory import PluginFactory
+from icegraph.engine.components.factory import ComponentFactoryBase
 
 # local subpackage
 from .optimizer import Optimizer
@@ -15,7 +15,7 @@ from .variants import AdamW, SGD
 __all__ = ["OptimizerFactory"]
 
 
-class OptimizerFactory(PluginFactory[Optimizer[Any]]):
+class OptimizerFactory(ComponentFactoryBase[Optimizer[Any]]):
     pass
 
 

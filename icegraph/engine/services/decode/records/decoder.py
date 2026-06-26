@@ -25,12 +25,16 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
     """Provides methods for decoding dataset records."""
 
     @abstractmethod
-    def extract(self, record: Record, key: str) -> Tensor:
+    def extract(self, record: Record, key: str) -> Tensor | None:
         ...
 
     @final
-    def extract_features(self, record: Record, key: str) -> Float[Tensor, "N F_pre"]:
+    def extract_features(self, record: Record, key: str) -> Float[Tensor, "N F_pre"] | None:
         features = self._extract_features(record, key)
+
+        # not present in record
+        if features is None or features.numel() == 0:
+            return None
 
         # normalize shape
         if features.ndim == 1:
@@ -46,12 +50,16 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
             f"got shape {tuple(features.shape)}."
         )
 
-    def _extract_features(self, record: Record, key: str) -> Float[Tensor, "F_pre"] | Float[Tensor, "N F_pre"]:
+    def _extract_features(self, record: Record, key: str) -> Float[Tensor, "F_pre"] | Float[Tensor, "N F_pre"] | None:
         return self.extract(record, key)
 
     @final
-    def extract_targets(self, record: Record, key: str) -> Float[Tensor, "1 T_pre"] | Int[Tensor, "1 T_pre"]:
+    def extract_targets(self, record: Record, key: str) -> Float[Tensor, "1 T_pre"] | Int[Tensor, "1 T_pre"] | None:
         targets = self._extract_targets(record, key)
+
+        # not present in record
+        if targets is None or targets.numel() == 0:
+            return None
 
         # normalize shape
         if targets.ndim == 1:
@@ -69,16 +77,16 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
 
     def _extract_targets(
             self, record: Record, key: str
-    ) -> Float[Tensor, "W_pre"] | Int[Tensor, "W_pre"] | Float[Tensor, "1 W_pre"] | Int[Tensor, "1 W_pre"]:
+    ) -> Float[Tensor, "W_pre"] | Int[Tensor, "W_pre"] | Float[Tensor, "1 W_pre"] | Int[Tensor, "1 W_pre"] | None:
         return self.extract(record, key)
 
     @final
-    def extract_auxiliary(self, record: Record, key: str) -> Float[Tensor, "1 A_pre"] | Int[Tensor, "1 A_pre"]:
+    def extract_auxiliary(self, record: Record, key: str) -> Float[Tensor, "1 A_pre"] | Int[Tensor, "1 A_pre"] | None:
         auxiliary = self._extract_auxiliary(record, key)
 
-        # auxiliary is allowed to be empty
-        if auxiliary.numel() == 0:
-            return torch.empty((1, 0), dtype=torch.int64)
+        # not present in record
+        if auxiliary is None or auxiliary.numel() == 0:
+            return None
 
         # normalize shape
         if auxiliary.ndim == 1:
@@ -96,16 +104,16 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
 
     def _extract_auxiliary(
             self, record: Record, key: str
-    ) -> Float[Tensor, "A_pre"] | Int[Tensor, "A_pre"] | Float[Tensor, "1 A_pre"] | Int[Tensor, "1 A_pre"] | Int[Tensor, "0"]:
+    ) -> Float[Tensor, "A_pre"] | Int[Tensor, "A_pre"] | Float[Tensor, "1 A_pre"] | Int[Tensor, "1 A_pre"] | Int[Tensor, "0"] | None:
         return self.extract(record, key)
 
     @final
-    def extract_edge_index(self, record: Record, key: str) -> Int[Tensor, "2 E"]:
+    def extract_edge_index(self, record: Record, key: str) -> Int[Tensor, "2 E"] | None:
         edge_index = self._extract_edge_index(record, key)
 
-        # edge_index is allowed to be empty
-        if edge_index.numel() == 0:
-            return torch.empty((2, 0), dtype=torch.int64)
+        # not present in record
+        if edge_index is None or edge_index.numel() == 0:
+            return None
 
         # normalize / validate shape
         if edge_index.ndim == 2 and edge_index.shape[0] == 2:
@@ -117,16 +125,16 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
             f"got shape {tuple(edge_index.shape)}."
         )
 
-    def _extract_edge_index(self, record: Record, key: str) -> Int[Tensor, "2 E"]:
+    def _extract_edge_index(self, record: Record, key: str) -> Int[Tensor, "2 E"] | None:
         return self.extract(record, key)
 
     @final
-    def extract_edge_attr(self, record: Record, key: str) -> Float[Tensor, "E ATTR"]:
+    def extract_edge_attr(self, record: Record, key: str) -> Float[Tensor, "E ATTR"] | None:
         edge_attr = self._extract_edge_attr(record, key)
 
-        # edge_attr is allowed to be empty
-        if edge_attr.numel() == 0:
-            return torch.empty((0, 0), dtype=torch.float32)
+        # not present in record
+        if edge_attr is None or edge_attr.numel() == 0:
+            return None
 
         # normalize / validate shape
         if edge_attr.ndim == 2:
@@ -142,16 +150,16 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
             f"got shape {tuple(edge_attr.shape)}."
         )
 
-    def _extract_edge_attr(self, record: Record, key: str) -> Float[Tensor, "E ATTR"]:
+    def _extract_edge_attr(self, record: Record, key: str) -> Float[Tensor, "E ATTR"] | None:
         return self.extract(record, key)
 
     @final
-    def extract_simweights(self, record: Record, key: str) -> Float[Tensor, "1"] | Float[Tensor, "0"]:
+    def extract_simweights(self, record: Record, key: str) -> Float[Tensor, "1"] | Float[Tensor, "0"] | None:
         simweights = self._extract_simweights(record, key)
 
-        # simweights is allowed to be empty
-        if simweights.numel() == 0:
-            return torch.empty((0,), dtype=torch.float32)
+        # not present in record
+        if simweights is None or simweights.numel() == 0:
+            return None
 
         # normalize / validate shape
         if simweights.ndim == 0:
@@ -169,5 +177,5 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
 
     def _extract_simweights(
             self, record: Record, key: str
-    ) -> Float[Tensor, ""] | Float[Tensor, "1"] | Float[Tensor, "0"]:
+    ) -> Float[Tensor, ""] | Float[Tensor, "1"] | Float[Tensor, "0"] | None:
         return self.extract(record, key)

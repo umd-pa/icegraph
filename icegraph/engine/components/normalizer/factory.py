@@ -4,7 +4,7 @@
 from typing import Any
 
 # local package
-from icegraph.common.factory import PluginFactory
+from icegraph.engine.components.factory import ComponentFactoryBase
 
 # local subpackage
 from .normalizer import Normalizer
@@ -15,7 +15,7 @@ from . import variants
 __all__ = ["NormalizerFactory"]
 
 
-class NormalizerFactory(PluginFactory[Normalizer[Any]]):
+class NormalizerFactory(ComponentFactoryBase[Normalizer[Any]]):
     pass
 
 

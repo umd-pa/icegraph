@@ -25,17 +25,17 @@ class Copier(Processor[CopyConfig]):
     def validate_config(cls, config: dict[str, Any]) -> CopyConfig:
         return CopyConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # resolve by
-        by = env.resolve_cols(self.config.by)
+        by = item.resolve_cols(self.config.by)
 
-        env.merge(
-            main[list(set(env.resolve_cols(self.config.cols) + by))],
+        item.merge(
+            main[list(set(item.resolve_cols(self.config.cols) + by))],
             to=self.config.to,
             on=by
         )
 
-        return env
+        return item

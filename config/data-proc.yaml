@@ -85,13 +85,6 @@ processors:  # ordered list of processors, each can be used any number of times
       cols: [ string, om, pmt ]
       out: dom_pos
 
-  - name: compress  # need a copy of only dom positions compressed for edges
-    kwargs:
-      to: compressed
-      by: event_ids
-      cols: dom_pos
-      out: dom_pos_tmp
-
   - name: compress  # compress the main feature table
     kwargs:
       to: compressed
@@ -104,17 +97,10 @@ processors:  # ordered list of processors, each can be used any number of times
     kwargs:
       key: compressed
 
-  - name: knn  # output is compressed by default
-    kwargs:
-      by: event_ids
-      col: dom_pos_tmp
-      out: [ edge_index, edge_weight ]
-      k: 10
-
   - name: commit
     kwargs:
       ids: event_ids
-      cols: [ features, edge_index, edge_weight ]
+      cols: [ features ]
 
 writer:
   name: lmdb

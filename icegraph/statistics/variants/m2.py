@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import ClassVar, TYPE_CHECKING
+from typing_extensions import override
 
 import numpy as np
 
@@ -26,6 +27,7 @@ class WelfordM2(Statistic):
     name: ClassVar[str] = "m2"
     degree = 2
 
+    @override
     def _compute(self, array: ArrayF) -> ArrayF:
         # compute m2, see https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
         mean = np.nanmean(array, axis=0)
@@ -33,6 +35,7 @@ class WelfordM2(Statistic):
         return np.nansum(diff * diff, axis=0)
 
     @classmethod
+    @override
     def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
         # chan-golub-leveque merge, see http://i.stanford.edu/pub/cstr/reports/cs/tr/79/773/CS-TR-79-773.pdf
         linear = TransformSpace.LINEAR

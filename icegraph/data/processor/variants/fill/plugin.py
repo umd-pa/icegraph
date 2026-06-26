@@ -27,9 +27,9 @@ class Filler(Processor[FillConfig]):
     def validate_config(cls, config: dict[str, Any]) -> FillConfig:
         return FillConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # load from config
         col = self.config.col
@@ -39,4 +39,4 @@ class Filler(Processor[FillConfig]):
         # fill column with value
         main[col] = np.full(len(main), value, dtype=np.dtype(dtype))
 
-        return env
+        return item

@@ -4,66 +4,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
-from torch import Tensor
-
-from icegraph.common.data import GraphBatch, ProcessedGraphBatch
+from icegraph.engine.callbacks import Context, InitContext  # import without usage is intentional
 
 if TYPE_CHECKING:
-    from icegraph.inference import Inference
-
-
-Loss: TypeAlias = float | Tensor
-EpochLoss: TypeAlias = float
-
-
-# BASE CONTEXTS
-@dataclass(frozen=True, slots=True)
-class Context:
-    inference: Inference
+    from ..inference import BatchInference
 
 
 @dataclass(frozen=True, slots=True)
-class GraphBatchContext(Context):
-    batch: GraphBatch
+class InferenceContext(Context["BatchInference"]): ...
 
 
 @dataclass(frozen=True, slots=True)
-class ProcessedGraphBatchContext(Context):
-    batch: ProcessedGraphBatch
-
-
-# TRAINER-ONLY HOOK CONTEXTS
-@dataclass(frozen=True, slots=True)
-class InitContext(Context): ...
+class ExecuteContext(InferenceContext): ...
 
 
 @dataclass(frozen=True, slots=True)
-class ExecuteContext(Context): ...
-
-
-@dataclass(frozen=True, slots=True)
-class EpochBeginContext(Context): ...
-
-
-@dataclass(frozen=True, slots=True)
-class EpochEndContext(Context): ...
-
-
-@dataclass(frozen=True, slots=True)
-class TeardownContext(Context): ...
-
-
-# BATCH HOOK CONTEXTS
-@dataclass(frozen=True, slots=True)
-class BatchBeginContext(GraphBatchContext): ...
-
-
-@dataclass(frozen=True, slots=True)
-class BatchTransferContext(GraphBatchContext): ...
-
-
-@dataclass(frozen=True, slots=True)
-class BatchEndContext(ProcessedGraphBatchContext):
-    loss: Loss
+class TeardownContext(InferenceContext): ...

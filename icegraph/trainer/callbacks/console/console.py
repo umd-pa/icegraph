@@ -20,7 +20,7 @@ from torch import Tensor
 from icegraph.common.data import Split
 from icegraph.ui import console
 
-from ..callback import Callback
+from ..callback import TrainerCallback
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -44,7 +44,7 @@ def terminal_only(fn):
     return wrapper
 
 
-class ConsoleCallback(Callback):
+class ConsoleCallback(TrainerCallback):
     """Rich-based console UI for training, defaults to standard printouts on incompatible terminals (like IDE's)."""
 
     # default dead-zone for the trend indicator
@@ -105,9 +105,10 @@ class ConsoleCallback(Callback):
         header_panel = Layout(self._panel(None, body, padding=(1, 2)), name="header", size=_init_header_size)
 
         # init progres panel
+        progress = self.progress if self.progress is not None else Text("-- no progress to show --")
         progress_panel = Layout(
             Panel(
-                Align(self.progress, align="center"), padding=(1, 2), title="Progress"
+                Align(progress, align="center"), padding=(1, 2), title="Progress"
             ), name="top", size=_init_top_size
         )
 
@@ -151,9 +152,12 @@ class ConsoleCallback(Callback):
         glyph  = "▲" if rising else "▼"  # dont feel like finding the ascii codes for these chars
 
         # desirability: did the gap to the optimum shrink vs the trend
-        gap_now = abs(value - optimum)
-        gap_ema = abs(ema   - optimum)
-        diff    = gap_ema - gap_now          # > 0 means moved closer to optimum
+        if optimum is not None and ema is not None:
+            gap_now = abs(value - optimum)
+            gap_ema = abs(ema   - optimum)
+            diff    = gap_ema - gap_now          # > 0 means moved closer to optimum
+        else:
+            diff = 0
 
         if abs(diff) < cls._DEFAULT_EPS:
             val.append(" –", style="dim")    # flat or jsut noise
@@ -167,7 +171,7 @@ class ConsoleCallback(Callback):
         title = "Metrics/Trends"
 
         if not self._latest_metrics:
-            placeholder = Align(Text("— no metrics yet —", style="dim"), align="center")
+            placeholder = Align(Text("-- no metrics yet --", style="dim"), align="center")
             return Panel(placeholder, title=title, padding=(1, 2))
 
         # flatten every metric's per-head fields up front; heads may differ in count
@@ -207,7 +211,7 @@ class ConsoleCallback(Callback):
             self.progress.reset(
                 self.task_id,
                 total=total,
-                description=desc,
+                description=desc
             )
 
     def _on_split_begin(self, trainer: Trainer, split: Split, total: int) -> None:
@@ -222,14 +226,14 @@ class ConsoleCallback(Callback):
     # callback hooks
     def on_execute(self, ctx: context.ExecuteContext) -> None:
         # only run on main rank
-        if not ctx.trainer.state.is_main_process():
+        if not ctx.engine.state.is_main_process():
             self.is_terminal = False
 
         # no op if not in terminal
         if not self.is_terminal:
             return
 
-        self.layout = self._build_layout(ctx.trainer)
+        self.layout = self._build_layout(ctx.engine)
         self.live = Live(
             self.layout,
             console=self.console,
@@ -250,23 +254,23 @@ class ConsoleCallback(Callback):
 
     @terminal_only
     def on_train_begin(self, ctx: context.TrainBeginContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
         self._on_split_begin(
-            trainer, Split.TRAIN, len(trainer.data.dataloader(Split.TRAIN))
+            trainer, Split.TRAIN, len(trainer.get_dataloader(Split.TRAIN))
         )
 
     @terminal_only
     def on_validation_begin(self, ctx: context.ValidationBeginContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
         self._on_split_begin(
-            trainer, Split.VAL, len(trainer.data.dataloader(Split.VAL))
+            trainer, Split.VAL, len(trainer.get_dataloader(Split.VAL))
         )
 
     @terminal_only
     def on_test_begin(self, ctx: context.TestBeginContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
         self._on_split_begin(
-            trainer, Split.TEST, len(trainer.data.dataloader(Split.TEST))
+            trainer, Split.TEST, len(trainer.get_dataloader(Split.TEST))
         )
 
     @terminal_only
@@ -275,10 +279,7 @@ class ConsoleCallback(Callback):
         if self.layout is None:
             return
 
-        # layout cannot be None past check
-        self.layout: Layout
-
-        metrics = ctx.trainer.metrics.compute()
+        metrics = ctx.engine.metrics.compute()
 
         # cache validation metrics
         self._latest_metrics = metrics

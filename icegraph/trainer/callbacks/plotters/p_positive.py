@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from typing_extensions import override
 from pathlib import Path
+from collections.abc import Mapping
 
 import torch
 from torch import Tensor
@@ -31,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class BinaryPPositivePlotter(BHistogramReducer):
 
+    @override
     def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
         # mins/maxs
         mins = torch.as_tensor([0], dtype=torch.float32)
@@ -38,9 +41,11 @@ class BinaryPPositivePlotter(BHistogramReducer):
 
         return mins, maxs
 
-    def _build_bins(self) -> tuple[int, ...]:
-        return 100,
+    @override
+    def _build_bins(self) -> Tensor:
+        return torch.tensor([100])
 
+    @override
     def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> tuple[Tensor, Tensor]:
         if out.ndim != 2 or out.size(-1) != 2:
             raise ValueError(
@@ -55,7 +60,8 @@ class BinaryPPositivePlotter(BHistogramReducer):
         # return with mapping defined by target
         return probs, target.squeeze(1)
 
-    def _postprocess_accumulator(self, data: dict[int, HistogramAccumulator], label: str) -> dict[int | str, HistogramAccumulator]:
+    @override
+    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
         processed: dict[str, HistogramAccumulator] = {}
 
         # load class name map
@@ -73,6 +79,7 @@ class BinaryPPositivePlotter(BHistogramReducer):
 
         return processed
 
+    @override
     def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
         epoch = trainer.current_epoch
 

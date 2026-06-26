@@ -3,5 +3,6 @@
 
 from .service import Service
 from .manager import ServiceManager
+from .config import service_group
 
-__all__ = ["Service", "ServiceManager"]
+__all__ = ["Service", "ServiceManager", "service_group"]

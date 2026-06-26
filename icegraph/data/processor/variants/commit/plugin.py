@@ -25,13 +25,13 @@ class Committer(Processor[CommitConfig]):
     def validate_config(cls, config: dict[str, Any]) -> CommitConfig:
         return CommitConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # load from config
-        ids = env.resolve_cols(self.config.ids)
-        cols = env.resolve_cols(self.config.cols)
+        ids = item.resolve_cols(self.config.ids)
+        cols = item.resolve_cols(self.config.cols)
 
         # ensure properly compressed before commit
         if main.duplicated(subset=ids).any():
@@ -39,6 +39,6 @@ class Committer(Processor[CommitConfig]):
 
         # commit each col one at a time so attrs can be set for each
         for col in cols:
-            env.commit(main[ids + [col]], on=ids, validate="1:1")
+            item.commit(main[ids + [col]], on=ids, validate="1:1")
 
-        return env
+        return item

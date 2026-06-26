@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import TypeVar, overload, Literal, Any, Callable, Self
+from collections.abc import Mapping
 from abc import ABC
 from functools import cached_property
 
@@ -22,36 +23,56 @@ logger = logging.getLogger(__name__)
 
 
 C = TypeVar("C")
-X = TypeVar("X", bound=ComponentContext)
 
 
-class Component(Plugin[C, X], Module, ABC):
+class Component(Plugin[C, ComponentContext], Module, ABC):
     _device: torch.device
 
-    @cached_property
-    def _dynamic_buffers(self) -> list[str]:
-        return []
+    def _internal_on_attach_after_user(self) -> None:
+        # run the component validator if provided on self after user on_attach
+        contract = self._ctx.contract
 
-    def register_dynamic_buffer(
-        self, name: str, tensor: Tensor | None, persistent: bool = True
-    ) -> None:
-        # save as a dynamic buffer
-        self._dynamic_buffers.append(name)
+        if contract is None:
+            return
 
-        # register as normal
-        self.register_buffer(name, tensor, persistent)
+        contract.validator(self)
 
-    def _internal_build_before_user_build(self) -> None:
+    def _internal_build_before_user(self) -> None:
         # module starts on cpu
         self._device = torch.device("cpu")
 
-    def _internal_build_after_user_build(self) -> None:
+    def _internal_build_after_user(self) -> None:
         self.register_load_state_dict_pre_hook(self._preload_dynamic_buffers)
+
+    def _run_forward_validator(self, out: Tensor) -> None:
+        # run forward validator
+        contract = self._ctx.contract
+        if contract is not None:
+            forward_validator = contract.forward_validator
+            if forward_validator is not None:
+                forward_validator(out, self._ctx.debug)
+
+    def on_preload(self, state_dict: Mapping[str, Any]) -> None:
+        """
+        Optional pre-attach hook. The manager passes a read-only copy of this
+        component's checkpoint (if any) before `attach`, so the component can
+        resolve construction-time buffers (e.g. layer widths) that are only
+        available from the checkpoint when no contract/services are available.
+        """
+        pass
 
     @property
     def device(self) -> torch.device:
         """The device currently associated with this component."""
         return self._device
+
+    def to_device(self) -> None:
+        if not self.is_attached:
+            raise RuntimeError(f"Cannot move component {type(self).__name__} to device before attaching.")
+
+        # load device from state service
+        state = self._ctx.services.require("state", required_by=type(self))
+        self.to(state.device, non_blocking=True)
 
     def _apply(self, fn: Callable[[Tensor], Tensor], recurse: bool = True) -> Self:
         probe = torch.empty(0, device=self._device)
@@ -59,6 +80,19 @@ class Component(Plugin[C, X], Module, ABC):
         self._device = moved_probe.device
 
         return super()._apply(fn, recurse=recurse)
+
+    @cached_property
+    def _dynamic_buffers(self) -> list[str]:
+        return []
+
+    def register_dynamic_buffer(
+            self, name: str, tensor: Tensor | None, persistent: bool = True
+    ) -> None:
+        # save as a dynamic buffer
+        self._dynamic_buffers.append(name)
+
+        # register as normal
+        self.register_buffer(name, tensor, persistent)
 
     @overload
     def load_buffer(
@@ -140,7 +174,7 @@ class Component(Plugin[C, X], Module, ABC):
 
     @staticmethod
     def _preload_dynamic_buffers(
-        module: Component[Any, Any],
+        module: Component[Any],
         state_dict: dict[str, Tensor],
         prefix: str,
         local_metadata: dict[str, Any],
@@ -167,5 +201,5 @@ class Component(Plugin[C, X], Module, ABC):
 
                 module.register_buffer(
                     name,
-                    torch.empty_like(loaded, device=device),
+                    torch.empty_like(loaded, device=device)
                 )

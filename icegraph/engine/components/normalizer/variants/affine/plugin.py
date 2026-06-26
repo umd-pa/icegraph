@@ -13,6 +13,7 @@ from torch import Tensor
 from icegraph.statistics import StatisticService
 from icegraph.common.transforms import TransformSpace
 from icegraph.common.data import DataRole, Split, ColumnarRole
+from icegraph.common.engine import ComponentKind
 from icegraph.common.tensors import SegmentedTensor
 
 from icegraph.engine.components.normalizer import Normalizer
@@ -69,6 +70,10 @@ class AffineNormalizer(Normalizer[Config], ABC):
 
         return offset
 
+    def transformer_spec_list(self, role: ColumnarRole):  # type hinter can derive from transformer.spec_list so ignore
+        transformer = self._ctx.components.require(ComponentKind.TRANSFORMER, required_by=type(self))
+        return transformer.spec_list(role)
+
     def _resolve(
             self,
             role: ColumnarRole,
@@ -82,7 +87,7 @@ class AffineNormalizer(Normalizer[Config], ABC):
 
         # build param list
         params = []
-        for column_index, spec in enumerate(self._ctx.transformer_spec_list(role)):
+        for column_index, spec in enumerate(self.transformer_spec_list(role)):
             # get value from build method
             value = build(stats, spec.space, spec.base, column_index)
 

@@ -9,4 +9,4 @@ __all__ = ["StateConfig"]
 
 
 class StateConfig(BaseModel):
-    pass
+    seed: int

@@ -11,20 +11,14 @@ import pandas as pd
 import h5py
 
 from icegraph.utils.stdout import suppress_output
-from icegraph.exceptions import IceCubeImportError
 from icegraph.data.envelope import Envelope
 from icegraph.data.extractor import Extractor
 
 from .config import I3ExtractorConfig
 
 with suppress_output():
-    try:
-        from icecube.icetray import I3Tray
-        from icecube import hdfwriter, ml_suite
-    except ImportError:
-        I3Tray = IceCubeImportError.IceCubeMissingBase  # type: ignore[assignment]
-        hdfwriter = IceCubeImportError()  # type: ignore[assignment]
-        ml_suite = IceCubeImportError()  # type: ignore[assignment]
+    from icecube.icetray import I3Tray          # pyright: ignore[reportMissingImports]
+    from icecube import hdfwriter, ml_suite     # pyright: ignore[reportMissingImports]
 
 __all__ = ["I3Extractor"]
 
@@ -46,8 +40,8 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, infile: Path) -> Envelope | None:
-        files = [str(self.config.gcd_path), str(infile)]
+    def _process(self, item: Path) -> Envelope | None:
+        files = [str(self.config.gcd_path), str(item)]
 
         with tempfile.NamedTemporaryFile() as out:
             tray = I3Tray()
@@ -76,21 +70,23 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                     if key not in available:
                         # if skip missing is set to True, just skip the file and continue
                         if self.config.skip_missing:
-                            logger.warning(f"skipping file {infile}, missing key '{key}', available keys: {available}")
+                            logger.warning(f"skipping file {item}, missing key '{key}', available keys: {available}")
                             return None
 
                         # if skip missing is set to False, raise and break out
                         raise KeyError(
-                            f"Missing HDF5 key '{key}' for input file {infile}. Available keys: {available}"
+                            f"Missing HDF5 key '{key}' for input file {item}. Available keys: {available}"
                         )
 
-                    data[key] = pd.DataFrame(f[key][:])
+                    dset = f[key]
+                    assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
+                    data[key] = pd.DataFrame(dset[:])
 
         # create the envelope
         env = Envelope(data=data)
 
         # register metadata
-        env.set_local_attr("origin", str(infile))
+        env.set_local_attr("origin", str(item))
         env.set_global_attr("gcd", str(self.config.gcd_path))
 
         # register state

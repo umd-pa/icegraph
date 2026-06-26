@@ -5,17 +5,19 @@ from __future__ import annotations
 
 from typing import TypeVar, final
 from abc import abstractmethod, ABC
+from functools import lru_cache
 import dataclasses
 
 import torch
 from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
-from icegraph.common.data import ColumnarRole
+from icegraph.common.data import ColumnarRole, DataRole
+from icegraph.common.engine import ComponentKind
 
 from ..component import Component
 
-from .types import TransformerContext, TransformerSpec
+from .types import TransformerSpec
 
 __all__ = ["Transformer"]
 
@@ -23,12 +25,24 @@ __all__ = ["Transformer"]
 C = TypeVar("C")
 
 
-class Transformer(Component[C, TransformerContext], ABC):
+class Transformer(Component[C], ABC):
+
+    @property
+    def norm_targets(self) -> bool:
+        # this pulls from the normalizer
+        normalizer = self._ctx.components.require(ComponentKind.NORMALIZER, required_by=type(self))
+        return normalizer.norm_targets  # type: ignore
 
     @final
     @torch.no_grad()
     def forward(self, t: SegmentedTensor, /, role: ColumnarRole, *, inverse: bool = False) -> SegmentedTensor:
         """Forward pass through the transformer."""
+        # skip if norm is not required for targets
+        # if norm is not required, no transform should take place either
+        if role == DataRole.TARGETS:
+            if not self.norm_targets:
+                return t
+
         out = self.transform(t, role, inverse=inverse)
 
         # internal validation
@@ -48,7 +62,7 @@ class Transformer(Component[C, TransformerContext], ABC):
                 )
 
         # run contract validator
-        self._ctx.contract.forward_validator(out, self._ctx.debug)
+        self._run_forward_validator(out)
 
         return dataclasses.replace(t, data=out)
 
@@ -56,6 +70,10 @@ class Transformer(Component[C, TransformerContext], ABC):
     def transform(self, t: SegmentedTensor, /, role: ColumnarRole, *, inverse: bool) -> Tensor:
         ...
 
-    @abstractmethod
+    @lru_cache(maxsize=None)
     def spec_list(self, role: ColumnarRole) -> list[TransformerSpec]:
+        return self._build_spec_list(role)
+
+    @abstractmethod
+    def _build_spec_list(self, role: ColumnarRole) -> list[TransformerSpec]:
         ...

@@ -36,20 +36,20 @@ class DataRole(StrEnum):
         return [role.name for role in cls.all()]
 
     @classmethod
-    def truth(cls) -> frozenset[DataRole]:
+    def truth(cls) -> frozenset[TruthRole]:
         return TRUTH_DATA_ROLES
 
     @classmethod
-    def columnar(cls) -> frozenset[DataRole]:
+    def columnar(cls) -> frozenset[ColumnarRole]:
         return COLUMNAR_DATA_ROLES
 
 
 ColumnarRole: TypeAlias = Literal[DataRole.TARGETS, DataRole.FEATURES, DataRole.AUXILIARY]
-COLUMNAR_DATA_ROLES: frozenset[DataRole] = frozenset({
+COLUMNAR_DATA_ROLES: frozenset[ColumnarRole] = frozenset({
     DataRole.TARGETS, DataRole.FEATURES, DataRole.AUXILIARY
 })
 
 TruthRole: TypeAlias = Literal[DataRole.TARGETS, DataRole.AUXILIARY]
-TRUTH_DATA_ROLES: frozenset[DataRole] = frozenset({
+TRUTH_DATA_ROLES: frozenset[TruthRole] = frozenset({
     DataRole.TARGETS, DataRole.AUXILIARY
 })

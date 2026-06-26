@@ -3,49 +3,31 @@
 
 from __future__ import annotations
 
-from typing import Any
-from typing_extensions import TypedDict  # python < 3.12
+from pydantic import DirectoryPath
+from pathlib import Path
 
-from pydantic import BaseModel, DirectoryPath, ConfigDict
+from icegraph.common.engine import ComponentKind
 
-__all__ = ["InferenceConfig", "ComponentOption"]
+from ..engine.components import component_group
+from ..engine.services import service_group
+from ..engine.config import EngineConfig
+
+__all__ = ["InferenceConfig"]
 
 
-class InferenceConfig(BaseModel):
+InferenceServiceConfig = service_group(
+    "state", "record", "decode", "data",
+    name="InferenceServiceConfig"
+)
+
+
+InferenceComponentConfig = component_group(
+    ComponentKind.MODEL, ComponentKind.NORMALIZER, ComponentKind.TRANSFORMER,
+    name="InferenceComponentConfig"
+)
+
+
+class InferenceConfig(EngineConfig[InferenceServiceConfig, InferenceComponentConfig]):
     # paths
     outdir:     DirectoryPath
-
-    # model policy
-    policy:     str
-
-    services:   ServicesConfig
-    components: ComponentConfig
-
-    # debugging
-    debug:      bool = False
-
-
-class ServicesConfig(TypedDict):
-    # these are required services
-    state:   dict[str, Any]  # validated downstream
-    record:  dict[str, Any]  # validated downstream
-    decode:  dict[str, Any]
-
-
-class ComponentConfig(BaseModel):
-    # ignore any extra component configs, only want these ones
-    model_config = ConfigDict(extra="ignore")
-
-    model:          ComponentOption
-    normalizer:     ComponentOption
-    transformer:    ComponentOption
-    adapter:        FixedComponentOption
-
-
-class FixedComponentOption(BaseModel):
-    kwargs: dict[str, Any]
-
-
-class ComponentOption(BaseModel):
-    name: str
-    kwargs: dict[str, Any]  # this is going to be validated by the components themselves
+    model_path: Path

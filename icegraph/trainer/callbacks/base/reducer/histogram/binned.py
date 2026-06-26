@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Callable
 
 from abc import abstractmethod
-from functools import cached_property
+from functools import cached_property, lru_cache
 
 import torch
 from torch import Tensor
@@ -15,7 +15,6 @@ from torch import Tensor
 from icegraph.common.histogram import Histogram
 from icegraph.common.tensors import DualResidentTensor
 from icegraph.common.data import Split, DataRole
-from icegraph.common.mapping import MemoMap
 from icegraph.trainer.callbacks.base.accumulator import Accumulator
 from icegraph.statistics import StatisticService
 from icegraph.common.transforms import TransformSpace
@@ -88,7 +87,7 @@ class BHistogramReducer(HistogramReducer):
 
         # build the scale for each label
         for label in self._target_labels:
-            mins, maxs = self.bounds[label].on("cpu")
+            mins, maxs = self.bounds(label).on("cpu")
 
             # build scale using bins / (max - min)
             bin_scales[label] = DualResidentTensor(
@@ -105,7 +104,7 @@ class BHistogramReducer(HistogramReducer):
         data = self.transform(data)
 
         # grab mins and bin scale for current label
-        mins, maxs = self.bounds[label].on(data.device)
+        mins, maxs = self.bounds(label).on(data.device)
         bin_scale = self.bin_scale[label].on(data.device)
 
         # mask to within bounds, including the upper edge
@@ -128,7 +127,7 @@ class BHistogramReducer(HistogramReducer):
 
     def _build_artifact(self, accumulator: Accumulator, label: str) -> Histogram:
         # stack bounds as expected by the histogram
-        bounds = torch.stack(self.bounds[label].on("cpu"), dim=0).numpy()
+        bounds = torch.stack(self.bounds(label).on("cpu"), dim=0).numpy()
 
         # build histogram object
         return Histogram(
@@ -137,13 +136,10 @@ class BHistogramReducer(HistogramReducer):
             bounds=bounds
         )
 
-    @cached_property
-    def bounds(self) -> MemoMap[str, DualResidentBounds]:
-        return MemoMap(self._bounds)
-
-    def _bounds(self, label: str) -> DualResidentBounds:
+    @lru_cache(maxsize=None)
+    def bounds(self, label: str) -> DualResidentBounds:
         # create a copy of stats to pass downstream
-        stats = self._ctx.trainer.decode.get_stats(Split.TRAIN, DataRole.TARGETS).copy()
+        stats = self._ctx.engine.decode.get_stats(Split.TRAIN, DataRole.TARGETS).copy()
 
         # iterate over each label
         mins, maxs = self._build_bounds(stats, label)

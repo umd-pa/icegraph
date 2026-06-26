@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import override
+
 import plotly.graph_objects as go
 
 from icegraph.common.histogram import Histogram
@@ -14,6 +16,7 @@ __all__ = ["Histogram1D"]
 
 class Histogram1D(HistogramPlotter1D):
 
+    @override
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:
         fig.add_trace(
             go.Bar(
@@ -28,6 +31,7 @@ class Histogram1D(HistogramPlotter1D):
             )
         )
 
+    @override
     def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:
         # get min and max values along x
         lo = min([d.mins[0] for d in data.values()])

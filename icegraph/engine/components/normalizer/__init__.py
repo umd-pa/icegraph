@@ -3,6 +3,5 @@
 
 from .normalizer import Normalizer
 from .factory import NormalizerFactory
-from .types import NormalizerContext
 
-__all__ = ["Normalizer", "NormalizerFactory", "NormalizerContext"]
+__all__ = ["Normalizer", "NormalizerFactory"]

@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from pathlib import Path
+from functools import cached_property
 
 # local package
 from icegraph.common.data import Split
 
-from ..callback import Callback
+from ..callback import TrainerCallback
 
 # local subpackage
 from .service import TensorBoardService
@@ -24,26 +26,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TensorBoardCallback(Callback):
+class TensorBoardCallback(TrainerCallback):
 
     def __init__(self, port: int) -> None:
         super().__init__()
 
         self._port: int = port
-
-        self._service: TensorBoardService | None = None
+        self._logdir: str | Path | None = None
 
     def on_init(self, ctx: context.InitContext) -> None:
-        if self._service is None:
-            self._service = TensorBoardService(ctx.trainer.logdir, port=self._port)
-        self._service.launch()
+        self._logdir = ctx.engine.logdir
+
+    @cached_property
+    def service(self) -> TensorBoardService:
+        if self._logdir is None:
+            raise RuntimeError("Cannot start TensorBoardService before init.")
+
+        # build and launch tensorboard service
+        service = TensorBoardService(self._logdir, port=self._port)
+        service.launch()
+
+        return service
 
     def _log(self, metrics: list[ComputedMetric], split: Split, epoch: int) -> None:
         for metric in metrics:
-            self._service.writer.add_scalar(f"{split.value.upper()}/{metric.name.upper()}", metric.value, epoch + 1)
+            self.service.writer.add_scalar(f"{split.value.upper()}/{metric.repr.upper()}", metric.value, epoch + 1)
 
     def on_train_end(self, ctx: context.TrainEndContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
 
         metrics = trainer.metrics.compute()
         epoch = trainer.current_epoch
@@ -51,7 +61,7 @@ class TensorBoardCallback(Callback):
         self._log(metrics, trainer.split, epoch)
 
     def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
 
         metrics = trainer.metrics.compute()
         epoch = trainer.current_epoch
@@ -59,7 +69,7 @@ class TensorBoardCallback(Callback):
         self._log(metrics, trainer.split, epoch)
 
     def on_test_end(self, ctx: context.TestEndContext) -> None:
-        trainer = ctx.trainer
+        trainer = ctx.engine
 
         metrics = trainer.metrics.compute()
         epoch = trainer.current_epoch
@@ -67,4 +77,4 @@ class TensorBoardCallback(Callback):
         self._log(metrics, trainer.split, epoch)
 
     def on_teardown(self, ctx: context.TeardownContext) -> None:
-        self._service.close()
+        self.service.close()

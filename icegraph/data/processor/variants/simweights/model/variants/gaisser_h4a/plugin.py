@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import ClassVar, Any
+from functools import cached_property
 
 import simweights
 from numpy.typing import ArrayLike
@@ -20,14 +21,17 @@ class GaisserH4a(FluxModel[GaisserH4aConfig]):
     name: ClassVar[str] = "gaisser-h4a"
     version: ClassVar[int] = 1
 
-    _flux: simweights.GaisserH4a
-
     def build(self) -> None:
-        self._flux = simweights.GaisserH4a()
+        return None
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> GaisserH4aConfig:
         return GaisserH4aConfig(**config)
 
-    def __call__(self, energy: ArrayLike, pdgid: ArrayLike) -> ArrayLike:
+    @cached_property
+    def _flux(self):
+        return simweights.GaisserH4a()
+
+    # need to do some Liskov violations because simweights was designed strangely
+    def __call__(self, energy: ArrayLike, pdgid: ArrayLike) -> ArrayLike:  # pyright: ignore[reportIncompatibleMethodOverride]
         return self._flux(energy, pdgid)

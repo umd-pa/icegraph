@@ -12,7 +12,7 @@ from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
 from .config import SimweighterConfig
-from .model import FluxModel, FluxModelFactory, FluxModelContext
+from .model import FluxModelFactory, FluxModelContext
 
 __all__ = ["Simweighter"]
 
@@ -29,9 +29,9 @@ class Simweighter(Processor[SimweighterConfig]):
     def validate_config(cls, config: dict[str, Any]) -> SimweighterConfig:
         return SimweighterConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
-        self._ensure_selected(env)
-        main = env.tmp[env.active]
+    def _process(self, item: Envelope) -> Envelope | None:
+        active = self._require_active(item)
+        main = item.tmp[active]
 
         # resolve flux model class and weighter class
         weighter_cls = self._get_weighter(self.config.weighter)
@@ -40,8 +40,9 @@ class Simweighter(Processor[SimweighterConfig]):
         flux_model = FluxModelFactory.create(self.config.flux.name, **self.config.flux.kwargs)
         flux_model.attach(FluxModelContext())
 
-        # construct the weighter over env.data
-        weighter = weighter_cls(env.data, nfiles=1)
+        # construct the weighter over item.data
+        # nfiles is a valid and required parameter, weighter was apparently not typed properly
+        weighter = weighter_cls(item.data, nfiles=1)  # pyright: ignore[reportCallIssue]
 
         # compute weights
         weights = weighter.get_weights(flux_model)
@@ -50,7 +51,7 @@ class Simweighter(Processor[SimweighterConfig]):
         if len(weights) != len(main):
             raise RuntimeError(
                 f"simweights returned {len(weights)} weights but active frame "
-                f"{env.active!r} has {len(main)} rows. The active frame likely "
+                f"{item.active!r} has {len(main)} rows. The active frame likely "
                 f"diverged from env.data ordering after some upstream processor."
             )
 
@@ -58,12 +59,12 @@ class Simweighter(Processor[SimweighterConfig]):
         main[self.config.out] = weights
 
         # cache weight_group to attrs
-        env.set_local_attr("weight_group", self.config.weight_group)
+        item.set_local_attr("weight_group", self.config.weight_group)
 
-        return env
+        return item
 
     @staticmethod
-    def _get_weighter(name: str) -> Callable[[...], simweights.Weighter]:
+    def _get_weighter(name: str) -> Callable[..., simweights.Weighter]:
         weighter = getattr(simweights, name, None)
 
         # ensure the user requested a valid weighter
@@ -76,4 +77,5 @@ class Simweighter(Processor[SimweighterConfig]):
                 f"got {type(weighter).__name__}"
             )
 
-        return weighter
+        # again weighter was apparently not typed properly
+        return weighter  # pyright: ignore[reportReturnType]

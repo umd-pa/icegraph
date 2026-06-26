@@ -11,10 +11,10 @@ import torch
 
 # local package
 from icegraph._version import __version__
-from icegraph.engine.components import Component, ComponentContext
+from icegraph.engine.components import Component
 
 # local subpackage
-from ..callback import Callback
+from ..callback import TrainerCallback
 
 if TYPE_CHECKING:
     from .. import context
@@ -27,7 +27,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ExportCallback(Callback):
+class ExportCallback(TrainerCallback):
     outdir: Path
 
     def __init__(self, save_interval: int = 10) -> None:
@@ -35,30 +35,34 @@ class ExportCallback(Callback):
 
     def on_init(self, ctx: context.InitContext) -> None:
         # define model dir and make sure it exists
-        self.outdir = ctx.trainer.outdir / "models"
+        self.outdir = ctx.engine.outdir / "models"
         self.outdir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    def _component_state(component: Component[Any, ComponentContext]) -> tuple[str, dict[str, Any]]:
+    def _component_state(component: Component[Any]) -> tuple[str, dict[str, Any]]:
         return (
             component.__class__.__name__,
             component.state_dict()
         )
 
     def _gather_state(self, trainer: Trainer) -> dict[str, Any]:
-        adapter     = trainer.adapter
         transformer = trainer.transformer
         normalizer  = trainer.normalizer
-        model       = trainer.model.module if hasattr(trainer.model, "module") else trainer.model
+        model       = trainer.model.module  # model is wrapped
 
-        # load required configs
-        config = trainer.config.model_dump(mode="json", include={"components", "policy"})
+        # only need toe model, normalizer, and transformer for model export
+        config = trainer.config.model_dump(
+            mode="json",
+            include={"components": {"model", "normalizer", "transformer"}},
+        )
 
         return {
-            "adapter": self._component_state(adapter),
-            "transformer": self._component_state(transformer),
-            "normalizer": self._component_state(normalizer),
-            "model": self._component_state(model),
+            "states": {
+                "transformer": transformer.state_dict(),
+                "normalizer": normalizer.state_dict(),
+                # @TODO: model is not a Component[Any] (actually BoundModel or DistributedDataParallel), this works at runtime but needs to be fixed
+                "model": model.state_dict(),  # pyright: ignore[reportAttributeAccessIssue]
+            },
             "config": config,
             "metadata": {
                 "version": __version__,
@@ -68,14 +72,14 @@ class ExportCallback(Callback):
         }
 
     def on_epoch_end(self, ctx: context.EpochEndContext) -> None:
-        epoch = ctx.trainer.current_epoch
+        epoch = ctx.engine.current_epoch
 
         # if current interval is a save interval, save a persistent copy
         if (epoch + 1) % self._save_interval != 0:
             return
 
         # build model for export
-        export_model = self._gather_state(ctx.trainer)
+        export_model = self._gather_state(ctx.engine)
 
         persistent_path = self.outdir / f"model.epoch_{epoch + 1}.pt"
 

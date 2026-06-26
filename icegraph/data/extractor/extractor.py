@@ -15,7 +15,8 @@ __all__ = ["Extractor"]
 
 C = TypeVar("C")
 
-class Extractor(Stage[C]):
+
+class Extractor(Stage[C, Path]):
     """Base class for streaming data extractors."""
     file_ext: ClassVar[str]
 
@@ -26,5 +27,5 @@ class Extractor(Stage[C]):
             raise RuntimeError(f"Extractor '{cls.__name__}' must implement the class variable 'file_ext'.")
 
     @abstractmethod
-    def _process(self, infile: Path) -> Envelope | None:
+    def _process(self, item: Path) -> Envelope | None:
         ...

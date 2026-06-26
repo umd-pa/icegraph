@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 
-from icegraph.common.plugins import Plugin, PluginContext
+from icegraph.common.plugins import PluginContext
 
 if TYPE_CHECKING:
     from .manager import ServiceManager
@@ -16,5 +16,5 @@ __all__ = ["ServiceContext"]
 
 @dataclass(frozen=True)
 class ServiceContext(PluginContext):
-    services:           ServiceManager
-    ensure_compatible:  Callable[[Plugin], None]
+    services: "ServiceManager"
+    debug: bool

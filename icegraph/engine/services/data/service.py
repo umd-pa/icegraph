@@ -5,31 +5,28 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 import multiprocessing as mp
-from functools import cached_property
+from functools import partial, cached_property
 
 import torch
 
-from icegraph.common.data import Split
 from icegraph.common.mapping import MemoMap
 
 from ..service import Service
 
 from .config import DataConfig
-from .dataset import GraphDataset
 from .loader import GraphDataLoader
-from .sampler import Sampler, SamplerFactory, SamplerContext
+from .dataset import GraphDataset
+from .spec import LoaderSpec
 
 __all__ = ["DataService"]
 
 
 class DataService(Service[DataConfig]):
     """
-    A container class for managing access to training, validation, and test datasets.
+    A container class for managing access to training, validation, and test dataloaders.
     """
     name: ClassVar[str] = "data"
     version: ClassVar[int] = 1
-
-    deps: ClassVar[tuple[str, ...]] = ("record",)
 
     def build(self) -> None:
         return
@@ -38,48 +35,40 @@ class DataService(Service[DataConfig]):
     def validate_config(cls, config: dict[str, Any]) -> DataConfig:
         return DataConfig(**config)
 
-    def _build_dataset(self, split: Split) -> GraphDataset:
-        return GraphDataset(split, self._ctx.services)
+    @property
+    def loader_spec(self) -> type[LoaderSpec]:
+        return LoaderSpec
 
     @cached_property
-    def _datasets(self) -> MemoMap[Split, GraphDataset]:
-        return MemoMap(self._build_dataset)
+    def _dls(self) -> MemoMap[LoaderSpec, GraphDataLoader]:
+        return MemoMap(self._build_dataloader)
 
-    def dataset(self, split: Split) -> GraphDataset:
-        return self._datasets[split]
+    def dataloader(self, spec: LoaderSpec) -> GraphDataLoader:
+        return self._dls[spec]
 
-    def _build_sampler(self, split: Split) -> Sampler[Any]:
-        config = self.config.sampler
+    def _build_dataloader(self, spec: LoaderSpec) -> GraphDataLoader:
+        # get new specs for each
+        ds_spec = self._new_dataset()
+        dl_spec = self._new_dataloader()
 
-        is_train = (split == Split.TRAIN)
+        # construct dataset from assembly spec
+        dataset = ds_spec(keys=spec.keys, exclude_roles=spec.exclude_roles)
 
-        # get state from the service manager
-        state = self._ctx.services.require("state", required_by=type(self))
+        # build dataloader from dataset
+        dataloader = dl_spec(dataset=dataset)
 
-        # get world and rank from state, only ddp for training, eval runs only on main rank
-        # this is enforced by the trainer, here we have to just ensure it gets a sampler with rank 0 and world 1
-        rank = state.rank if is_train else 0
-        world = state.world if is_train else 1
+        return dataloader
 
-        sampler = SamplerFactory.create(config.name, **config.kwargs)
+    def set_epoch(self, epoch: int) -> None:
+        # required for correct shuffling
+        for loader in self._dls.values():
+            loader.set_epoch(epoch)
 
-        ctx = SamplerContext(
-            dataset=self.dataset(split),  # type: ignore
-            num_replicas=world,
-            rank=rank,
-            device=state.device,
-            shuffle=is_train
-        )
-        sampler.attach(ctx)
-
-        return sampler
-
-    def _build_dataloader(self, split: Split) -> GraphDataLoader:
-        """Initialize the dataloader for a given split."""
+    def _new_dataloader(self) -> partial[GraphDataLoader]:
+        """Build a new dataloader spec."""
         kwargs: dict[str, Any] = {
             "num_workers":  self.config.num_workers,
-            "batch_size":   self.config.batch_size,
-            "sampler":      self._build_sampler(split)
+            "batch_size":   self.config.batch_size
         }
 
         # if num workers is greater than 0 (multiprocessing)
@@ -91,22 +80,13 @@ class DataService(Service[DataConfig]):
                 pin_memory=torch.cuda.is_available()
             )
 
-        return GraphDataLoader(self.dataset(split), **kwargs)
+        return partial(GraphDataLoader, **kwargs)
 
-    @cached_property
-    def _dataloaders(self) -> MemoMap[Split, GraphDataLoader]:
-        return MemoMap(self._build_dataloader)
-
-    def dataloader(self, split: Split) -> GraphDataLoader:
-        return self._dataloaders[split]
-
-    def set_epoch(self, epoch: int) -> None:
-        # required for correct shuffling under DDP
-        for loader in self._dataloaders.values():
-            for name in ["sampler", "batch_sampler"]:
-                sampler = getattr(loader, name, None)
-                if sampler is None:
-                    continue
-
-                if hasattr(sampler, "set_epoch"):
-                    sampler.set_epoch(epoch)
+    def _new_dataset(self) -> partial[GraphDataset]:
+        return partial(
+            GraphDataset,
+            chunk_size=self.config.chunk_size,
+            buffer_size=self.config.buffer_size,
+            shuffle_chunks=self.config.shuffle_chunks,
+            services=self._ctx.services
+        )

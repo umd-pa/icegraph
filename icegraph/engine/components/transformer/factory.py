@@ -4,7 +4,7 @@
 from typing import Any
 
 # local package
-from icegraph.common.factory import PluginFactory
+from icegraph.engine.components.factory import ComponentFactoryBase
 
 # local subpackage
 from .transformer import Transformer
@@ -15,7 +15,7 @@ from . import variants
 __all__ = ["TransformerFactory"]
 
 
-class TransformerFactory(PluginFactory[Transformer[Any]]):
+class TransformerFactory(ComponentFactoryBase[Transformer[Any]]):
     pass
 
 

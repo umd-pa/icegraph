@@ -14,13 +14,14 @@ __all__ = ["Processor"]
 
 C = TypeVar("C")
 
-class Processor(Stage[C]):
+class Processor(Stage[C, Envelope]):
     """Base class for streaming DataFrame processors."""
 
-    def _ensure_selected(self, env: Envelope) -> None:
+    def _require_active(self, env: Envelope) -> str:
         if env.active is None:
             raise RuntimeError(f"{type(self).name}: no dataframe has been selected (env.active == None).")
+        return env.active
 
     @abstractmethod
-    def _process(self, env: Envelope) -> Envelope | None:
+    def _process(self, item: Envelope) -> Envelope | None:
         ...

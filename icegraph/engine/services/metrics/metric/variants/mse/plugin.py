@@ -43,8 +43,8 @@ class MSE(Metric[MSEConfig, MSEState]):
         self, state: MSEState, out: SegmentedTensor, target: SegmentedTensor
     ) -> MSEState:
         # both are already on accelerator
-        ids     = out.kernel_view.ids
-        widths  = out.kernel_view.widths
+        ids     = out.ids
+        widths  = out.widths
 
         o = out.data     # [B, V]
         t = target.data  # [B, V]

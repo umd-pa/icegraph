@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import override
+
 import plotly.graph_objects as go
 import numpy as np
 
@@ -16,6 +18,7 @@ __all__ = ["Histogram2D"]
 
 class Histogram2D(HistogramPlotter2D):
 
+    @override
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:
         # get centers
         centers = (np.arange(data.bins[0]), np.arange(data.bins[1])) if data.bounds is None else data.centers
@@ -35,6 +38,7 @@ class Histogram2D(HistogramPlotter2D):
             )
         )
 
+    @override
     def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:
         if list(data.values())[0].bounds is not None:
             # get mins and maxs, find most min and most max among all histograms

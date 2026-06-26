@@ -3,6 +3,5 @@
 
 from .loss import LossFunction
 from .factory import LossFactory
-from .types import LossContext
 
-__all__ = ["LossFunction", "LossFactory", "LossContext"]
+__all__ = ["LossFunction", "LossFactory"]

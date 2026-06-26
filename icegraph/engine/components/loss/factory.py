@@ -4,7 +4,7 @@
 from typing import Any
 
 # local package
-from icegraph.common.factory import PluginFactory
+from icegraph.engine.components.factory import ComponentFactoryBase
 
 # local subpackage
 from .loss import LossFunction
@@ -15,7 +15,7 @@ from . import variants
 __all__ = ["LossFactory"]
 
 
-class LossFactory(PluginFactory[LossFunction[Any]]):
+class LossFactory(ComponentFactoryBase[LossFunction[Any]]):
     pass
 
 

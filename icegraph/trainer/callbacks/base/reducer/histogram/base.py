@@ -19,7 +19,7 @@ from ..reducer import Reducer
 __all__ = ["HistogramReducer"]
 
 
-class HistogramReducer(Reducer[Histogram]):
+class HistogramReducer(Reducer[Histogram, HistogramAccumulator]):
     """
     Base class for online data reduction during testing/validation splits.
 
@@ -33,7 +33,7 @@ class HistogramReducer(Reducer[Histogram]):
 
     @cached_property
     def scale(self) -> tuple[TransformSpace, ...]:
-        scale: tuple[str, ...] = self._kwargs.get("scale")  # type: ignore
+        scale = self._kwargs.get("scale")
 
         if scale is not None:
             normalized_scale = tuple(TransformSpace(s) for s in scale)

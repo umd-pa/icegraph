@@ -61,5 +61,6 @@ class HistogramAccumulator(Accumulator):
         self._data = None
 
     def to(self, device: torch.device | str) -> Self:
-        self._data.to(torch.device(device))
+        if self._data is not None:
+            self._data = self._data.to(torch.device(device))
         return self

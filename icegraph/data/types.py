@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, Generic, TypeVar
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,12 +12,18 @@ from icegraph.common.plugins import PluginContext
 from .shared.queue import IterableQueue
 from .envelope import Envelope
 
+if TYPE_CHECKING:
+    from .envelope import Envelope
+
 __all__ = ["StageContext"]
 
 
+I = TypeVar("I", bound="Envelope | Path")
+
+
 @dataclass(frozen=True)
-class StageContext(PluginContext):
-    src: IterableQueue[Envelope] | Iterable[Path]
+class StageContext(PluginContext, Generic[I]):
+    src: Iterable[I]
     dst: IterableQueue[Envelope] | None
     scratch: Path
 

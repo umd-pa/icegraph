@@ -32,9 +32,9 @@ class Plugin(Generic[C, X], ABC):
 
         # run build routine
         self._built: bool = False
-        self._internal_build_before_user_build()
+        self._internal_build_before_user()
         self.build()
-        self._internal_build_after_user_build()
+        self._internal_build_after_user()
         self._built = True
 
     def __init_subclass__(cls) -> None:
@@ -60,7 +60,7 @@ class Plugin(Generic[C, X], ABC):
         """
         ...
 
-    def _internal_build_before_user_build(self) -> None:
+    def _internal_build_before_user(self) -> None:
         """
         Internal build hook.
 
@@ -70,7 +70,7 @@ class Plugin(Generic[C, X], ABC):
         """
         return
 
-    def _internal_build_after_user_build(self) -> None:
+    def _internal_build_after_user(self) -> None:
         """
         Internal build hook.
 
@@ -103,9 +103,13 @@ class Plugin(Generic[C, X], ABC):
 
         # call hook for downstream post-attach logic
         self.on_attach()
+        self._internal_on_attach_after_user()
 
     def on_attach(self) -> None:
         """Called just after plugin is attached."""
+        return
+
+    def _internal_on_attach_after_user(self) -> None:
         return
 
     def close(self) -> None:

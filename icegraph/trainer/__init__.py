@@ -2,6 +2,5 @@
 # Developed by Taylor St Jean
 
 from .trainer import Trainer
-from .dist import DistributedTrainer
 
-__all__ = ["Trainer", "DistributedTrainer"]
+__all__ = ["Trainer"]

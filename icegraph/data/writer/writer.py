@@ -14,9 +14,9 @@ __all__ = ["Writer"]
 
 C = TypeVar("C")
 
-class Writer(Stage[C]):
+class Writer(Stage[C, Envelope]):
     """Base class for pipeline DataFrame writers."""
 
     @abstractmethod
-    def _process(self, env: Envelope) -> Envelope | None:
+    def _process(self, item: Envelope) -> Envelope | None:
         ...

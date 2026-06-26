@@ -58,6 +58,9 @@ class Source:
         # so we can mutate
         source = self.source
 
+        # should not be a source per __post_init__
+        assert not isinstance(source, Source)
+
         # if source is not a sequence
         if isinstance(source, (str, Path)):
             return self._expand_path(Path(source), extension, recursive)
@@ -69,6 +72,9 @@ class Source:
         """Returns a struct representation of the Source."""
         if isinstance(self.source, (str, Path)):
             return str(self.source)
+
+        # should not be a source per __post_init__
+        assert not isinstance(self.source, Source)
 
         return [str(s) for s in self.source]
 

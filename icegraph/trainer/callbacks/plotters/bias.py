@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from typing_extensions import override
 from pathlib import Path
+from collections.abc import Mapping
 
 import torch
 from torch import Tensor
@@ -30,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class BiasPlotter(BHistogramReducer):
 
+    @override
     def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
         # get label index in stat array
         index = stats.index_of(label)
@@ -40,9 +43,11 @@ class BiasPlotter(BHistogramReducer):
 
         return mins, maxs
 
-    def _build_bins(self) -> tuple[int, ...]:
-        return 150, 150
+    @override
+    def _build_bins(self) -> Tensor:
+        return torch.tensor([150, 150])
 
+    @override
     def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor:
         # compute bias
         bias = torch.where(target != 0, (out - target) / target, torch.zeros_like(target))
@@ -50,9 +55,11 @@ class BiasPlotter(BHistogramReducer):
         # return bias plotted as function of target
         return torch.cat((target, bias), dim=1)
 
-    def _postprocess_accumulator(self, data: dict[int, HistogramAccumulator], label: str) -> dict[int | str, HistogramAccumulator]:
+    @override
+    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
         return {"Data": list(data.values())[0]}  # only one so this is fine
 
+    @override
     def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
         # only one histogram, so pull from dict
         hist = list(data.values())[0]

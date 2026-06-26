@@ -4,7 +4,7 @@
 from typing import Any
 
 # local package
-from icegraph.common.factory import PluginFactory
+from icegraph.engine.components.factory import ComponentFactoryBase
 
 # local subpackage
 from .model import Model
@@ -15,7 +15,7 @@ from . import variants
 __all__ = ["ModelFactory"]
 
 
-class ModelFactory(PluginFactory[Model[Any]]):
+class ModelFactory(ComponentFactoryBase[Model[Any]]):
     pass
 
 

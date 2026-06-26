@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import Any, ClassVar, TYPE_CHECKING
+from typing_extensions import override
 import os
 
 import torch
@@ -13,7 +14,9 @@ from torch.nn.parallel import DistributedDataParallel
 from ..service import Service
 
 from .config import StateConfig
-from .types import ProcInfo
+from .types import BoundModel
+from ._procinfo import ProcInfo
+from ._noddp import _NoDDP
 
 if TYPE_CHECKING:
     from icegraph.engine.components.model import Model
@@ -29,15 +32,18 @@ class StateService(Service[StateConfig]):
     _procinfo:  ProcInfo
     _device:    torch.device
 
+    @override
     def build(self) -> None:
         # init to default world 1 on cpu
         self._procinfo = ProcInfo()
         self._device = torch.device("cpu")
 
     @classmethod
+    @override
     def validate_config(cls, config: dict[str, Any]) -> StateConfig:
         return StateConfig(**config)
 
+    @override
     def on_attach(self) -> None:
         if self._env_ready():
             self._procinfo = ProcInfo(
@@ -70,19 +76,23 @@ class StateService(Service[StateConfig]):
     def device(self) -> torch.device:
         return self._device
 
-    def bind_model(self, model: Model) -> Model:
+    @property
+    def seed(self) -> int:
+        return self.config.seed
+
+    def bind_model(self, model: Model[Any]) -> BoundModel:
         """Bind a model to the current execution context."""
         if self.is_ddp():
-            model = DistributedDataParallel(
+            return DistributedDataParallel(
                 model,
-                device_ids=[self.device.index] if self.device.type == "cuda" else None,
-                output_device=(self.device.index if self.device.type == "cuda" else None),
+                device_ids=[self.device.index] if self.device.type == "cuda" else None,  # type: ignore
+                output_device=(self.device.index if self.device.type == "cuda" else None),  # type: ignore
                 broadcast_buffers=False,
                 gradient_as_bucket_view=True,
                 find_unused_parameters=False
             )
 
-        return model
+        return _NoDDP(model)
 
     def is_main_process(self) -> bool:
         """Returns True if the current process is the main process. Checks if RANK is 0."""

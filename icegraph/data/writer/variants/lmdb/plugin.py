@@ -53,18 +53,18 @@ class LMDB(Writer[LMDBWriterConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, env: Envelope) -> Envelope | None:
+    def _process(self, item: Envelope) -> Envelope | None:
         # build output file path
-        origin = Path(env.get_local_attr("origin"))
+        origin = Path(item.get_local_attr("origin"))
         path = self.config.outdir / origin.with_suffix(".lmdb").name
 
         # add id and set id to attrs
-        _id = stable_hash_blake2b(env.main.to_numpy())
-        _set_id = stable_hash_blake2b(env.attrs[AttributeDomain.GLOBAL.name])
+        _id = stable_hash_blake2b(item.main.to_numpy())
+        _set_id = stable_hash_blake2b(item.attrs[AttributeDomain.GLOBAL.name])
 
         # register ids
-        env.set_local_attr("id", _id)
-        env.set_global_attr("set_id", _set_id)
+        item.set_local_attr("id", _id)
+        item.set_global_attr("set_id", _set_id)
 
         # ensure no stale keys
         if path.exists():
@@ -75,17 +75,17 @@ class LMDB(Writer[LMDBWriterConfig]):
                 raise RuntimeError(f"Failed to remove existing LMDB file: {path}") from e
 
         # get approximate map size requirement
-        map_size = self.estimate_map_size(env.main, env.attrs)
+        map_size = self.estimate_map_size(item.main, item.attrs)
 
         # get handles
         environ, dbs = self.handle(path, map_size)
 
         try:
-            self.write(env, environ, dbs)
+            self.write(item, environ, dbs)
         finally:
             environ.close()
 
-        return env
+        return item
 
     @staticmethod
     def handle(path: str | Path, map_size: int) -> tuple[lmdb.Environment, dict[Literal['data', 'attr'], Any]]:
@@ -109,7 +109,8 @@ class LMDB(Writer[LMDBWriterConfig]):
 
     @staticmethod
     def _pack(value: Any) -> bytes:
-        return msgpack.packb(value, use_bin_type=True)
+        # this does return bytes despite warning
+        return msgpack.packb(value, use_bin_type=True)  # pyright: ignore[reportReturnType]
 
     def estimate_map_size(self, main: pd.DataFrame, attrs: dict[str, Any]) -> int:
         # determine size of packed attrs

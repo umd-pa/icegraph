@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import Any, ClassVar
 
 import torch
@@ -15,7 +15,6 @@ from icegraph.statistics import StatisticService
 from icegraph.common.data import DataRole, Split, ColumnarRole
 from icegraph.common.record import Record
 from icegraph.typing.common import ArrayI
-from icegraph.common.mapping import MemoMap
 from icegraph.common.tensors import SegmentLayout
 
 from ..service import Service
@@ -24,10 +23,10 @@ from .config import DecodeConfig
 from .attrs import AttributeDecoder, AttributeDecoderFactory, AttributeDecoderContext
 from .records import RecordDecoder, RecordDecoderFactory, RecordDecoderContext
 
-__all__ = ["DecodeService"]
-
 import logging
 logger = logging.getLogger(__name__)
+
+__all__ = ["DecodeService"]
 
 
 class DecodeService(Service[DecodeConfig]):
@@ -43,17 +42,11 @@ class DecodeService(Service[DecodeConfig]):
 
     ### ENUM TO KEY
 
-    def _role_to_key(self, role: DataRole) -> str:
-        if role == DataRole.BATCH:
-            raise ValueError("DataRole.BATCH not supported in decoding.")
-
+    def _role_to_key(self, role: ColumnarRole) -> str:
         mapping = {
             DataRole.FEATURES:      self.config.keymap.features,
             DataRole.TARGETS:       self.config.keymap.truth,
-            DataRole.AUXILIARY:     self.config.keymap.truth,
-            DataRole.EDGE_ATTR:     self.config.keymap.edge_attr,
-            DataRole.EDGE_INDEX:    self.config.keymap.edge_index,
-            DataRole.SIMWEIGHT:     self.config.keymap.simweights,
+            DataRole.AUXILIARY:     self.config.keymap.truth
         }
 
         return mapping[role]
@@ -63,11 +56,8 @@ class DecodeService(Service[DecodeConfig]):
 
     ### INDEXING
 
-    @cached_property
-    def _logical_indices(self) -> MemoMap[ColumnarRole, ArrayI]:
-        return MemoMap(self._resolve_logical_indices)
-
-    def _resolve_logical_indices(self, role: ColumnarRole) -> ArrayI:
+    @lru_cache(maxsize=None)
+    def _logical_indices(self, role: ColumnarRole) -> ArrayI:
         normalized_key = self._role_to_key(role)
 
         available = self._attr_decoder.extract_columns(normalized_key)  # raw, not cached
@@ -97,16 +87,13 @@ class DecodeService(Service[DecodeConfig]):
         # order is not meaningful; canonicalize to sorted (file order) for global consistency
         indices = np.fromiter((pos[c] for c in requested), dtype=np.int64)
         indices.sort()
-        return indices.astype(np.int64, copy=False)
+        return indices.astype(np.int64, copy=False)  # no-op, but helps type correctly
 
-    @cached_property
-    def _indices(self) -> MemoMap[ColumnarRole, ArrayI]:
-        return MemoMap(self._resolve_indices)
-
-    def _resolve_indices(self, role: ColumnarRole) -> ArrayI:
+    @lru_cache(maxsize=None)
+    def _indices(self, role: ColumnarRole) -> Tensor:
         normalized_key = self._role_to_key(role)
 
-        logical = self._logical_indices[role]
+        logical = self._logical_indices(role)
         offsets = self._attr_decoder.extract_offsets(normalized_key)  # raw group boundaries
 
         # expand each selected logical group into its physical column range
@@ -115,7 +102,7 @@ class DecodeService(Service[DecodeConfig]):
             for i in logical
         ]) if len(logical) else np.empty(0, dtype=np.int64)
 
-        return physical.astype(np.int64, copy=False)
+        return torch.tensor(physical)
 
     ### DECODERS
 
@@ -145,30 +132,21 @@ class DecodeService(Service[DecodeConfig]):
 
     ### ATTRIBUTE DECODER HOOKS
 
-    @cached_property
-    def _columns(self) -> MemoMap[ColumnarRole, list[str]]:
-        return MemoMap(self._build_columns)
-
-    def _build_columns(self, role: ColumnarRole) -> list[str]:
+    @lru_cache(maxsize=None)
+    def get_columns(self, role: ColumnarRole) -> list[str]:
         normalized_key = self._role_to_key(role)
 
         raw = self._attr_decoder.extract_columns(normalized_key)
-        indices: list[int] = self._logical_indices[role].tolist()
+        indices: list[int] = self._logical_indices(role).tolist()
 
         return [raw[i] for i in indices]
 
-    def get_columns(self, role: ColumnarRole) -> list[str]:
-        return self._columns[role]
-
-    @cached_property
-    def _offsets(self) -> MemoMap[ColumnarRole, Tensor]:
-        return MemoMap(self._build_offsets)
-
-    def _build_offsets(self, role: ColumnarRole) -> Tensor:
+    @lru_cache(maxsize=None)
+    def get_offsets(self, role: ColumnarRole) -> Tensor:
         normalized_key = self._role_to_key(role)
 
         raw = torch.as_tensor(self._attr_decoder.extract_offsets(normalized_key))  # cumulative, full physical layout
-        logical = torch.as_tensor(self._logical_indices[role], dtype=torch.long)  # sorted group selection
+        logical = torch.as_tensor(self._logical_indices(role).copy(), dtype=torch.long)  # sorted group selection
 
         # widths of selected groups
         widths = torch.diff(raw)[logical]
@@ -180,16 +158,8 @@ class DecodeService(Service[DecodeConfig]):
         filtered[1:] = torch.cumsum(widths, dim=0)
         return filtered
 
-    def get_offsets(self, role: ColumnarRole) -> Tensor:
-        return self._offsets[role]
-
-    @cached_property
-    def _stats(self) -> MemoMap[tuple[Split, ColumnarRole], StatisticService]:
-        # have to explicitly specify type here or type checker shits itself
-        return MemoMap[tuple[Split, ColumnarRole], StatisticService](self._build_stats)
-
-    def _build_stats(self, key: tuple[Split, ColumnarRole]) -> StatisticService:
-        split, role = key
+    @lru_cache(maxsize=None)
+    def get_stats(self, split: Split, role: ColumnarRole) -> StatisticService:
         normalized_key = (self._split_to_key(split), self._role_to_key(role))
 
         stats = self._attr_decoder.extract_stats(normalized_key)   # raw, per physical column
@@ -197,74 +167,104 @@ class DecodeService(Service[DecodeConfig]):
         # convert physical index selection to boolean mask over the full physical width
         n_physical = stats.num_columns()
         mask = np.zeros(n_physical, dtype=bool)
-        mask[self._indices[role]] = True
+        mask[self._indices(role).numpy()] = True
 
         # filter the stats to match selection
         stats.filter_to(mask)
         return stats
 
-    def get_stats(self, split: Split, role: ColumnarRole) -> StatisticService:
-        return self._stats[(split, role)]
-
-    @cached_property
-    def _keys(self) -> MemoMap[Split, ArrayI]:
-        return MemoMap(self._build_keys)
-
-    def _build_keys(self, split: Split) -> ArrayI:
+    @lru_cache(maxsize=None)
+    def get_keys(self, split: Split) -> ArrayI:
         normalized_key = self._split_to_key(split)
-
         return self._attr_decoder.extract_keys(normalized_key)  # not column filtered
 
-    def get_keys(self, split: Split) -> ArrayI:
-        return self._keys[split]
-
-    @cached_property
-    def _segment_layouts(self) -> MemoMap[tuple[ColumnarRole, torch.device], SegmentLayout]:
-        # have to explicitly specify type here or type checker shits itself
-        return MemoMap[tuple[ColumnarRole, torch.device], SegmentLayout](self._build_segment_layout)
-
-    def _build_segment_layout(self, key: tuple[ColumnarRole, torch.device]) -> SegmentLayout:
-        role, device = key
-
+    @lru_cache(maxsize=None)
+    def get_segment_layout(self, role: ColumnarRole, device: torch.device) -> SegmentLayout:
         # build segment layout
         return SegmentLayout.build(
-            offsets=self._offsets[role],
-            names=self._columns[role]
+            offsets=self.get_offsets(role),
+            names=self.get_columns(role)
         ).to(device)
 
-    def get_segment_layout(self, role: ColumnarRole, device: torch.device) -> SegmentLayout:
-        return self._segment_layouts[(role, device)]
+    @cached_property
+    def count_by_weight_group(self) -> dict[str, int]:
+        return self._attr_decoder.extract_count_by_weight_group()
 
     ### RECORD DECODER HOOKS
+    # the excluded parameter, despite seemingly redundant, allows this service to fully control
+    # the structure of empty roles
 
-    def load_features(self, record: Record) -> Float[Tensor, "N F"]:
+    def _empty_tensor(self, shape: tuple[int, ...], dtype: torch.dtype) -> Tensor:
+        return torch.empty(shape, dtype=dtype)
+
+    def load_features(self, record: Record, excluded: bool = False) -> Float[Tensor, "N F"]:
+        if excluded:
+            return self._empty_tensor((0,), dtype=torch.float32)
+
         key = self.config.keymap.features
-        raw = self._record_decoder.extract_features(record, key)        # [N, F_pre]
-        return raw[..., self._indices[DataRole.FEATURES]]          # [N, F]
+        raw = self._record_decoder.extract_features(record, key)      # [N, F_pre]
 
-    def load_targets(self, record: Record) -> Float[Tensor, "1 T"] | Int[Tensor, "1 T"]:
+        if raw is None:
+            return self._empty_tensor((0,), dtype=torch.float32)
+
+        return raw[..., self._indices(DataRole.FEATURES)]          # [N, F]
+
+    def load_targets(self, record: Record, excluded: bool = False) -> Float[Tensor, "1 T"] | Int[Tensor, "1 T"]:
+        if excluded:
+            return self._empty_tensor((1, 0), dtype=torch.float32)
+
         key = self.config.keymap.truth
         raw = self._record_decoder.extract_targets(record, key)         # [1, T_pre]
-        return raw[..., self._indices[DataRole.TARGETS]]           # [1, T]
 
-    def load_auxiliary(self, record: Record) -> Float[Tensor, "1 A"] | Int[Tensor, "1 A"]:
+        if raw is None:
+            return self._empty_tensor((1, 0), dtype=torch.float32)
+
+        return raw[..., self._indices(DataRole.TARGETS)]           # [1, T]
+
+    def load_auxiliary(self, record: Record, excluded: bool = False) -> Float[Tensor, "1 A"] | Int[Tensor, "1 A"]:
+        if excluded:
+            return torch.empty((1, 0), dtype=torch.float32)
+
         key = self.config.keymap.truth
-        raw = self._record_decoder.extract_auxiliary(record, key)       # [1, A_pre] or empty
+        raw = self._record_decoder.extract_auxiliary(record, key)       # [1, A_pre]
 
-        if raw.numel() == 0:
-            # already empty, nothing to filter
-            return raw
+        if raw is None:
+            return self._empty_tensor((1, 0), dtype=torch.float32)
 
-        return raw[..., self._indices[DataRole.AUXILIARY]]         # [1, A]
+        return raw[..., self._indices(DataRole.AUXILIARY)]         # [1, A]
 
-    def load_edge_index(self, record: Record) -> Int[Tensor, "2 E"]:
+    def load_edge_index(self, record: Record, excluded: bool = False) -> Int[Tensor, "2 E"]:
+        if excluded:
+            return self._empty_tensor((2, 0), dtype=torch.long)
+
         key = self.config.keymap.edge_index
-        return self._record_decoder.extract_edge_index(record, key)
+        raw = self._record_decoder.extract_edge_index(record, key)
 
-    def load_edge_attr(self, record: Record) -> Float[Tensor, "E ATTR"]:
+        if raw is None:
+            return self._empty_tensor((2, 0), dtype=torch.long)
+
+        return raw
+
+    def load_edge_attr(self, record: Record, excluded: bool = False) -> Float[Tensor, "E ATTR"]:
+        if excluded:
+            return self._empty_tensor((0,), dtype=torch.float32)
+
         key = self.config.keymap.edge_attr
-        return self._record_decoder.extract_edge_attr(record, key)
+        raw = self._record_decoder.extract_edge_attr(record, key)
 
-    def load_simweights(self, record: Record) -> Float[Tensor, "1"] | Float[Tensor, "0"]:
+        if raw is None:
+            return self._empty_tensor((0,), dtype=torch.float32)
+
+        return raw
+
+    def load_simweights(self, record: Record, excluded: bool = False) -> Float[Tensor, "1"] | Float[Tensor, "0"]:
+        if excluded:
+            return self._empty_tensor((0,), dtype=torch.float32)
+
         key = self.config.keymap.simweights
-        return self._record_decoder.extract_simweights(record, key)
+        raw = self._record_decoder.extract_simweights(record, key)
+
+        if raw is None:
+            return self._empty_tensor((0,), dtype=torch.float32)
+
+        return raw

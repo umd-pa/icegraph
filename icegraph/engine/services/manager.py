@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Iterator, Self, Any, overload, Literal
+from typing import Self, Any, overload, Literal
+from typing_extensions import override
 from dataclasses import dataclass, field
+from collections.abc import Mapping, Iterator
 from graphlib import TopologicalSorter, CycleError
-
-from icegraph.common.engine import Engine
 
 from .factory import ServiceFactory
 from .service import Service
@@ -25,15 +25,18 @@ __all__ = ["ServiceManager"]
 
 
 @dataclass
-class ServiceManager(Mapping[str, Service]):
-    _services: dict[str, Service] = field(default_factory=dict)
+class ServiceManager(Mapping[str, Service[Any]]):
+    _services: dict[str, Service[Any]] = field(default_factory=dict)
 
-    def __getitem__(self, service: str) -> Service:
+    @override
+    def __getitem__(self, service: str) -> Service[Any]:
         return self._services[service]
 
+    @override
     def __iter__(self) -> Iterator[str]:
         yield from self._services
 
+    @override
     def __len__(self) -> int:
         return len(self._services)
 
@@ -48,22 +51,22 @@ class ServiceManager(Mapping[str, Service]):
     @overload
     def require(self, service: Literal["decode"], *, required_by: type[Any] | None = None) -> DecodeService: ...
     @overload
-    def require(self, service: str, *, required_by: type[Any] | None = None) -> Service: ...
+    def require(self, service: str, *, required_by: type[Any] | None = None) -> Service[Any]: ...
 
-    def require(self, service: str, *, required_by: type[Any] | None = None) -> Service:
+    def require(self, service: str, *, required_by: type[Any] | None = None) -> Service[Any]:
         value = self._services.get(service)
 
         if value is None:
             who = required_by.__name__ if required_by is not None else "<unknown>"
             raise KeyError(
                 f"The service '{service}' was requested by '{who}', but has "
-                f"not been initialized or does not exist."
+                + f"not been initialized or does not exist."
             )
 
         return value
 
     @classmethod
-    def from_config(cls, engine: Engine, config: dict[str, dict[str, Any]]) -> Self:
+    def from_config(cls, config: dict[str, dict[str, Any]], *, debug: bool) -> Self:
         # iteratively construct the service manager
         instance = cls()
 
@@ -85,8 +88,8 @@ class ServiceManager(Mapping[str, Service]):
         except CycleError as e:
             raise ValueError(f"Service dependency cycle detected: {e}") from None
 
-        # build service context (includes refs to all services)
-        context = ServiceContext(instance, engine.ensure_compatible)
+        # build service context (includes refs to services as they are built)
+        context = ServiceContext(instance, debug)
         for name in order:
             instance._services[name].attach(context)
 

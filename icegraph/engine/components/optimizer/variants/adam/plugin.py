@@ -8,6 +8,7 @@ from typing import ClassVar, Any, Iterable
 from torch.optim import AdamW as _AdamW
 from torch.nn import Parameter
 
+from icegraph.common.engine import ComponentKind
 from icegraph.engine.components.optimizer import Optimizer
 
 from .config import Config
@@ -25,7 +26,8 @@ class AdamW(Optimizer[Config]):
         self._opt = None
 
     def on_attach(self) -> None:
-        self._opt = self._build_optimizer(self._ctx.model_params)
+        model = self._ctx.components.require(ComponentKind.MODEL, required_by=type(self))
+        self._opt = self._build_optimizer(model.parameters())
 
     def _build_optimizer(self, params: Iterable[Parameter]) -> _AdamW:
         return _AdamW(
@@ -45,7 +47,7 @@ class AdamW(Optimizer[Config]):
             raise RuntimeError("Optimizer not built")
         self._opt.step()
 
-    def zero_grad(self, *, set_to_none: bool = True) -> None:
+    def zero_grad(self, set_to_none: bool = True) -> None:
         if self._opt is None:
             raise RuntimeError("Optimizer not built")
         self._opt.zero_grad(set_to_none=set_to_none)

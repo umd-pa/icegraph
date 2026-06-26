@@ -1,18 +1,13 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from icegraph.common.transforms import TransformSpace
 
-from ..types import ContractComponentContext
-
-__all__ = ["TransformerContext", "TransformerSpec"]
-
-
-@dataclass(frozen=True)
-class TransformerContext(ContractComponentContext):
-    pass
+__all__ = ["TransformerSpec"]
 
 
 @dataclass(frozen=True)

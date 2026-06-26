@@ -3,6 +3,5 @@
 
 from .transformer import Transformer
 from .factory import TransformerFactory
-from .types import TransformerContext
 
-__all__ = ["Transformer", "TransformerFactory", "TransformerContext"]
+__all__ = ["Transformer", "TransformerFactory"]

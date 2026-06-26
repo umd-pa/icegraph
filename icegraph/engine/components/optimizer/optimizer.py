@@ -8,20 +8,18 @@ from abc import abstractmethod, ABC
 
 from ..component import Component
 
-from .types import OptimizerContext
-
 __all__ = ["Optimizer"]
 
 
 C = TypeVar("C")
 
 
-class Optimizer(Component[C, OptimizerContext], ABC):
+class Optimizer(Component[C], ABC):
 
     @abstractmethod
     def step(self) -> None:
         ...
 
     @abstractmethod
-    def zero_grad(self, *, set_to_none: bool = True) -> None:
+    def zero_grad(self, set_to_none: bool = True) -> None:
         ...

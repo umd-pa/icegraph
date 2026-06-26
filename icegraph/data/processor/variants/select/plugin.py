@@ -25,17 +25,17 @@ class Selector(Processor[SelectConfig]):
     def validate_config(cls, config: dict[str, Any]) -> SelectConfig:
         return SelectConfig(**config)
 
-    def _process(self, env: Envelope) -> Envelope | None:
+    def _process(self, item: Envelope) -> Envelope | None:
         # set active frame
-        env.active = self.config.key
+        item.active = self.config.key
 
-        if env.active not in env.tmp:
+        if item.active not in item.tmp:
             # load required data from envelope if not in tmp yet
-            df = env.data.get(env.active)
+            df = item.data.get(item.active)
             if df is None:
-                raise RuntimeError(f"Could not resolve key '{env.active}' in data.")
+                raise RuntimeError(f"Could not resolve key '{item.active}' in data.")
 
             # copy to tmp
-            env.tmp[env.active] = df.copy(deep=True)
+            item.tmp[item.active] = df.copy(deep=True)
 
-        return env
+        return item
