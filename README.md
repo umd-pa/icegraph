@@ -1,8 +1,8 @@
-![image](<img/icegraph light.png>)
+![image](<img/logo-dark.png>)
 
 [![CodeQL](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/umd-pa/icegraph/actions/workflows/github-code-scanning/codeql)
 
-IceGraph is a work-in-progress pipeline for training Graph Neural Networks for reconstruction/classification work on IceCube data using PyTorch.
+IceGraph is an end-to-end pipeline for building and deploying Graph Neural Networks for reconstruction/classification work in IceCube.
 
 Documentation: https://umd-pa.github.io/icegraph
 
@@ -19,89 +19,141 @@ Make the install script executable and run it:
 
 ```
 chmod +x install.sh
-./install.sh
+./install.sh /path/to/cvmfs/py3-vX/<OS_arch>/bin/python
 ```
 
-WARNING: You may have to modify the OS version and architecture within the install.sh script depending on your system configuration.
+This software must be run via the provided python shim when using functionality that requires access to IceCube's [IceTray](https://github.com/icecube/icetray) (i.e. for feature extraction during data processing, if using the standard I3 extractor which uses [ml_suite](https://github.com/icecube/icetray/tree/main/ml_suite)). This shim is provided as `initicetray.sh`, which is used in-place of `python3` (`python3 main.py` becomes `initicetray.sh main.py`).
 
-This software must be run within the IceTray environment.
+## Quick Start
 
-Example scripts are located under [examples](https://github.com/umd-pa/icegraph/tree/main/examples). Before running these, tailor the config file at [config/config.yaml](https://github.com/umd-pa/icegraph/blob/main/config/config.yaml), and update the IGConfig config path to point to this file within each example file you intend to run.
+This framework has three primary functions; loading and processing data from I3 files into an ML friendly format, training GNN's using the PyTorch framework, and running inference.
 
-## Usage
+The workflow is as follows:
 
-This program has two primary functions; loading and processing data from I3 files into an ML friendly format (in this case Lightning Memory-Mapped Database, or LMDB), and training GNN's using the PyTorch framework.
+### Logging
 
-To get from a set of I3 files to a trained model, the pipeline is as follows:
+IceGraph provides a default logging setup function you can use, or you could write your own.
+```
+from icegraph.logging import configure_logging
+
+configure_logging(
+    level="debug"
+)
+```
+
+### Processing
 
 Required imports:
 ```
 from pathlib import Path
-
-from icegraph.data.processor import FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator
-from icegraph.data.extractor import FeatureExtractor
-from icegraph.data.writers import LMDBWriter
-from icegraph.data import DatasetRegistry
-from icegraph.config import IGConfig
-from icegraph.data.pipeline import Pipeline
-from icegraph.trainer import Trainer
+from icegraph.data import Pipeline
 ```
 
-Define and register project configurations:
+Set path to configuration file.
 ```
-# define an IGConfig instance from a config.yaml
-config_path = Path("path/to/config.yaml")
-config = IGConfig(config_path)
-
-# register it for global access
-IGConfig.register(config)
+config_path: str | Path = Path("path/to/config")
 ```
 
 Set the path to your I3 file(s). This can be either a path to one I3 file, a list of paths to multiple I3 files, or a directory containing one or more I3 files.
 ```
-source = Path("path/to/i3_file(s)")
+source_files: str | Path | list[str | Path] = Path("path/to/dir(s)_or_file(s)")
 ```
 
-Extract data from I3 files and process it. This is done by first running the `FeatureExtractor` module, then running:
+Initialize the pipeline from config and source files, then execute to process.
 ```
-with Pipeline() as pipeline:
-    pipeline.build(
-        extractor=FeatureExtractor,
-        processors=[FeatureProcessor, TruthProcessor, EdgeProcessor, StandardSplitAllocator],
-        writer=LMDBWriter
-    )
-    pipeline.configure(args.input, outdir=args.output)
+with Pipeline.from_yaml(source_files, config_path) as pipeline:
     pipeline.execute()
 ```
-The pipeline can be run in parallel as jobs. This is computationally intensive, thus for larger datasets it is highly recommended to parallelize.
+The pipeline can be run in parallel as separate processes.
 
+### Training
 
-Load the data to a registry. The `DatasetRegistry` class acts as an interface between the training system and the formatted data.
+Required imports:
 ```
-dataset_registry = DatasetRegistry.load_from_lmdb(source)
-```
-
-Pass the dataset registry instance to a `Trainer`, then run the training. Training configuration and hyperparameter selection is all done via config.yaml.
-```
-outdir = Path("path/to/trainer/outdir")
-with Trainer(dataset_registry, outdir=outdir) as trainer:
-    trainer.run()
+from pathlib import Path
+from icegraph.training import Trainer
 ```
 
-You can pass in custom callbacks if desired:
-
+Set path to configuration file.
 ```
-outdir = Path("path/to/trainer/outdir")
-with Trainer(dataset_registry, outdir=outdir) as trainer:
-    trainer.register_callback(CustomCallback)
-    trainer.run()
+config_path: str | Path = Path("path/to/config")
 ```
 
-Or override defaults:
+Initialize the training engine from config, then execute to begin training.
+```
+with Trainer.from_yaml(config_path) as trainer:
+    trainer.execute()
+```
+
+Engines can be run in distributed mode using the `Distributed` wrapper:
 
 ```
-outdir = Path("path/to/trainer/outdir")
-callbacks = [List(), Of(), Callbacks()]
-with Trainer(dataset_registry, outdir=outdir, callbacks=callbacks) as trainer:
-    trainer.run()
+from icegraph.engine import Distributed
+
+with Distributed(Trainer).from_yaml(config_path) as trainer:
+    trainer.execute()
+```
+
+You can register built-in or custom callbacks before execution:
+
+```
+from icegraph.trainer.callbacks import ConsoleCallback, CallbackSpec
+
+with Trainer.from_yaml(config_path) as trainer:
+    # register the callback, this can also be done in distributed mode
+    trainer.register_callback(
+        CallbackSpec(
+            callback=ConsoleCallback,
+            kwargs: {}
+        )
+    ) 
+
+    trainer.execute()
+```
+
+### Inference
+
+Required imports:
+```
+from pathlib import Path
+from icegraph.inference import BatchInference
+```
+
+Set path to configuration file.
+```
+config_path: str | Path = Path("path/to/config")
+```
+
+Initialize the inference engine from config, then execute to begin inference.
+```
+with BatchInference.from_yaml(config_path) as inference:
+    inference.execute()
+```
+
+Engines can be run in distributed mode using the `Distributed` wrapper:
+
+```
+from icegraph.engine import Distributed
+
+with Distributed(BatchInference).from_yaml(config_path) as inference:
+    inference.execute()
+```
+
+>WARNING: Running inference in distributed mode may currently result in data loss; chunks may be dropped so sample count matches across ranks. This is intended for training, but is planned to be fixed for inference in a future update.
+
+You can register built-in or custom callbacks before execution:
+
+```
+from icegraph.inference.callbacks import ConsoleCallback, CallbackSpec
+
+with BatchInference.from_yaml(config_path) as inference:
+    # register the callback, this can also be done in distributed mode
+    inference.register_callback(
+        CallbackSpec(
+            callback=ConsoleCallback,
+            kwargs: {}
+        )
+    ) 
+
+    inference.execute()
 ```

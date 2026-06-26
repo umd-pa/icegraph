@@ -1,0 +1,94 @@
+outdir: /data/i3store/users/tstjean/BSN
+
+# epochs and val interval
+max_epochs: 10000
+val_interval: 5
+
+services:
+  state:
+    seed: 2747
+
+  data:
+    # batch size controls how many samples are passed at a time in each
+    # training batch (see torch DataLoader batch_size argument)
+    batch_size: 2048
+
+    # buffer and chunk size configure the buffer sample count and the chunk size
+    # chunks are shuffled as blocks
+    buffer_size: 16384
+    chunk_size: 4096
+
+    num_workers: 8
+    prefetch_factor: 8
+    mp_context: fork
+    persistent_workers: true
+
+  decode:
+    features:   [ ]
+    targets:    [ bundle ]
+
+    # auxiliary is for any non-target labels to include (not used in training), useful for plotting,
+    # these labels are served to callbacks by the trainer during validation and test steps,
+    # but are NOT used for loss computation
+    auxiliary:  [ ]
+
+    keymap:
+      truth: targets
+      edge_attr: edge_weight
+
+    attrs:
+      name: standard
+      kwargs: { }
+
+    records:
+      name: standard
+      kwargs: { }
+
+  record:
+    source:
+      - /scratch/users/tstjean/23122
+      - /scratch/users/tstjean/23016
+
+    reader:
+      name: lmdb
+      kwargs: { }
+
+    store:
+      name: lru-shard
+      kwargs:
+        cache_size: 32
+
+  metrics:
+    select:
+      - name: top-k-acc
+        kwargs: { }
+
+policy:
+  name: multiclass
+  kwargs: { }
+
+components:
+  transformer:
+    name: standard
+    kwargs:
+      transforms: { }
+
+  model:
+    name: gcn
+    kwargs:
+      hidden_layers: 4
+      hidden_channels: 256
+
+  normalizer:
+    name: zscore
+    kwargs: { }
+
+  optimizer:
+    name: adam
+    kwargs:
+      lr: 0.0002
+      weight_decay: 0.00005
+
+  loss:
+    name: cross-entropy
+    kwargs: { }

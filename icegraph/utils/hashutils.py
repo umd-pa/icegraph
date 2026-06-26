@@ -1,13 +1,35 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
+from __future__ import annotations
+
 import hashlib
-from typing import Any, Union, FrozenSet, Set, List, Dict, Tuple
+from typing import Any, TypeAlias
 import cbor2
 
 import numpy as np
+import numpy.typing as npt
 
-def _to_cborable(x: Any):
+__all__ = ["stable_hash_blake2b"]
+
+
+Primitive: TypeAlias = int | float | str | bool | None
+NumpyScalar: TypeAlias = np.integer[Any] | np.floating[Any]
+
+CBORHashable: TypeAlias = (
+    Primitive
+    | np.integer[Any]
+    | np.floating[Any]
+    | npt.NDArray[Any]
+    | list["CBORHashable"]
+    | tuple["CBORHashable", ...]
+    | set["CBORHashable"]
+    | frozenset["CBORHashable"]
+    | dict[str, "CBORHashable"]
+)
+
+
+def _to_cborable(x: Any) -> Any:
     """Normalize unsupported types for CBOR."""
     if isinstance(x, dict):
         return {_to_cborable(k): _to_cborable(v) for k, v in x.items()}
@@ -24,13 +46,14 @@ def _to_cborable(x: Any):
     return x
 
 
-def stable_hash_cbor(
-        obj: Union[Dict, List, Tuple, Set, FrozenSet, np.integer, np.floating, np.ndarray],
-        digest_size: int = 32
-) -> str:
+def stable_hash_blake2b(obj: CBORHashable) -> str:
     """
     Fast deterministic hash for nested Python containers using canonical CBOR + hashlib.
+    Returns 256 bit digest.
     """
     norm = _to_cborable(obj)
     payload = cbor2.dumps(norm, canonical=True)  # stable bytes
-    return hashlib.blake2b(payload, digest_size=digest_size).hexdigest()
+    return hashlib.blake2b(payload, digest_size=32).hexdigest()
+
+
+setattr(stable_hash_blake2b, "name", "cbor2(canonical)+blake2b-256")
