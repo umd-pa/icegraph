@@ -1,0 +1,55 @@
+outdir: /data/i3store/users/tstjean/BSN
+model_path: /data/i3store/users/tstjean/BSN/models/model.epoch_20.pt
+
+policy: ~
+
+services:
+  state:
+    seed: 2747
+
+  data:
+    # batch size controls how many samples are passed at a time in each
+    # training batch (see torch DataLoader batch_size argument)
+    batch_size: 1
+
+    # buffer and chunk size configure the buffer sample count and the chunk size
+    # chunks are shuffled as blocks
+    buffer_size: 1
+    chunk_size: 1
+    shuffle_chunks: False
+
+    num_workers: 6
+    prefetch_factor: 8
+    mp_context: fork
+    persistent_workers: true
+
+  decode:
+    features:   [ ]
+
+    # during inference, these are only used for plotting
+    auxiliary:  [ ]
+
+    keymap:
+      truth: targets
+      edge_attr: edge_weight
+
+    attrs:
+      name: standard
+      kwargs: { }
+
+    records:
+      name: standard
+      kwargs: { }
+
+  record:
+    source:
+      - /data/i3store/users/tstjean/data/23122_I
+
+    reader:
+      name: lmdb
+      kwargs: { }
+
+    store:
+      name: lru-shard
+      kwargs:
+        cache_size: 32

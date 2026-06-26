@@ -1,0 +1,196 @@
+extractor:
+  name: i3
+  kwargs:
+    gcd_path: /cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz
+    skip_missing: true
+
+    # mclabeler configurations, see mclabeler docs
+    mclabeler:
+      event_properties_name: ~
+      mctree_name: I3MCTree_preMuonProp
+      bg_mctree_name: I3MCTree_preMuonProp
+      weight_dict_name: I3MCWeightDict
+
+    # ml_suite configurations, see ml_suite docs
+    ml_suite:
+      # Define name of pulse series from which to extract features
+      pulse_key: InIceDSTPulses
+
+      # Define DOM and TimeWindow exclusions. Leave empty if no exclusions
+      dom_exclusions:
+        exclusions:
+          - SaturationWindows
+          - BadDomsList
+          - CalibrationErrata
+        partial_exclusion: true
+
+      # Define pulse modifier to use. Leave empty if pulses are not modified
+      pulse_modifier:
+        class: ChargeWeightedMeanTimePulseModifier
+        kwargs: { }
+
+      # Define configuration for FeatureExtractor
+      # (This gets passed on to FeatureExtractorFactory)
+      feature_config:
+
+        # Define list of features
+        features:
+          - class: TotalCharge
+            kwargs: { }
+          - class: TFirstPulse
+            kwargs: { }
+          - class: ChargeUntilT
+            kwargs:
+              times: [ 10, 50, 100 ]
+          - class: TSpread
+          - class: TimeAtChargePercentile
+            kwargs:
+              percentiles: [ 0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8 ]
+
+    include: [ features, I3MCWeightDict ]
+
+processors:  # ordered list of processors, each can be used any number of times
+  - name: select  # select features df as active
+    kwargs:
+      key: features
+
+  - name: alias
+    kwargs:
+      map:
+        event_ids: [ Run, Event, SubEvent, SubEventStream ]
+        dom_pos: [ dom_x, dom_y, dom_z ]
+        feature_cols:
+          - total_charge
+          - t_first_pulse
+          - charge_until_t_10
+          - charge_until_t_50
+          - charge_until_t_100
+          - t_spread
+          - t_at_charge_percentile_0.01
+          - t_at_charge_percentile_0.03
+          - t_at_charge_percentile_0.05
+          - t_at_charge_percentile_0.11
+          - t_at_charge_percentile_0.15
+          - t_at_charge_percentile_0.2
+          - t_at_charge_percentile_0.5
+          - t_at_charge_percentile_0.71
+          - t_at_charge_percentile_0.8
+
+  - name: pivot
+    kwargs:
+      index: [ event_ids, string, om, pmt ]
+      col: vector_index
+      values: item
+
+  - name: rename  # this rename is technically optional, for human readability
+    kwargs:
+      cols: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 ]
+      out: feature_cols
+
+  - name: domproc
+    kwargs:
+      cols: [ string, om, pmt ]
+      out: dom_pos
+
+  - name: compress  # need a copy of only dom positions compressed for edges
+    kwargs:
+      to: compressed
+      by: event_ids
+      cols: dom_pos
+      out: dom_pos_tmp
+
+      # temp, no metadata
+      record_names: false
+      record_offset: false
+
+  - name: compress  # compress the main feature table
+    kwargs:
+      to: compressed
+      by: event_ids
+      cols: [ feature_cols, dom_pos ]
+      out: features
+      dtype: float64
+
+  - name: select
+    kwargs:
+      key: compressed
+
+  - name: copy  # copy id cols to new temp frame to build labels
+    kwargs:
+      to: tmp_label_df
+      by: event_ids
+      cols: event_ids
+
+  - name: select
+    kwargs:
+      key: tmp_label_df
+
+  - name: fill
+    kwargs:
+      col: bundle
+      value: 0
+      dtype: long
+
+  - name: unique
+    kwargs:
+      cols: bundle
+
+  - name: compress  # compress labels to compressed frame
+    kwargs:
+      to: compressed
+      by: event_ids
+      cols: bundle
+      out: targets
+
+  - name: select  # move to compressed table
+    kwargs:
+      key: compressed
+
+  - name: simweights
+    kwargs:
+      out: simweights
+      weight_group: nugen_1e8-1e10
+      weighter: NuGenWeighter
+      flux:
+        name: power-law
+        kwargs:
+          g: 2.37
+          phi0: 1.44e-18
+          e0: 1.0e+5
+
+  - name: knn  # output is compressed by default
+    kwargs:
+      by: event_ids
+      col: dom_pos_tmp
+      out: [ edge_index, edge_weight ]
+      k: 10
+
+  - name: splitmap
+    kwargs:
+      seed: 42
+      range: 3
+      weights: [ 6, 2, 2 ]
+
+  - name: stats
+    kwargs:
+      cols: [ features, targets ]
+      stats:
+        - min
+        - max
+        - mean
+        - m2
+        - finite_count
+        - positive_count
+        - total_count
+        - zero_count
+        - nan_count
+
+  - name: commit
+    kwargs:
+      ids: event_ids
+      cols: [ features, edge_index, edge_weight, targets, simweights ]
+
+writer:
+  name: lmdb
+  kwargs:
+    outdir: /data/i3store/users/tstjean/data/23016

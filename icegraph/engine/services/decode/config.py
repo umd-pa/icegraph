@@ -22,9 +22,9 @@ class DecodeConfig(BaseModel):
     attrs:      PluginConfig
     records:    PluginConfig
 
-    features:   list[str]
-    targets:    list[str]
-    auxiliary:  list[str]
+    features:   list[str] = Field(default_factory=list)
+    targets:    list[str] = Field(default_factory=list)
+    auxiliary:  list[str] = Field(default_factory=list)
 
     # if the user has different names in data
     keymap:     KeyMapConfig = Field(default_factory=KeyMapConfig)
