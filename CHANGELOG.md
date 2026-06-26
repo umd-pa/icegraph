@@ -1,5 +1,8 @@
 # Changelog
 
+### Version [0.11.0] --- June 26th, 2026:
+- Essentially everything changed since v0.10.0.
+
 ### Version [0.10.0] --- November 8th, 2025:
 - Rework DDP, now handled via `icegraph.trainer.distributed.DistributedTrainer`.
 - Refactored `Trainer` for a cleaner initialization.
