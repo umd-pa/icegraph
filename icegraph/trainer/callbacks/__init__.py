@@ -1,20 +1,29 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-# base callback
-from .callback import Callback
+# reexport here for convenience
+from icegraph.engine.callbacks import CallbackSpec
+
+# base class
+from .callback import TrainerCallback
 
 # implementations
 from .console import ConsoleCallback
-from .export import ExportCallback
+from .exporters import ExportCallback
 from .tensorboard import TensorBoardCallback
-from .metrics import MulticlassMetricsCallback, RegressionMetricsCallback
+from .plotters import ParityPlotter, BiasPlotter, CMPlotter, PTruePlotter, ROCPlotter, BinaryPPositivePlotter, PrecisionRecallPlotter
 
 __all__ = [
-    "Callback",
+    "CallbackSpec",
+    "TrainerCallback",
     "ExportCallback",
     "ConsoleCallback",
     "TensorBoardCallback",
-    "RegressionMetricsCallback",
-    "MulticlassMetricsCallback"
+    "ParityPlotter",
+    "BiasPlotter",
+    "CMPlotter",
+    "PTruePlotter",
+    "ROCPlotter",
+    "BinaryPPositivePlotter",
+    "PrecisionRecallPlotter"
 ]
