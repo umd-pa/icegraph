@@ -36,6 +36,8 @@ class AdamW(Optimizer[Config]):
             betas=self.config.betas,
             eps=self.config.eps,
             weight_decay=self.config.weight_decay,
+            amsgrad=self.config.amsgrad,
+            maximize=self.config.maximize
         )
 
     @classmethod
