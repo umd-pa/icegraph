@@ -1,5 +1,9 @@
 # Changelog
 
+#### Version [0.11.1] --- June 27th, 2026:
+- Added framework-wide docs.
+- Fixed a bug where configs weren't being forwarded properly for the Adam optimizer.
+
 ### Version [0.11.0] --- June 26th, 2026:
 - Essentially everything changed since v0.10.0.
 
