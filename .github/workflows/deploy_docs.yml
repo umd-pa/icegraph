@@ -7,7 +7,7 @@ permissions:
 
 on:
   push:
-    branches: [main]  # or your default branch
+    branches: [main]
 
 jobs:
   build-and-deploy:
@@ -15,18 +15,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install IceGraph dependencies
-        run: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121 --find-links https://data.pyg.org/whl/torch-2.2.2+cu121.html
-
-      - name: Install IceGraph
-        run: pip install -e .
+      - name: Install documentation dependencies
+        run: pip install -r docs/requirements.txt
 
       - name: Build documentation
         run: make -C docs html
