@@ -1,13 +1,26 @@
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 project = 'IceGraph'
 author = 'Taylor St Jean'
-release = '0.10.0'
+release = '0.11.0'
+copyright = '2026, University of Maryland and the IceCube Collaboration'
 
-html_theme = "sphinx_rtd_theme"
-master_doc = 'index'
+html_theme = "renku"
+root_doc = 'index'
+
+html_logo = "../../img/logo-dark.png"
+
+html_static_path = ["../../img"]
+
+html_theme_options = {
+    'collapse_navigation': False,
+    'titles_only': True,
+    'navigation_depth': 6,
+    'logo_only': True,
+}
 
 extensions = [
     'sphinx.ext.autodoc',
@@ -24,3 +37,8 @@ autodoc_default_options = {
     'show-inheritance': True,
     'special-members': '__init__',
 }
+
+exclude_patterns = [
+    '**/__pycache__',
+    '**/*.egg-info'
+]
