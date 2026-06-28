@@ -6,20 +6,22 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to IceGraph’s documentation! &mdash; IceGraph 0.7.0 documentation</title>
+  <title>IceGraph &mdash; IceGraph 0.11.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=a6a68382" />
+      <link rel="stylesheet" type="text/css" href="_static/fonts.css?v=5583d106" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=fe7df9b0"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/documentation_options.js?v=f3b36f1a"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="icegraph package" href="icegraph.html" /> 
+    <link rel="next" title="Home" href="home.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -30,8 +32,9 @@
 
           
           
-          <a href="#" class="icon icon-home">
-            IceGraph
+          <a href="#">
+            
+              <img src="_static/logo-dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -41,9 +44,160 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="home.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Core Objects</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.html">icegraph package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common/plugins/index.html">Plugin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common/factory/index.html">Factory</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="engine/index.html">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="engine/services/index.html">Services</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/state/index.html">State</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/data/index.html">Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/record/index.html">Record</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/record/reader/index.html">Reader</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/record/reader/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/record/store/index.html">Store</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/decode/index.html">Decode</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/decode/attrs/index.html">Attribute Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/decode/attrs/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/decode/records/index.html">Record Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/decode/records/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/metrics/index.html">Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/metrics/metric/index.html">Metric</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="engine/policy/index.html">Policy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="engine/policy/variants/multiclass/index.html">Multiclass</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine/policy/variants/regression/index.html">Regression</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="engine/components/index.html">Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/model/index.html">Model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/model/variants/gcn/index.html">GCN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/model/variants/gravnet/index.html">GravNet</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/transformer/index.html">Transformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/transformer/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/normalizer/index.html">Normalizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/optimizer/index.html">Optimizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/optimizer/variants/adam/index.html">Adam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/optimizer/variants/sgd/index.html">SGD</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/loss/index.html">Loss</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/cross_entropy/index.html">Cross Entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/nll/index.html">NLL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/l1/index.html">L1</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="engine/callbacks/index.html">Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="trainer/index.html">Trainer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="trainer/callbacks/index.html">Trainer Callbacks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/console/index.html">Console</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/exporters/index.html">Export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/tensorboard/index.html">TensorBoard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/plotters/index.html">Plotters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="inference/index.html">Inference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="inference/callbacks/index.html">Inference Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data/index.html">Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data/extractor/index.html">Extractor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data/extractor/variants/i3/index.html">I3</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data/processor/index.html">Processor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/select/index.html">Select</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/commit/index.html">Commit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/copy/index.html">Copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/alias/index.html">Alias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/rename/index.html">Rename</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/map/index.html">Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/fill/index.html">Fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/unique/index.html">Unique</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/dom/index.html">DOM Processor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/knn/index.html">KNN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/compress/index.html">Compress</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/pivot/index.html">Pivot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/simweights/index.html">Simweights</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
+<li class="toctree-l5"><a class="reference internal" href="data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/splitmap/index.html">SplitMap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/inspect/index.html">Inspect</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data/writer/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="statistics/index.html">Statistics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/mean.html">Mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/m2.html">M2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/minimum.html">Min</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/maximum.html">Max</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/total_count.html">Total Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/finite_count.html">Finite Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/nan_count.html">NaN Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/zero_count.html">Zero Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/positive_count.html">Positive Count</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -60,7 +214,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Welcome to IceGraph’s documentation!</li>
+      <li class="breadcrumb-item active">IceGraph</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -70,14 +224,57 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="welcome-to-icegraphs-documentation">
-<h1>Welcome to IceGraph’s documentation!<a class="headerlink" href="#welcome-to-icegraphs-documentation" title="Link to this heading"></a></h1>
+  <section id="icegraph">
+<h1>IceGraph<a class="headerlink" href="#icegraph" title="Link to this heading"></a></h1>
+<p>IceGraph is an end-to-end framework for building and deploying Graph Neural
+Networks for reconstruction and classification in IceCube. Use the navigation to
+get started or browse the architecture reference.</p>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="icegraph.html">icegraph package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#subpackages">Subpackages</a></li>
-<li class="toctree-l2"><a class="reference internal" href="icegraph.html#module-contents">Module contents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="home.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Core Objects</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="common/plugins/index.html">Plugin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common/factory/index.html">Factory</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="engine/index.html">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="engine/services/index.html">Services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="engine/policy/index.html">Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="engine/components/index.html">Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="engine/callbacks/index.html">Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="trainer/index.html">Trainer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="trainer/index.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trainer/index.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trainer/index.html#how-it-works">How it works</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="inference/index.html">Inference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="inference/index.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inference/index.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inference/index.html#how-it-works">How it Works</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data/index.html">Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data/extractor/index.html">Extractor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data/processor/index.html">Processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data/writer/index.html">Writer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="statistics/index.html">Statistics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="statistics/index.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/index.html#how-it-works">How it works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/index.html#variants">Variants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/index.html#registering-a-new-statistic">Registering a new statistic</a></li>
 </ul>
 </li>
 </ul>
@@ -88,13 +285,13 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="icegraph.html" class="btn btn-neutral float-right" title="icegraph package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="home.html" class="btn btn-neutral float-right" title="Home" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright .</p>
+    <p>&#169; Copyright 2026, University of Maryland and the IceCube Collaboration.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

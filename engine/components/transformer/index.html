@@ -1,0 +1,343 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transformer &mdash; IceGraph 0.11.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=a6a68382" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/fonts.css?v=5583d106" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=f3b36f1a"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Standard" href="variants/standard/index.html" />
+    <link rel="prev" title="GravNet" href="../model/variants/gravnet/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html">
+            
+              <img src="../../../_static/logo-dark.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../home.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Core Objects</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../common/plugins/index.html">Plugin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../common/factory/index.html">Factory</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Engine</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../services/index.html">Services</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../services/state/index.html">State</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../services/data/index.html">Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../services/record/index.html">Record</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../services/record/reader/index.html">Reader</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../services/record/reader/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../services/record/store/index.html">Store</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../services/decode/index.html">Decode</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../services/decode/attrs/index.html">Attribute Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../services/decode/attrs/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../services/decode/records/index.html">Record Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../services/decode/records/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../services/metrics/index.html">Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../services/metrics/metric/index.html">Metric</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../services/metrics/metric/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../services/metrics/metric/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../policy/index.html">Policy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../policy/variants/multiclass/index.html">Multiclass</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../policy/variants/regression/index.html">Regression</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Components</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../model/index.html">Model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../model/variants/gcn/index.html">GCN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../model/variants/gravnet/index.html">GravNet</a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Transformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../normalizer/index.html">Normalizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizer/index.html">Optimizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../optimizer/variants/adam/index.html">Adam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../optimizer/variants/sgd/index.html">SGD</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../loss/index.html">Loss</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../loss/variants/cross_entropy/index.html">Cross Entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../loss/variants/nll/index.html">NLL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../loss/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../loss/variants/l1/index.html">L1</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../callbacks/index.html">Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trainer/index.html">Trainer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../trainer/callbacks/index.html">Trainer Callbacks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../trainer/callbacks/console/index.html">Console</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../trainer/callbacks/exporters/index.html">Export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../trainer/callbacks/tensorboard/index.html">TensorBoard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../trainer/callbacks/plotters/index.html">Plotters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../inference/index.html">Inference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../inference/callbacks/index.html">Inference Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../data/index.html">Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../data/extractor/index.html">Extractor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/extractor/variants/i3/index.html">I3</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data/processor/index.html">Processor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/select/index.html">Select</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/commit/index.html">Commit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/copy/index.html">Copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/alias/index.html">Alias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/rename/index.html">Rename</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/map/index.html">Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/fill/index.html">Fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/unique/index.html">Unique</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/dom/index.html">DOM Processor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/knn/index.html">KNN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/compress/index.html">Compress</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/pivot/index.html">Pivot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/simweights/index.html">Simweights</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/splitmap/index.html">SplitMap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/inspect/index.html">Inspect</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/writer/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../statistics/index.html">Statistics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/mean.html">Mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/m2.html">M2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/minimum.html">Min</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/maximum.html">Max</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/total_count.html">Total Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/finite_count.html">Finite Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/nan_count.html">NaN Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/zero_count.html">Zero Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../statistics/variants/positive_count.html">Positive Count</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">IceGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Engine</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Components</a></li>
+      <li class="breadcrumb-item active">Transformer</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/engine/components/transformer/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="transformer">
+<h1>Transformer<a class="headerlink" href="#transformer" title="Link to this heading"></a></h1>
+<p>The <strong>transformer</strong> is the <a class="reference internal" href="../index.html"><span class="doc">component</span></a> that applies a per-feature
+value-space transform before normalization, compressing the dynamic range of
+features that span many orders of magnitude (for example mapping a charge into log
+space). Like the <a class="reference internal" href="../normalizer/index.html"><span class="doc">normalizer</span></a> it is a pure, invertible
+value map: it changes values without changing tensor shape, and it normalizes
+targets only when the task requests it.</p>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<p>The transformer occupies the <code class="docutils literal notranslate"><span class="pre">components.transformer</span></code> slot.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">components</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">transformer</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">standard</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">transforms</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">energy</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> space</span><span class="p">:</span><span class="w"> </span><span class="nv">log</span><span class="p p-Indicator">,</span><span class="nt"> base</span><span class="p">:</span><span class="w"> </span><span class="nv">10</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</section>
+<section id="how-it-works">
+<h2>How it Works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<p>The transformer assigns each feature column a transform space and applies the
+corresponding mapping, vectorized across columns. Columns with no explicit configuration
+are left in linear space (untouched). The transform composes with the normalizer:
+the transformer reshapes the value distribution, then the normalizer scales it.</p>
+</section>
+<section id="variants">
+<h2>Variants<a class="headerlink" href="#variants" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="variants/standard/index.html"><span class="doc">Standard</span></a>: per-column selection of a linear, log,
+or inverse-hyperbolic-sine space.</p></li>
+</ul>
+</section>
+<section id="registering-a-new-transformer">
+<h2>Registering a new transformer<a class="headerlink" href="#registering-a-new-transformer" title="Link to this heading"></a></h2>
+<p>A transformer is a subclass of <code class="docutils literal notranslate"><span class="pre">Transformer</span></code> that declares a <code class="docutils literal notranslate"><span class="pre">name</span></code> and
+<code class="docutils literal notranslate"><span class="pre">version</span></code> and implements two methods:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">transform(self,</span> <span class="pre">t,</span> <span class="pre">/,</span> <span class="pre">role,</span> <span class="pre">*,</span> <span class="pre">inverse)</span> <span class="pre">-&gt;</span> <span class="pre">Tensor</span></code></dt><dd><p>Map the values of <code class="docutils literal notranslate"><span class="pre">t</span></code> for the given column <code class="docutils literal notranslate"><span class="pre">role</span></code>, returning a tensor of the
+<strong>same shape</strong>; undo the mapping when <code class="docutils literal notranslate"><span class="pre">inverse</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_build_spec_list(self,</span> <span class="pre">role)</span> <span class="pre">-&gt;</span> <span class="pre">list[TransformerSpec]</span></code></dt><dd><p>Describe, per column, which space applies. The base caches this and wraps
+<code class="docutils literal notranslate"><span class="pre">transform</span></code> with shape and finiteness checks.</p>
+</dd>
+</dl>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.common.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ColumnarRole</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.common.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">SegmentedTensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.engine.components.transformer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Transformer</span><span class="p">,</span> <span class="n">TransformerFactory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.engine.components.transformer.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransformerSpec</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyTransformerConfig</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyTransformer</span><span class="p">(</span><span class="n">Transformer</span><span class="p">[</span><span class="n">MyTransformerConfig</span><span class="p">]):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;my-transformer&quot;</span>
+    <span class="n">version</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">MyTransformerConfig</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">MyTransformerConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">SegmentedTensor</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="n">role</span><span class="p">:</span> <span class="n">ColumnarRole</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">inverse</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="o">...</span>  <span class="c1"># return the mapped values, same shape as t.data</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_spec_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">:</span> <span class="n">ColumnarRole</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TransformerSpec</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+<span class="n">TransformerFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyTransformer</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../model/variants/gravnet/index.html" class="btn btn-neutral float-left" title="GravNet" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="variants/standard/index.html" class="btn btn-neutral float-right" title="Standard" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, University of Maryland and the IceCube Collaboration.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

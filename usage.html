@@ -1,0 +1,541 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; IceGraph 0.11.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=a6a68382" />
+      <link rel="stylesheet" type="text/css" href="_static/fonts.css?v=5583d106" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f3b36f1a"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Plugin" href="common/plugins/index.html" />
+    <link rel="prev" title="Home" href="home.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/logo-dark.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="home.html">Home</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Core Objects</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="common/plugins/index.html">Plugin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common/factory/index.html">Factory</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="engine/index.html">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="engine/services/index.html">Services</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/state/index.html">State</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/data/index.html">Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/record/index.html">Record</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/record/reader/index.html">Reader</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/record/reader/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/record/store/index.html">Store</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/decode/index.html">Decode</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/decode/attrs/index.html">Attribute Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/decode/attrs/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/decode/records/index.html">Record Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/decode/records/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/services/metrics/index.html">Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/services/metrics/metric/index.html">Metric</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="engine/policy/index.html">Policy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="engine/policy/variants/multiclass/index.html">Multiclass</a></li>
+<li class="toctree-l3"><a class="reference internal" href="engine/policy/variants/regression/index.html">Regression</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="engine/components/index.html">Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/model/index.html">Model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/model/variants/gcn/index.html">GCN</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/model/variants/gravnet/index.html">GravNet</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/transformer/index.html">Transformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/transformer/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/normalizer/index.html">Normalizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="engine/components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/optimizer/index.html">Optimizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/optimizer/variants/adam/index.html">Adam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/optimizer/variants/sgd/index.html">SGD</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="engine/components/loss/index.html">Loss</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/cross_entropy/index.html">Cross Entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/nll/index.html">NLL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="engine/components/loss/variants/l1/index.html">L1</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="engine/callbacks/index.html">Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="trainer/index.html">Trainer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="trainer/callbacks/index.html">Trainer Callbacks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/console/index.html">Console</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/exporters/index.html">Export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/tensorboard/index.html">TensorBoard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="trainer/callbacks/plotters/index.html">Plotters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="inference/index.html">Inference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="inference/callbacks/index.html">Inference Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data/index.html">Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data/extractor/index.html">Extractor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data/extractor/variants/i3/index.html">I3</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data/processor/index.html">Processor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/select/index.html">Select</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/commit/index.html">Commit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/copy/index.html">Copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/alias/index.html">Alias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/rename/index.html">Rename</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/map/index.html">Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/fill/index.html">Fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/unique/index.html">Unique</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/dom/index.html">DOM Processor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/knn/index.html">KNN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/compress/index.html">Compress</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/pivot/index.html">Pivot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/simweights/index.html">Simweights</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
+<li class="toctree-l5"><a class="reference internal" href="data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/splitmap/index.html">SplitMap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data/processor/variants/inspect/index.html">Inspect</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data/writer/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="statistics/index.html">Statistics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/mean.html">Mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/m2.html">M2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/minimum.html">Min</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/maximum.html">Max</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/total_count.html">Total Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/finite_count.html">Finite Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/nan_count.html">NaN Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/zero_count.html">Zero Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics/variants/positive_count.html">Positive Count</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">IceGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h1>
+<p>This guide covers the basics of using IceGraph end to end: how a run is structured,
+how configuration works, how to write the small driver scripts for each workflow,
+and how to run distributed and extend the framework.</p>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
+<p>Every workflow follows the same shape. A short Python script builds one top-level
+object from a YAML configuration and calls a single method to run it:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="data/index.html"><span class="doc">Processing</span></a> builds a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> and calls
+<code class="docutils literal notranslate"><span class="pre">execute</span></code>.</p></li>
+<li><p><a class="reference internal" href="engine/index.html"><span class="doc">Training</span></a> builds a <code class="docutils literal notranslate"><span class="pre">Trainer</span></code> engine and calls
+<code class="docutils literal notranslate"><span class="pre">execute</span></code>.</p></li>
+<li><p><a class="reference internal" href="engine/index.html"><span class="doc">Inference</span></a> builds a <code class="docutils literal notranslate"><span class="pre">BatchInference</span></code> engine and calls <code class="docutils literal notranslate"><span class="pre">execute</span></code>.</p></li>
+</ul>
+<p>The configuration does the heavy lifting: it names which plugins fill each slot and
+supplies their options. The script only wires together the source data, the
+configuration, and the output location. Because the objects are context managers,
+run them inside a <code class="docutils literal notranslate"><span class="pre">with</span></code> block to guarantee resource cleanup.</p>
+</section>
+<section id="running-under-icetray">
+<h2>Running under IceTray<a class="headerlink" href="#running-under-icetray" title="Link to this heading"></a></h2>
+<p>Any workflow that reads I3 files (the standard <a class="reference internal" href="data/extractor/variants/i3/index.html"><span class="doc">I3 extractor</span></a>) depends on IceCube’s IceTray and must be
+launched through the provided shim, <code class="docutils literal notranslate"><span class="pre">initicetray.sh</span></code>, in place of <code class="docutils literal notranslate"><span class="pre">python3</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>initicetray.sh<span class="w"> </span>process.py<span class="w"> </span>--source<span class="w"> </span>/path/to/i3<span class="w"> </span>--config<span class="w"> </span>config/data-proc.yaml
+</pre></div>
+</div>
+<p>Training and batch inference run on processed datasets and do not require the shim;
+ordinary <code class="docutils literal notranslate"><span class="pre">python</span></code> from within the virtual environment is sufficient.</p>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<p>Configuration is YAML, but both JSON and TOML are supported as alternatives. Wherever
+the framework offers a choice, the config selects a plugin by name and passes its options
+as <code class="docutils literal notranslate"><span class="pre">kwargs</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;slot&gt;</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;plugin-name&gt;</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> &lt;option&gt;</span><span class="p">:</span><span class="w"> </span><span class="nv">&lt;value&gt;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<p>This pattern is described in full under <a class="reference internal" href="common/plugins/index.html"><span class="doc">Plugin</span></a>. Each
+slot’s reference page lists the plugins available for it and the options each
+accepts. The three workflows use three top-level config shapes:</p>
+<ul class="simple">
+<li><p><strong>Processing</strong> declares an <code class="docutils literal notranslate"><span class="pre">extractor</span></code>, an ordered list of <code class="docutils literal notranslate"><span class="pre">processors</span></code>, and a
+<code class="docutils literal notranslate"><span class="pre">writer</span></code>.</p></li>
+<li><p><strong>Training</strong> declares <code class="docutils literal notranslate"><span class="pre">services</span></code>, a <code class="docutils literal notranslate"><span class="pre">policy</span></code>, and <code class="docutils literal notranslate"><span class="pre">components</span></code>, plus
+a few run-level keys (see <a class="reference internal" href="trainer/index.html"><span class="doc">Trainer</span></a>).</p></li>
+<li><p><strong>Inference</strong> declares <code class="docutils literal notranslate"><span class="pre">services</span></code> and points <code class="docutils literal notranslate"><span class="pre">model_path</span></code> at a trained
+checkpoint; the model is restored from that checkpoint rather than configured.</p></li>
+</ul>
+</section>
+<section id="logging">
+<h2>Logging<a class="headerlink" href="#logging" title="Link to this heading"></a></h2>
+<p>IceGraph provides a logging setup helper. Call it once near the start of a script
+before building anything:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
+
+<span class="n">configure_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s2">&quot;debug&quot;</span><span class="p">)</span>          <span class="c1"># console logging</span>
+<span class="c1"># configure_logging(level=&quot;info&quot;, log_file=&quot;run.log&quot;, json_logs=True)</span>
+</pre></div>
+</div>
+<p>You can also build your own logging helper should you need to.</p>
+</section>
+<section id="processing">
+<h2>Processing<a class="headerlink" href="#processing" title="Link to this heading"></a></h2>
+<p>A processing script resolves the input files and configuration, then runs the
+pipeline. The source may be a single file, a list of files, or a directory; the
+output location is taken from the writer’s configuration.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;--source&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;File, list, or directory&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;--config&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to the pipeline config&quot;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">configure_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s2">&quot;info&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">Pipeline</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="p">))</span> <span class="k">as</span> <span class="n">pipeline</span><span class="p">:</span>
+        <span class="n">pipeline</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The matching configuration names the three stages:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">extractor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">i3</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">gcd_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/GCD.i3.zst</span>
+<span class="w">    </span><span class="nt">include</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">features</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">ml_suite</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="nv">...</span><span class="w"> </span><span class="p p-Indicator">}</span>
+
+<span class="nt">processors</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> key</span><span class="p">:</span><span class="w"> </span><span class="nv">features</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">knn</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> by</span><span class="p">:</span><span class="w"> </span><span class="nv">event_ids</span><span class="p p-Indicator">,</span><span class="nt"> col</span><span class="p">:</span><span class="w"> </span><span class="nv">dom_pos</span><span class="p p-Indicator">,</span><span class="nt"> out</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">edge_index</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">edge_attr</span><span class="w"> </span><span class="p p-Indicator">],</span><span class="nt"> k</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">commit</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> ids</span><span class="p">:</span><span class="w"> </span><span class="nv">event_ids</span><span class="p p-Indicator">,</span><span class="nt"> cols</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">features</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">edge_index</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">edge_attr</span><span class="w"> </span><span class="p p-Indicator">]</span><span class="w"> </span><span class="p p-Indicator">}</span>
+
+<span class="nt">writer</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lmdb</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">outdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/output</span>
+</pre></div>
+</div>
+<p>Processing is independent per input file, so a large dataset can be processed by
+launching the script as several parallel jobs.</p>
+</section>
+<section id="training">
+<h2>Training<a class="headerlink" href="#training" title="Link to this heading"></a></h2>
+<p>A training script builds the <a class="reference internal" href="trainer/index.html"><span class="doc">Trainer</span></a> engine from a configuration and executes
+it.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Trainer</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;--config&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to the training config&quot;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">configure_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s2">&quot;info&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">Trainer</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="p">))</span> <span class="k">as</span> <span class="n">trainer</span><span class="p">:</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The configuration assembles the run from <a class="reference internal" href="engine/services/index.html"><span class="doc">services</span></a>, a
+<a class="reference internal" href="engine/policy/index.html"><span class="doc">policy</span></a>, and <a class="reference internal" href="engine/components/index.html"><span class="doc">components</span></a>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">outdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/output</span>
+<span class="nt">max_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+<span class="nt">val_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+
+<span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">state</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nt"> seed</span><span class="p">:</span><span class="w"> </span><span class="nv">2747</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">data</span><span class="p">:</span><span class="w">    </span><span class="p p-Indicator">{</span><span class="nt"> batch_size</span><span class="p">:</span><span class="w"> </span><span class="nv">2048</span><span class="p p-Indicator">,</span><span class="nt"> chunk_size</span><span class="p">:</span><span class="w"> </span><span class="nv">4096</span><span class="p p-Indicator">,</span><span class="nt"> buffer_size</span><span class="p">:</span><span class="w"> </span><span class="nv">16384</span><span class="p p-Indicator">,</span><span class="nt"> num_workers</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span>
+<span class="nt">             prefetch_factor</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> mp_context</span><span class="p">:</span><span class="w"> </span><span class="nv">fork</span><span class="p p-Indicator">,</span><span class="nt"> persistent_workers</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">decode</span><span class="p">:</span><span class="w">  </span><span class="p p-Indicator">{</span><span class="nt"> targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">bundle</span><span class="w"> </span><span class="p p-Indicator">],</span><span class="nt"> attrs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">standard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">},</span>
+<span class="nt">             records</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">standard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">record</span><span class="p">:</span><span class="w">  </span><span class="p p-Indicator">{</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">/path/to/dataset</span><span class="w"> </span><span class="p p-Indicator">],</span><span class="nt"> reader</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">lmdb</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">},</span>
+<span class="nt">             store</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">lru-shard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> cache_size</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">metrics</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> select</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">top-k-acc</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">]</span><span class="w"> </span><span class="p p-Indicator">}</span>
+
+<span class="nt">policy</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">multiclass</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+
+<span class="nt">components</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">model</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">gcn</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> hidden_layers</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="p p-Indicator">,</span><span class="nt"> hidden_channels</span><span class="p">:</span><span class="w"> </span><span class="nv">256</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">transformer</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">standard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> transforms</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">normalizer</span><span class="p">:</span><span class="w">  </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">zscore</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">optimizer</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">adam</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> lr</span><span class="p">:</span><span class="w"> </span><span class="nv">0.0002</span><span class="p p-Indicator">,</span><span class="nt"> weight_decay</span><span class="p">:</span><span class="w"> </span><span class="nv">0.00005</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">loss</span><span class="p">:</span><span class="w">        </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">cross-entropy</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<section id="callbacks">
+<h3>Callbacks<a class="headerlink" href="#callbacks" title="Link to this heading"></a></h3>
+<p><a class="reference internal" href="engine/callbacks/index.html"><span class="doc">Callbacks</span></a> observe a run without altering it
+(console logging, metric plotting, checkpoint export, TensorBoard). Register them
+before calling <code class="docutils literal notranslate"><span class="pre">execute</span></code> by passing a <code class="docutils literal notranslate"><span class="pre">CallbackSpec</span></code> naming the callback class
+and its keyword arguments:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.trainer.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackSpec</span><span class="p">,</span> <span class="n">ConsoleCallback</span><span class="p">,</span> <span class="n">TensorBoardCallback</span>
+
+<span class="k">with</span> <span class="n">Trainer</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">trainer</span><span class="p">:</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">register_callback</span><span class="p">(</span><span class="n">CallbackSpec</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">ConsoleCallback</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{}))</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">register_callback</span><span class="p">(</span><span class="n">CallbackSpec</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">TensorBoardCallback</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{}))</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="inference">
+<h2>Inference<a class="headerlink" href="#inference" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Currently only batched inference has been implemented. Realtime streaming inference is planned
+for a future update.</p>
+</div>
+<p>A batched inference script builds the <code class="docutils literal notranslate"><span class="pre">BatchInference</span></code> engine the same way:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.inference</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchInference</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;--config&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to the inference config&quot;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">configure_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s2">&quot;info&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">BatchInference</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="p">))</span> <span class="k">as</span> <span class="n">inference</span><span class="p">:</span>
+        <span class="n">inference</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The inference configuration restores the model from a checkpoint rather than
+configuring components, so it names <code class="docutils literal notranslate"><span class="pre">model_path</span></code> and omits the <code class="docutils literal notranslate"><span class="pre">components</span></code>
+section:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">outdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/output</span>
+<span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/model.epoch_20.pt</span>
+
+<span class="nt">policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~</span>
+
+<span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">state</span><span class="p">:</span><span class="w">  </span><span class="p p-Indicator">{</span><span class="nt"> seed</span><span class="p">:</span><span class="w"> </span><span class="nv">2747</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">data</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nt"> batch_size</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> chunk_size</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> buffer_size</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> num_workers</span><span class="p">:</span><span class="w"> </span><span class="nv">6</span><span class="p p-Indicator">,</span>
+<span class="nt">            prefetch_factor</span><span class="p">:</span><span class="w"> </span><span class="nv">8</span><span class="p p-Indicator">,</span><span class="nt"> mp_context</span><span class="p">:</span><span class="w"> </span><span class="nv">fork</span><span class="p p-Indicator">,</span><span class="nt"> persistent_workers</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">decode</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> features</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[],</span><span class="nt"> auxiliary</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[],</span><span class="nt"> attrs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">standard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">},</span>
+<span class="nt">            records</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">standard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">record</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">/path/to/dataset</span><span class="w"> </span><span class="p p-Indicator">],</span><span class="nt"> reader</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">lmdb</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="p p-Indicator">},</span>
+<span class="nt">            store</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">lru-shard</span><span class="p p-Indicator">,</span><span class="nt"> kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> cache_size</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Running inference in distributed mode may currently drop chunks so that the
+sample count matches across ranks, which can lose data. Distributed execution is
+intended for training; run inference on a single process until this is resolved.</p>
+</div>
+</section>
+<section id="distributed-execution">
+<h2>Distributed Execution<a class="headerlink" href="#distributed-execution" title="Link to this heading"></a></h2>
+<p>Either engine can be run across multiple ranks by wrapping it in <code class="docutils literal notranslate"><span class="pre">Distributed</span></code>,
+without changing the configuration:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Distributed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Trainer</span>
+
+<span class="k">with</span> <span class="n">Distributed</span><span class="p">(</span><span class="n">Trainer</span><span class="p">)</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">trainer</span><span class="p">:</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The script is then launched internally as a multi-process job. The
+<a class="reference internal" href="engine/services/state/index.html"><span class="doc">state service</span></a> reads environment
+variables (“RANK”, “WORLD”, “LOCAL_RANK”) to coordinate ranks.
+Callbacks are registered the same way in distributed runs.</p>
+</section>
+<section id="extending-the-framework">
+<h2>Extending the Framework<a class="headerlink" href="#extending-the-framework" title="Link to this heading"></a></h2>
+<p>New behavior is added by writing a plugin and registering it. The general pattern is the following,
+with additional detail provided on each slots reference page:</p>
+<ol class="arabic simple">
+<li><p>Subclass the slot’s base class and declare a <code class="docutils literal notranslate"><span class="pre">name</span></code> and <code class="docutils literal notranslate"><span class="pre">version</span></code>.</p></li>
+<li><p>Implement the methods the base leaves abstract, and <code class="docutils literal notranslate"><span class="pre">validate_config</span></code> to parse
+the plugin’s options.</p></li>
+<li><p>Register the class with the slot’s factory, for example
+<code class="docutils literal notranslate"><span class="pre">NormalizerFactory.register(MyNormalizer)</span></code>.</p></li>
+<li><p>Ensure the module that performs the registration is imported during setup, so the
+name is known before a configuration is loaded.</p></li>
+</ol>
+<p>Once registered, the plugin is selectable by its <code class="docutils literal notranslate"><span class="pre">name</span></code> in the relevant config
+slot exactly like a built-in.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Registering a plugin with a name identical to one already present in the registry will overwrite it.
+This is intended behavior but may lead to unexpected results if not done with care.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="home.html" class="btn btn-neutral float-left" title="Home" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="common/plugins/index.html" class="btn btn-neutral float-right" title="Plugin" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, University of Maryland and the IceCube Collaboration.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

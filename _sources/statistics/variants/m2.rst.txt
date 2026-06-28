@@ -1,0 +1,10 @@
+M2
+==
+
+:doc:`Statistic <../index>` accumulating the Welford second moment (the sum of
+squared deviations from the mean) using a numerically stable streaming update. It is
+the basis from which the service derives variance and standard deviation, which the
+normalizer uses as its scale. Like the mean, its parallel merge relies on the count
+statistics.
+
+Selected as ``m2``. Takes no configuration.
