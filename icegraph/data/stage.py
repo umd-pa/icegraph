@@ -66,12 +66,17 @@ class Stage(Plugin[C, StageContext[I]], Generic[C, I]):
                     out = self._process(item)
 
                     # log time elapsed
+                    elapsed = (time.perf_counter() - start) * 1000
                     logger.debug(
                         "stage=%s, item=%d: completed in %.3fms",
                         self.name,
                         i,
-                        (time.perf_counter() - start) * 1000,
+                        elapsed,
                     )
+
+                    if out is not None:
+                        # record metrics
+                        out.metrics[f"{self._ctx.index}_{self.name}"] = elapsed
 
                 finally:
                     timer.cancel()
@@ -87,11 +92,6 @@ class Stage(Plugin[C, StageContext[I]], Generic[C, I]):
                     self._ctx.dst.put(out)  # blocks when full, backpressure
 
         finally:
-            # Always signal end-of-stream downstream
-            if self._ctx.dst is None:
-                logger.warning("stage %s has no destination queue", self.name)
-            else:
-                self._ctx.dst.close()
             logger.debug("stage %s finished, sentinel emitted and queue closed", self.name)
 
     @abstractmethod

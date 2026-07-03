@@ -39,6 +39,7 @@ class Envelope:
 
     # not persisted
     state:      dict[str, Any]              = field(default_factory=nested_dict)
+    metrics:    dict[str, float]            = field(default_factory=dict)
 
     @property
     def active(self) -> str | None:
@@ -106,7 +107,7 @@ class Envelope:
         **kwargs
     ) -> Self:
         if to not in self.tmp:
-            self.tmp[to] = df.copy(deep=True)
+            self.tmp[to] = df.copy()
             return self
 
         self.tmp[to] = self.tmp[to].merge(df, on=on, how=how, **kwargs)
@@ -114,7 +115,7 @@ class Envelope:
 
     def commit(self, df: pd.DataFrame, /, on: str | int | list[str | int], **kwargs) -> Self:
         if self.main.empty:
-            self.main = df.copy(deep=True)
+            self.main = df.copy()
             return self
 
         self.main = self.main.merge(df, on=on, how="left", **kwargs)

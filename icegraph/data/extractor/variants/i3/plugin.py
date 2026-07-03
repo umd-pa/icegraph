@@ -43,7 +43,7 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
     def _process(self, item: Path) -> Envelope | None:
         files = [str(self.config.gcd_path), str(item)]
 
-        with tempfile.NamedTemporaryFile() as out:
+        with tempfile.NamedTemporaryFile(dir="/dev/shm") as out:
             tray = I3Tray()
 
             tray.Add("I3Reader", Filenamelist=files)
@@ -53,7 +53,8 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 hdfwriter.I3HDFWriter,
                 Output=out.name,
                 Keys=self.config.include,
-                SubEventStreams=["InIceSplit"]
+                SubEventStreams=["InIceSplit"],
+                CompressionLevel=0
             )
 
             # suppress garbage output from icetray
