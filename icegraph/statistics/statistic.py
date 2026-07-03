@@ -111,12 +111,6 @@ class Statistic(ABC):
             # compute the stat on transformed data in each space
             self._values[space] = self._compute(self.transform[space](array))
 
-        # log time elapsed
-        logger.debug(
-            f"stat={self.name}: compute completed in %.3fms",
-            (time.perf_counter() - start) * 1000,
-        )
-
     @abstractmethod
     def _compute(self, array: ArrayF) -> ArrayF:
         """

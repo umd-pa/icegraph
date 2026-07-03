@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import ClassVar, TYPE_CHECKING
 from typing_extensions import override
+import warnings
 
 import numpy as np
 
@@ -26,7 +27,9 @@ class Mean(Statistic):
     @override
     def _compute(self, array: ArrayF) -> ArrayF:
         # take mean, ignore nans
-        return np.nanmean(array, axis=0)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Mean of empty slice")
+            return np.nanmean(array, axis=0)
 
     @classmethod
     @override
