@@ -65,7 +65,7 @@ class WelfordM2(Statistic):
 
         # compute merges m2
         ratio = np.divide(count_a * count_b, denom, out=np.zeros_like(denom, dtype=float), where=denom > 0)
-        correction = (delta * delta) * ratio
+        correction = np.where(ratio > 0, (delta * delta) * ratio, 0.0)
         m2 = m2_a + m2_b + correction
 
         # if denom==0 -> nan

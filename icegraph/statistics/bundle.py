@@ -24,7 +24,12 @@ class StatisticBundle:
 
     def get(self, kind: str) -> Statistic:
         """Return the statistic associated with the given kind."""
-        return self.stats[kind]
+        stat = self.stats.get(kind)
+
+        if stat is None:
+            raise KeyError(f"No stat '{kind}' is registered in the statistic bundle.")
+
+        return stat
 
     def compute(self, array: ArrayF) -> Self:
         """Run computation of stats for each stat in the bundle."""
