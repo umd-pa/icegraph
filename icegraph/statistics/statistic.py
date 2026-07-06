@@ -8,6 +8,8 @@ from typing import Callable, Self, ClassVar, Mapping, TYPE_CHECKING
 import inspect
 import time
 
+import numpy as np
+
 # local package
 from icegraph.common.transforms import TransformSpace
 from icegraph.typing.common import ArrayF, ArrayB, ArrayI
@@ -98,6 +100,11 @@ class Statistic(ABC):
         Args:
             array: Input data array used to compute the statistic.
         """
+        if np.iscomplex(array).any():
+            raise ValueError(
+                f"Arrays passed to a {type(self).__name__} object must not contain complex values."
+            )
+
         # start time
         start = time.perf_counter()
 
@@ -105,7 +112,15 @@ class Statistic(ABC):
         self._values.clear()
 
         # ensure correct shape
-        array = self._ensure_shape(array)
+        if array.size == 0:
+            raise ValueError("Cannot compute statistics on an empty array.")
+
+        if array.ndim != 1 and array.ndim != 2:
+            raise ValueError(f"Expected 1D or 2D array, got shape {array.shape}")
+
+        # 1d array allowed, just reshape as single column
+        if array.ndim == 1:
+            array = array.reshape(-1, 1)
 
         for space in self.spaces:
             # compute the stat on transformed data in each space
@@ -178,6 +193,12 @@ class Statistic(ABC):
         if indices.ndim != 1:
             raise ValueError(f"{type(self).__name__}.align_to: indices must be 1D, got shape {indices.shape}")
 
+        if np.unique(indices).size != indices.size:
+            raise ValueError(f"{type(self).__name__}.align_to: indices cannot contain duplicates.")
+
+        if (indices >= indices.size).any():
+            raise IndexError(f"{type(self).__name__}.align_to: indices contains out-of-bounds values.")
+
         for space, array in list(self._values.items()):
             # make sure shape matches
             if array.shape[-1] != len(indices):
@@ -236,20 +257,3 @@ class Statistic(ABC):
             instance._values[space] = data
 
         return instance
-
-    @staticmethod
-    def _ensure_shape(array: ArrayF) -> ArrayF:
-        """
-        Ensure an array has a supported shape for statistic operations.
-
-        Accepts 1D arrays (reshaped to column vectors) or 2D arrays, and
-        raises otherwise.
-
-        Args:
-            array: Input array to validate and reshape if necessary.
-        """
-        if array.ndim == 1:
-            return array.reshape(-1, 1)
-        if array.ndim == 2:
-            return array
-        raise ValueError(f"Expected 1D or 2D array, got shape {array.shape}")

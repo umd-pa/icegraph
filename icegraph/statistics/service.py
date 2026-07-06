@@ -65,11 +65,15 @@ class StatisticService:
             services: Iterable of StatisticService objects to merge.
         """
         # verify types
-        if isinstance(services, (str, bytes)) or not isinstance(services, Iterable):
+        if not isinstance(services, Iterable):
             raise TypeError(f"Argument 'services' must be an iterable over {cls.__name__} objects.")
 
         # coerce to list
         services = list(services)
+
+        # all items in collection need to be statistic service objects
+        if any(not isinstance(s, cls) for s in services):
+            raise TypeError(f"Argument 'services' must be an iterable over {cls.__name__} objects.")
 
         # break out if empty stats list
         if not services:
@@ -77,14 +81,7 @@ class StatisticService:
 
         # break out if only one service passed
         if len(services) == 1:
-            service = services[0].copy()
-            if not isinstance(service, cls):
-                raise TypeError(f"Argument 'services' must be an iterable over {cls.__name__} objects.")
-            return service.copy()
-
-        # all items in collection need to be statistic service objects
-        if any(not isinstance(s, cls) for s in services):
-            raise TypeError(f"Argument 'services' must be an iterable over {cls.__name__} objects.")
+            return services[0].copy()
 
         # merge bundles
         merged_bundle = reduce(StatisticBundle.merge, (service.bundle for service in services))
