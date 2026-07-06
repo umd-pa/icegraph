@@ -1,5 +1,11 @@
 # Changelog
 
+#### Version [0.11.2] --- July 6th, 2026:
+- Fixed a minor NaN bug in the M2 statistic.
+- Added statistics tests (this module is most prone to silent bugs).
+- Improved Pipeline performance (fixed a thread contention bug, moved to multiproc fan-in fan-out)
+- Added additional error handling in stats, added tests.
+
 #### Version [0.11.1] --- June 27th, 2026:
 - Added framework-wide docs.
 - Fixed a bug where configs weren't being forwarded properly for the Adam optimizer.

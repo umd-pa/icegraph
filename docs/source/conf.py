@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 project = 'IceGraph'
 author = 'Taylor St Jean'
-release = '0.11.1'
+release = '0.11.2'
 copyright = '2026, University of Maryland and the IceCube Collaboration'
 
 html_theme = "renku"
