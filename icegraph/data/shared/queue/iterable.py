@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from typing import Generic, TypeVar, cast
-from queue import Queue, Empty
+from queue import Queue
+from multiprocessing import Queue as MPQueue, Value
+from multiprocessing.queues import Queue as MPQueueType
 from collections.abc import Iterator
 from threading import Lock
 
@@ -13,17 +15,23 @@ __all__ = ["IterableQueue"]
 
 O = TypeVar("O")  # output type
 
-SENTINEL = object()
+
+class _Sentinel:
+    pass
 
 
 class IterableQueue(Iterator[O], Generic[O]):
 
-    def __init__(self, *, maxsize: int = 10) -> None:
+    def __init__(self, *, mp: bool = False, maxsize: int = 10, producers: int = 1, consumers: int = 1) -> None:
         # actual wrapped queue
-        self._q: Queue[O | object] = Queue(maxsize)
+        self._q: Queue[O | _Sentinel] | MPQueueType[O | _Sentinel] = Queue(maxsize) if mp is False else MPQueue(maxsize)
 
         # active flag
         self._closed = False
+
+        # multiprocessing
+        self._consumers = consumers
+        self._remaining = Value("i", producers)
 
         # lock
         self._lock = Lock()
@@ -33,7 +41,7 @@ class IterableQueue(Iterator[O], Generic[O]):
 
     def __next__(self) -> O:
         item = self._q.get()
-        if item is SENTINEL:
+        if isinstance(item, _Sentinel):
             raise StopIteration
         return cast(O, item)
 
@@ -43,9 +51,20 @@ class IterableQueue(Iterator[O], Generic[O]):
                 raise RuntimeError("Cannot put to a closed queue.")
         self._q.put(item)
 
+    def done(self) -> None:
+        """Called once per producer; closes the queue when the last producer finishes."""
+        with self._remaining.get_lock():
+            self._remaining.value -= 1
+            last = self._remaining.value == 0
+        if last:
+            self.close()
+
     def close(self) -> None:
         with self._lock:
             if self._closed:
                 return
+
             self._closed = True
-        self._q.put(SENTINEL)
+
+        for _ in range(self._consumers):
+            self._q.put(_Sentinel())

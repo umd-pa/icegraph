@@ -10,6 +10,9 @@ from icegraph.data.envelope import Envelope
 
 from .config import PivotConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 __all__ = ["Pivoter"]
 
 
@@ -42,17 +45,17 @@ class Pivoter(Processor[PivotConfig]):
         keys = index_cols + [col]
 
         # fast path: pivot assumes uniqueness so only run here on no dupe dfs
-        if not main.duplicated(subset=keys).any():
+        try:
             item.tmp[active] = (
                 main
                 .pivot(index=index_cols, columns=col, values=values)
                 .reset_index()
             )
-        else:
-            # fallback
+        except ValueError:
+            logger.warning("Fast pivot failed (likely due to duplicate keys), falling back to slower duplicate-safe version.")
             item.tmp[active] = (
                 main
-                .groupby(keys, sort=True, observed=True)[values]
+                .groupby(keys, sort=False, observed=True)[values]
                 .first()
                 .unstack(col)
                 .reset_index()

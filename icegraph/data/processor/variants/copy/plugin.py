@@ -33,7 +33,7 @@ class Copier(Processor[CopyConfig]):
         by = item.resolve_cols(self.config.by)
 
         item.merge(
-            main[list(set(item.resolve_cols(self.config.cols) + by))],
+            main[list(set(item.resolve_cols(self.config.cols) + by))].copy(),
             to=self.config.to,
             on=by
         )

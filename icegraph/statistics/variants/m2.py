@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import ClassVar, TYPE_CHECKING
 from typing_extensions import override
+import warnings
 
 import numpy as np
 
@@ -30,7 +31,10 @@ class WelfordM2(Statistic):
     @override
     def _compute(self, array: ArrayF) -> ArrayF:
         # compute m2, see https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
-        mean = np.nanmean(array, axis=0)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Mean of empty slice")
+            mean = np.nanmean(array, axis=0)
+
         diff = array - mean
         return np.nansum(diff * diff, axis=0)
 
