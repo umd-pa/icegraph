@@ -67,8 +67,6 @@ class QuiverArrays(Mapping[str, dict[str, np.ndarray]]):
     """
     Read-only view of a QuiverIPC exposing each table as a plain
     ``dict[str, np.ndarray]`` of columns. Tables load lazily on access.
-
-    This is the table format simweights consumes directly.
     """
 
     def __init__(self, quiver: QuiverIPC) -> None:
