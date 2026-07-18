@@ -7,6 +7,7 @@ from typing import ClassVar, Any
 from functools import cached_property
 
 import numpy as np
+import polars as pl
 
 from icecube import dataio                  # pyright: ignore[reportMissingImports]
 from icecube.icetray import OMKey           # pyright: ignore[reportMissingImports]
@@ -53,16 +54,18 @@ class DOMProcessor(Processor[DOMConfig]):
         out = item.resolve_cols(self.config.out)
 
         # get list of all unique dom ids in frame
-        lut = main[cols].drop_duplicates(subset=cols).copy()
+        lut = main.select(cols).unique(maintain_order=True)
 
         # compute positions from ids
-        dom_ids = lut.to_numpy(dtype=np.int64, copy=False)
+        dom_ids = lut.to_numpy().astype(np.int64, copy=False)
         pos = np.empty((len(lut), 3), dtype=np.float64)  # allocate empty array
         for i, (s, om, pmt) in enumerate(dom_ids):
             pos[i] = self._id_to_position(int(s), int(om), int(pmt))
 
         # add back to lut as new columns
-        lut[out] = pos
+        lut = lut.with_columns(
+            pl.Series(name, pos[:, i]) for i, name in enumerate(out)
+        )
 
         # merge to tmp and return
         return item.merge(lut, to=active, on=cols, validate="m:1")

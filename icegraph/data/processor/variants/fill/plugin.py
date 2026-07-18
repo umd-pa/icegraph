@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 import numpy as np
+import polars as pl
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
@@ -37,6 +38,8 @@ class Filler(Processor[FillConfig]):
         dtype = self.config.dtype
 
         # fill column with value
-        main[col] = np.full(len(main), value, dtype=np.dtype(dtype))
+        item.tmp[active] = main.with_columns(
+            pl.Series(col, np.full(len(main), value, dtype=np.dtype(dtype)))
+        )
 
         return item

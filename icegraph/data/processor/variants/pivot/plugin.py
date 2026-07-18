@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import ClassVar, Any
 
+import polars as pl
+
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
@@ -41,24 +43,17 @@ class Pivoter(Processor[PivotConfig]):
             if key not in main.columns:
                 raise RuntimeError(f"Missing expected column '{key}' in dataframe.")
 
-        index_cols = [str(c) for c in item.resolve_cols(self.config.index)]
-        keys = index_cols + [col]
+        index_cols = item.resolve_cols(self.config.index)
 
         # fast path: pivot assumes uniqueness so only run here on no dupe dfs
         try:
-            item.tmp[active] = (
-                main
-                .pivot(index=index_cols, columns=col, values=values)
-                .reset_index()
+            item.tmp[active] = main.pivot(
+                col, index=index_cols, values=values, aggregate_function=None
             )
-        except ValueError:
+        except pl.exceptions.PolarsError:
             logger.warning("Fast pivot failed (likely due to duplicate keys), falling back to slower duplicate-safe version.")
-            item.tmp[active] = (
-                main
-                .groupby(keys, sort=False, observed=True)[values]
-                .first()
-                .unstack(col)
-                .reset_index()
+            item.tmp[active] = main.pivot(
+                col, index=index_cols, values=values, aggregate_function="first"
             )
 
         return item

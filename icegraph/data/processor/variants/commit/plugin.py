@@ -34,11 +34,11 @@ class Committer(Processor[CommitConfig]):
         cols = item.resolve_cols(self.config.cols)
 
         # ensure properly compressed before commit
-        if main.duplicated(subset=ids).any():
+        if main.select(ids).is_duplicated().any():
             raise RuntimeError(f"Columns {cols} must form a unique key. Did you compress?")
 
         # commit each col one at a time so attrs can be set for each
         for col in cols:
-            item.commit(main[ids + [col]], on=ids, validate="1:1")
+            item.commit(main.select(ids + [col]), on=ids, validate="1:1")
 
         return item

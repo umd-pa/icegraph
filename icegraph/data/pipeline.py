@@ -25,6 +25,10 @@ from .writer import Writer, WriterFactory
 
 __all__ = ["Pipeline"]
 
+# polars' thread pool is not fork-safe: forked children can deadlock on frame ops.
+# spawn also matches Windows semantics, so behavior is uniform across platforms.
+_MP_CTX = mp.get_context("spawn")
+
 
 def _extract_worker(stage, src: IterableQueue[Path], dst: IterableQueue[Envelope], scratch: str, index: int, total: int, error, errors) -> None:
     try:
@@ -175,8 +179,8 @@ class Pipeline:
         Launch all stage processes. Blocks until completion or failure.
         Returns averaged metrics recorded over the run.
         """
-        error = mp.Event()
-        errors: mp.Queue = mp.Queue()
+        error = _MP_CTX.Event()
+        errors = _MP_CTX.Queue()
 
         total = 1 + len(self._processors) + 1
         scratch = self._scratch.name
@@ -184,26 +188,26 @@ class Pipeline:
         procs = self._split_procs(nproc, epw_ratio)
 
         # channels between process groups (parent is sole producer of files)
-        files_ch    = IterableQueue(mp=True, producers=1,           consumers=procs[0], maxsize=0)
-        ex_ch       = IterableQueue(mp=True, producers=procs[0],    consumers=procs[1], maxsize=procs[1])
-        pr_ch       = IterableQueue(mp=True, producers=procs[1],    consumers=procs[2], maxsize=procs[2])
-        out_ch      = IterableQueue(mp=True, producers=procs[2],    consumers=1,        maxsize=1)
+        files_ch    = IterableQueue(mp=True, ctx=_MP_CTX, producers=1,          consumers=procs[0], maxsize=0)
+        ex_ch       = IterableQueue(mp=True, ctx=_MP_CTX, producers=procs[0],   consumers=procs[1], maxsize=procs[1])
+        pr_ch       = IterableQueue(mp=True, ctx=_MP_CTX, producers=procs[1],   consumers=procs[2], maxsize=procs[2])
+        out_ch      = IterableQueue(mp=True, ctx=_MP_CTX, producers=procs[2],   consumers=1,        maxsize=1)
 
         self._procs = []
         for n in range(procs[0]):
-            self._procs.append(mp.Process(
+            self._procs.append(_MP_CTX.Process(
                 target=_extract_worker,
                 args=(self._extractor, files_ch, ex_ch, scratch, 0, total, error, errors),
                 name=f"pipeline-extract-{n}", daemon=True
             ))
         for n in range(procs[1]):
-            self._procs.append(mp.Process(
+            self._procs.append(_MP_CTX.Process(
                 target=_process_worker,
                 args=(self._processors, ex_ch, pr_ch, scratch, 1, total, error, errors),
                 name=f"pipeline-process-{n}", daemon=True
             ))
         for n in range(procs[2]):
-            self._procs.append(mp.Process(
+            self._procs.append(_MP_CTX.Process(
                 target=_write_worker,
                 args=(self._writer, pr_ch, out_ch, scratch, total - 1, total, error, errors),
                 name=f"pipeline-write-{n}", daemon=True
@@ -250,6 +254,9 @@ class Pipeline:
             metrics: dict[str, float] = {}
             count = 0
             for item in out_ch:
+                # data is persisted, drop the scratch arrow files so scratch space stays bounded
+                item.quiver.close()
+
                 count += 1
                 for key, value in item.metrics.items():
                     metrics[key] = metrics.get(key, 0.0) + (value - metrics.get(key, 0.0)) / count

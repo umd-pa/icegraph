@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 import lmdb
-import pandas as pd
+import polars as pl
 import msgpack
 
 from ..inspector import Inspector
@@ -43,14 +43,14 @@ class LMDBInspector(Inspector):
         """Unpack a byte value using msgpack."""
         return msgpack.unpackb(value, object_hook=m.decode, raw=False, **kwargs)
 
-    def _load_df(self) -> pd.DataFrame:
+    def _load_df(self) -> pl.DataFrame:
         rows: list[dict[str, Any]] = []
         with self._env.begin(db=self._dbs["data"]) as txn, txn.cursor() as cur:
             # keys are int index, so dont need to unpack them here
             for _, v in cur:
                 rows.append(self._unpack(v))
 
-        return pd.DataFrame(rows)
+        return pl.from_dicts(rows, infer_schema_length=None)
 
     def _load_attrs(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {}

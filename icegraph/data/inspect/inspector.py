@@ -7,7 +7,7 @@ from typing import Any, Self
 from pathlib import Path
 from abc import ABC, abstractmethod
 
-import pandas as pd
+import polars as pl
 
 __all__ = ["Inspector"]
 
@@ -18,7 +18,7 @@ class Inspector(ABC):
         self._path = Path(path)
 
         # caches
-        self._df:       pd.DataFrame | None     = None
+        self._df:       pl.DataFrame | None     = None
         self._attrs:    dict[str, Any] | None   = None
 
         self.build()
@@ -34,7 +34,7 @@ class Inspector(ABC):
         ...
 
     @property
-    def df(self) -> pd.DataFrame:
+    def df(self) -> pl.DataFrame:
         if self._df is None:
             self._df = self._load_df()
         return self._df
@@ -46,7 +46,7 @@ class Inspector(ABC):
         return self._attrs
 
     @abstractmethod
-    def _load_df(self) -> pd.DataFrame:
+    def _load_df(self) -> pl.DataFrame:
         ...
 
     @abstractmethod

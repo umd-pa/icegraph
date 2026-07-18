@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from scipy.spatial import KDTree
 
 from icegraph.data.processor import Processor
@@ -46,7 +46,7 @@ class KNN(Processor[KNNConfig]):
         edge_weight: list[ArrayF64] = []
 
         # iterate over each event dom data
-        for row in main[col]:
+        for row in main.get_column(col).to_list():
             # each row is of shape (N, 3) where N is dom count and 3 for x, y, z coordinates
             # thus this is already in the correct shape for cKDTree
             pos = np.asarray(row, dtype=np.float64)
@@ -72,11 +72,10 @@ class KNN(Processor[KNNConfig]):
             )
 
         # payload must include the merge keys
-        payload = main[by].copy()
-
-        # insert into the payload
-        payload[out[0]] = pd.Series(edge_index, index=payload.index, dtype="object")
-        payload[out[1]] = pd.Series(edge_weight, index=payload.index, dtype="object")
+        payload = main.select(by).with_columns(
+            pl.Series(out[0], edge_index),
+            pl.Series(out[1], edge_weight),
+        )
 
         return item.merge(payload, to=active, on=by, validate="1:1")
 

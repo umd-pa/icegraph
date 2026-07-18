@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 from rich.pretty import pprint
-import pandas as pd
+import polars as pl
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
@@ -33,12 +33,9 @@ class Inspector(Processor[InspectConfig]):
         main = item.main
 
         # print the dataframe info
-        pd.set_option("display.max_columns", None)
-        pd.set_option("display.width", None)  # auto-detect terminal width (no wrap)
-        pd.set_option("display.expand_frame_repr", False)  # prevent wrapping to multiple lines
-
-        main.info(show_counts=True)
-        console.print(main.head())
+        with pl.Config(tbl_cols=-1, tbl_width_chars=console.width):
+            console.print(main.glimpse(return_as_string=True))
+            console.print(main.head())
 
         # print attrs
         attrs = item.attrs

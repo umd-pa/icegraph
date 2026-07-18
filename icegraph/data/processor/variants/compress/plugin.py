@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
@@ -43,7 +43,7 @@ class Compressor(Processor[CompressorConfig]):
         # grab from config
         by = item.resolve_cols(self.config.by)
         to = self.config.to
-        out = self.config.out
+        out = str(self.config.out)
         cols = item.resolve_cols(self.config.cols)
         dtype = self.config.dtype
 
@@ -59,15 +59,13 @@ class Compressor(Processor[CompressorConfig]):
         parts = []
         widths = []
         for c in cols:
-            series = main[c]
+            series = main.get_column(c)
 
             # convert series to numpy
-            if np.ndim(series.iloc[0]) == 0:
-                arr = series.to_numpy(dtype=dtype).reshape(-1, 1)
-            else:
+            if isinstance(series.dtype, (pl.List, pl.Array)):
                 # raise if column is ragged
                 try:
-                    arr = np.asarray(series.tolist(), dtype=dtype)
+                    arr = np.asarray(series.to_list(), dtype=dtype)
                 except ValueError as e:
                     raise ValueError(
                         f"Column {c!r} has inconsistent cell shapes: {e}"
@@ -77,6 +75,11 @@ class Compressor(Processor[CompressorConfig]):
                         f"Column {c!r} has inconsistent cell shapes (got {arr.ndim}D object "
                         f"array, expected 2D). All rows must share the same shape."
                     )
+            else:
+                arr = series.to_numpy()
+                if dtype is not None:
+                    arr = arr.astype(dtype, copy=False)
+                arr = arr.reshape(-1, 1)
 
             # store array and width
             parts.append(arr)
@@ -89,14 +92,19 @@ class Compressor(Processor[CompressorConfig]):
         offset = np.concatenate(([0], np.cumsum(widths)))
 
         # vstack phase: group by key cols, gather rows of `values` per group
-        grouped = main.groupby(by, sort=False, observed=True).indices
-        keys = [k if isinstance(k, tuple) else (k,) for k in grouped.keys()]
-        packed = [values[idx] for idx in grouped.values()]
+        grouped = (
+            main
+            .with_row_index("__row_idx__")
+            .group_by(by, maintain_order=True)
+            .agg(pl.col("__row_idx__"))
+        )
+        packed = [
+            values[np.asarray(idx, dtype=np.int64)]
+            for idx in grouped.get_column("__row_idx__").to_list()
+        ]
 
         # build the output frame
-        result = pd.DataFrame(keys, columns=by)
-        # this is fine at runtime, just stubs being strict
-        result[out] = packed  # pyright: ignore[reportArgumentType, reportCallIssue]
+        result = grouped.drop("__row_idx__").with_columns(pl.Series(out, packed))
 
         # record the compression
         if self.config.record_names:

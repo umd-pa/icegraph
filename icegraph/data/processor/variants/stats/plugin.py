@@ -50,15 +50,15 @@ class Stats(Processor[StatsConfig]):
         payload: dict[str | int, dict[str, StatisticBundleStruct]] = {}
         for col in cols:
             payload[col] = {}
-            lut = main[col]
+            lut = main.get_column(col)
 
             unique_splits = np.unique(splitmap)
 
             for split in unique_splits:
                 mask = (splitmap == split)
-                split_lut_numpy = lut[mask].to_numpy()
+                split_cells = lut.filter(mask).to_list()
 
-                array = np.vstack(split_lut_numpy).astype(np.float64, copy=False)
+                array = np.vstack(split_cells).astype(np.float64, copy=False)
 
                 service = StatisticService(stats)
                 service.compute_from_array(array)

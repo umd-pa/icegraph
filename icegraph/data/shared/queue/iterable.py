@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar, cast
+from typing import Generic, TypeVar, cast, Any
 from queue import Queue
-from multiprocessing import Queue as MPQueue, Value
+from multiprocessing import Value, get_context
+from multiprocessing.context import BaseContext
 from multiprocessing.queues import Queue as MPQueueType
 from collections.abc import Iterator
 from threading import Lock
@@ -22,18 +23,43 @@ class _Sentinel:
 
 class IterableQueue(Iterator[O], Generic[O]):
 
-    def __init__(self, *, mp: bool = False, maxsize: int = 10, producers: int = 1, consumers: int = 1) -> None:
+    def __init__(
+        self, *,
+        mp: bool = False,
+        maxsize: int = 10,
+        producers: int = 1,
+        consumers: int = 1,
+        ctx: BaseContext | None = None
+    ) -> None:
         # actual wrapped queue
-        self._q: Queue[O | _Sentinel] | MPQueueType[O | _Sentinel] = Queue(maxsize) if mp is False else MPQueue(maxsize)
+        # polars is not fork-safe, so mp queues must come from a spawn context
+        # matching the processes they connect
+        self._q: Queue[O | _Sentinel] | MPQueueType[O | _Sentinel]
+        if mp:
+            ctx = ctx if ctx is not None else get_context("spawn")
+            self._q = ctx.Queue(maxsize)
+            self._remaining = ctx.Value("i", producers)
+        else:
+            self._q = Queue(maxsize)
+            self._remaining = Value("i", producers)
 
         # active flag
         self._closed = False
 
         # multiprocessing
         self._consumers = consumers
-        self._remaining = Value("i", producers)
 
         # lock
+        self._lock = Lock()
+
+    def __getstate__(self) -> dict[str, Any]:
+        # thread locks cannot cross process boundaries, recreated on unpickle
+        state = self.__dict__.copy()
+        state.pop("_lock", None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
         self._lock = Lock()
 
     def __iter__(self) -> IterableQueue[O]:

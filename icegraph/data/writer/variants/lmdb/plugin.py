@@ -9,7 +9,8 @@ import msgpack
 from datetime import datetime
 import lmdb
 
-import pandas as pd
+import numpy as np
+import polars as pl
 
 from icegraph import __version__
 from icegraph.data.envelope import Envelope
@@ -23,16 +24,6 @@ from .config import LMDBWriterConfig
 import msgpack_numpy as m
 m.patch()
 
-# register faulthandler
-import faulthandler
-import signal
-import sys
-
-faulthandler.enable()
-
-# dump all thread stacks on Ctrl+\ (SIGQUIT)
-faulthandler.register(signal.SIGQUIT, file=sys.stderr, all_threads=True)
-
 __all__ = ["LMDB"]
 
 # module logger
@@ -41,6 +32,22 @@ logger = logging.getLogger(__name__)
 
 
 _MB = 1 << 20
+
+# rows are packed with msgpack-numpy, so nested cells must be materialized as typed numpy arrays
+_PL_TO_NP: dict[Any, np.dtype] = {
+    pl.Float64: np.dtype(np.float64),
+    pl.Float32: np.dtype(np.float32),
+    pl.Int64: np.dtype(np.int64),
+    pl.Int32: np.dtype(np.int32),
+    pl.Int16: np.dtype(np.int16),
+    pl.Int8: np.dtype(np.int8),
+    pl.UInt64: np.dtype(np.uint64),
+    pl.UInt32: np.dtype(np.uint32),
+    pl.UInt16: np.dtype(np.uint16),
+    pl.UInt8: np.dtype(np.uint8),
+    pl.Boolean: np.dtype(np.bool_),
+}
+
 
 class LMDB(Writer[LMDBWriterConfig]):
     name: ClassVar[str] = "lmdb"
@@ -59,7 +66,7 @@ class LMDB(Writer[LMDBWriterConfig]):
         path = self.config.outdir / origin.with_suffix(".lmdb").name
 
         # add id and set id to attrs
-        _id = stable_hash_blake2b(item.main.to_numpy())
+        _id = stable_hash_blake2b(item.main.rows())
         _set_id = stable_hash_blake2b(item.attrs[AttributeDomain.GLOBAL.name])
 
         # register ids
@@ -112,7 +119,34 @@ class LMDB(Writer[LMDBWriterConfig]):
         # this does return bytes despite warning
         return msgpack.packb(value, use_bin_type=True)  # pyright: ignore[reportReturnType]
 
-    def estimate_map_size(self, main: pd.DataFrame, attrs: dict[str, Any]) -> int:
+    @staticmethod
+    def _nested_dtypes(schema: pl.Schema) -> dict[str, np.dtype | None]:
+        """Map each nested (List/Array) column to the numpy dtype of its leaf values."""
+        nested: dict[str, np.dtype | None] = {}
+        for name, dtype in schema.items():
+            if not isinstance(dtype, (pl.List, pl.Array)):
+                continue
+
+            # walk to the leaf dtype
+            leaf = dtype
+            while isinstance(leaf, (pl.List, pl.Array)):
+                leaf = leaf.inner
+
+            # None leaves conversion to numpy inference
+            nested[name] = _PL_TO_NP.get(type(leaf))
+
+        return nested
+
+    @staticmethod
+    def _to_record(row: dict[str, Any], nested: dict[str, np.dtype | None]) -> dict[str, Any]:
+        """Convert nested cells of a row dict to typed numpy arrays for msgpack-numpy."""
+        for name, dtype in nested.items():
+            value = row[name]
+            if value is not None:
+                row[name] = np.asarray(value, dtype=dtype)
+        return row
+
+    def estimate_map_size(self, main: pl.DataFrame, attrs: dict[str, Any]) -> int:
         # determine size of packed attrs
         # we can ignore ids and info as those are orders of magnitude smaller size and
         # the 3x for headroom will suffice to include them
@@ -121,16 +155,15 @@ class LMDB(Writer[LMDBWriterConfig]):
         # determine size of packed data frame
         sample_count = min(256, len(main))
         if sample_count:
-            sample = main.head(sample_count)
+            nested = self._nested_dtypes(main.schema)
 
             sample_size = 0
-            cols = list(sample.columns)
-            for row_tuple in sample.itertuples(index=False, name=None):
-                # pack the row
-                row = dict(zip(cols, row_tuple))
+            for row in main.head(sample_count).iter_rows(named=True):
+                # pack the row exactly as write() will
+                record = self._to_record(row, nested)
 
                 # record size (4 bytes for uint32be key)
-                sample_size += len(self._pack(row)) + 4
+                sample_size += len(self._pack(record)) + 4
 
             average_size = sample_size / sample_count
 
@@ -169,19 +202,19 @@ class LMDB(Writer[LMDBWriterConfig]):
 
         # write data in chunks
         chunk_size = 1000
-        columns = list(env.main.columns)
+        nested = self._nested_dtypes(env.main.schema)
 
-        for j, start in enumerate(range(0, len(env.main), chunk_size)):
+        for start in range(0, len(env.main), chunk_size):
             # set next stop checkpoint
-            end = min(start + chunk_size, len(env.main))
+            length = min(chunk_size, len(env.main) - start)
 
             with environ.begin(db=dbs["data"], write=True) as txn:
-                for i, row_tuple in enumerate(env.main.iloc[start:end].itertuples(index=False, name=None), start=start):
-                    # normalize to dict
-                    row = dict(zip(columns, row_tuple))
+                for i, row in enumerate(env.main.slice(start, length).iter_rows(named=True), start=start):
+                    # normalize nested cells to typed numpy arrays
+                    record = self._to_record(row, nested)
 
                     # use 4 byte big-endian integer as the key for numeric ordering
                     key = i.to_bytes(4, "big", signed=False)
-                    txn.put(key, self._pack(row))
+                    txn.put(key, self._pack(record))
 
         environ.sync()

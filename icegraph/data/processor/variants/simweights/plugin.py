@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from typing import ClassVar, Any, Callable
 
-from numpy.typing import ArrayLike
+import numpy as np
+import polars as pl
 import simweights
 
 from icegraph.data.processor import Processor
@@ -40,9 +41,10 @@ class Simweighter(Processor[SimweighterConfig]):
         flux_model = FluxModelFactory.create(self.config.flux.name, **self.config.flux.kwargs)
         flux_model.attach(FluxModelContext())
 
-        # construct the weighter over item.quiver
+        # construct the weighter over the quiver's numpy view
+        # (simweights consumes mappings of table -> dict of column arrays)
         # nfiles is a valid and required parameter, weighter was apparently not typed properly
-        weighter = weighter_cls(item.quiver, nfiles=1)  # pyright: ignore[reportCallIssue]
+        weighter = weighter_cls(item.quiver.arrays(), nfiles=1)  # pyright: ignore[reportCallIssue]
 
         # compute weights
         weights = weighter.get_weights(flux_model)
@@ -52,11 +54,13 @@ class Simweighter(Processor[SimweighterConfig]):
             raise RuntimeError(
                 f"simweights returned {len(weights)} weights but active frame "
                 f"{item.active!r} has {len(main)} rows. The active frame likely "
-                f"diverged from env.data ordering after some upstream processor."
+                f"diverged from the quiver table ordering after some upstream processor."
             )
 
         # write to active frame
-        main[self.config.out] = weights
+        item.tmp[active] = main.with_columns(
+            pl.Series(self.config.out, np.asarray(weights, dtype=np.float64))
+        )
 
         # cache weight_group to attrs
         item.set_local_attr("weight_group", self.config.weight_group)

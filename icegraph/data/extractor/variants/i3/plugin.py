@@ -8,9 +8,8 @@ import tempfile
 from pathlib import Path
 from contextlib import nullcontext
 
-import pandas as pd
-import pyarrow as pa
 import numpy as np
+import polars as pl
 import h5py
 
 from icegraph.utils.stdout import suppress_output
@@ -67,7 +66,7 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 tray.Execute()
 
             # load each key into a dict to save to an arrow IPC
-            tables: dict[str, pa.Table] = {}
+            tables: dict[str, pl.DataFrame] = {}
 
             # persistent quiver dir inside scratch
             # cleaned up when the pipeline tears down scratch
@@ -89,13 +88,12 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                             f"Missing key '{key}' for input file {item}. Available keys: {available}"
                         )
 
-                    for key in self.config.include:
-                        dset = f[key]
-                        assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
-                        rec = dset[:]
-                        tables[key] = pa.table(
-                            {n: np.ascontiguousarray(rec[n]) for n in rec.dtype.names}
-                        )
+                    dset = f[key]
+                    assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
+                    rec = dset[:]
+                    tables[key] = pl.DataFrame(
+                        {n: np.ascontiguousarray(rec[n]) for n in rec.dtype.names}
+                    )
 
         # create the envelope
         env = Envelope(quiver=QuiverIPC.from_data(data=tables, root=quiver_dir))

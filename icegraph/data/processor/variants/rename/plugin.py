@@ -30,7 +30,10 @@ class Renamer(Processor[RenameConfig]):
         main = item.tmp[active]
 
         # load rename map or cols/out
+        # normalize to str: polars column names are always strings
         map_ = self.config.map_
+        if map_ is not None:
+            map_ = {str(k): str(v) for k, v in map_.items()}
 
         if map_ is None:
             # these should both be covered by pydantic
@@ -51,7 +54,7 @@ class Renamer(Processor[RenameConfig]):
             raise KeyError(f"Columns not found in frame: {missing}")
 
         # rename and return
-        item.tmp[active] = main.rename(columns=map_)
+        item.tmp[active] = main.rename(map_)
 
         # need to manually update column metadata keys
         item.sync_column_names(map_)

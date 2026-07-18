@@ -8,9 +8,8 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from collections.abc import Mapping
 import itertools
-from pathlib import Path
 
-import pandas as pd
+import polars as pl
 
 from icegraph.common.data import AttributeDomain
 
@@ -30,8 +29,8 @@ class Envelope:
     quiver:     QuiverIPC
 
     # tables and attrs
-    tmp:        dict[str, pd.DataFrame]     = field(default_factory=dict)
-    main:       pd.DataFrame                = field(default_factory=pd.DataFrame)
+    tmp:        dict[str, pl.DataFrame]     = field(default_factory=dict)
+    main:       pl.DataFrame                = field(default_factory=pl.DataFrame)
     attrs:      dict[str, dict[str, Any]]   = field(default_factory=nested_dict)
 
     # not persisted
@@ -39,12 +38,15 @@ class Envelope:
     metrics:    dict[str, float]            = field(default_factory=dict)
     active:     str | None                  = None
 
-    def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str | int] | None = None) -> list[str | int]:
+    def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str] | None = None) -> list[str]:
         _seen = set() if _seen is None else _seen
 
         if isinstance(value, list):
             # use recursion for list inputs
             return list(itertools.chain.from_iterable(self.resolve_cols(v, _seen=_seen) for v in value))
+
+        # polars column names are always strings, normalize numeric refs
+        value = str(value)
 
         # check for cyclic refs
         if value in _seen:
@@ -87,25 +89,25 @@ class Envelope:
 
     def merge(
         self,
-        df: pd.DataFrame, /, *,
+        df: pl.DataFrame, /, *,
         to: str,
-        on: str | int | list[str | int],
-        how: Literal['left', 'right', 'inner', 'outer', 'cross'] = "left",
+        on: str | list[str],
+        how: Literal['left', 'right', 'inner', 'full', 'cross', 'semi', 'anti'] = "left",
         **kwargs
     ) -> Self:
         if to not in self.tmp:
-            self.tmp[to] = df.copy()
+            self.tmp[to] = df
             return self
 
-        self.tmp[to] = self.tmp[to].merge(df, on=on, how=how, **kwargs)
+        self.tmp[to] = self.tmp[to].join(df, on=on, how=how, maintain_order="left", **kwargs)
         return self
 
-    def commit(self, df: pd.DataFrame, /, on: str | int | list[str | int], **kwargs) -> Self:
-        if self.main.empty:
-            self.main = df.copy()
+    def commit(self, df: pl.DataFrame, /, on: str | list[str], **kwargs) -> Self:
+        if self.main.is_empty():
+            self.main = df
             return self
 
-        self.main = self.main.merge(df, on=on, how="left", **kwargs)
+        self.main = self.main.join(df, on=on, how="left", maintain_order="left", **kwargs)
         return self
 
     def devivify(self) -> Self:
@@ -125,4 +127,3 @@ class Envelope:
         self.attrs = _devivify(self.attrs)
         self.state = _devivify(self.state)
         return self
-

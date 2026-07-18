@@ -32,8 +32,11 @@ class Copier(Processor[CopyConfig]):
         # resolve by
         by = item.resolve_cols(self.config.by)
 
+        # ordered dedupe of selected columns
+        cols = list(dict.fromkeys(item.resolve_cols(self.config.cols) + by))
+
         item.merge(
-            main[list(set(item.resolve_cols(self.config.cols) + by))].copy(),
+            main.select(cols),
             to=self.config.to,
             on=by
         )
