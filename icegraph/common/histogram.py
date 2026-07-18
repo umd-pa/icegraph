@@ -72,12 +72,12 @@ class Histogram:
     @property
     @require_bounds
     def mins(self) -> ArrayF64:
-        return self.bounds[0]
+        return self.bounds[0]  # pyright: ignore[reportOptionalSubscript]
 
     @property
     @require_bounds
     def maxs(self) -> ArrayF64:
-        return self.bounds[1]
+        return self.bounds[1]  # pyright: ignore[reportOptionalSubscript]
 
     @property
     def bins(self) -> tuple[int, ...]:

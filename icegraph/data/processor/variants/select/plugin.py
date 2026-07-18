@@ -5,6 +5,9 @@ from __future__ import annotations
 
 from typing import ClassVar, Any
 
+import pyarrow as pa
+import pandas as pd
+
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
@@ -31,11 +34,13 @@ class Selector(Processor[SelectConfig]):
 
         if item.active not in item.tmp:
             # load required data from envelope if not in tmp yet
-            df = item.data.get(item.active)
+            table: pa.Table = item.quiver.get(item.active)
+            df: pd.DataFrame = table.to_pandas()
+
             if df is None:
                 raise RuntimeError(f"Could not resolve key '{item.active}' in data.")
 
-            # copy to tmp
-            item.tmp[item.active] = df.copy(deep=True)
+            # cache to tmp
+            item.tmp[item.active] = df
 
         return item

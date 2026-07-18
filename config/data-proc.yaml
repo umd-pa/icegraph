@@ -1,8 +1,9 @@
 extractor:
   name: i3
   kwargs:
-    gcd_path: /data/i3store/users/tstjean/data/runs/00131335/Level2_IC86.2018_data_Run00131335_0801_75_417_GCD.i3.zst
+    gcd_path: /data/i3store/users/tstjean/131341/Level2_IC86.2018_data_Run00131341_0801_74_406_GCD.i3.zst
     skip_missing: true
+    suppress_icetray_output: false
 
     # ml_suite configurations, see ml_suite docs
     ml_suite:
@@ -105,4 +106,4 @@ processors:  # ordered list of processors, each can be used any number of times
 writer:
   name: lmdb
   kwargs:
-    outdir: /data/i3store/users/tstjean/data/00131335
+    outdir: /data/i3store/users/tstjean/131341/processed

@@ -193,4 +193,4 @@ processors:  # ordered list of processors, each can be used any number of times
 writer:
   name: lmdb
   kwargs:
-    outdir: /data/i3store/users/tstjean/data/23016
+    outdir: /data/i3store/users/tstjean/tmp

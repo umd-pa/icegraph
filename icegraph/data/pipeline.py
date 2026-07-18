@@ -185,9 +185,9 @@ class Pipeline:
 
         # channels between process groups (parent is sole producer of files)
         files_ch    = IterableQueue(mp=True, producers=1,           consumers=procs[0], maxsize=0)
-        ex_ch       = IterableQueue(mp=True, producers=procs[0],    consumers=procs[1])
-        pr_ch       = IterableQueue(mp=True, producers=procs[1],    consumers=procs[2])
-        out_ch      = IterableQueue(mp=True, producers=procs[2],    consumers=1)
+        ex_ch       = IterableQueue(mp=True, producers=procs[0],    consumers=procs[1], maxsize=procs[1])
+        pr_ch       = IterableQueue(mp=True, producers=procs[1],    consumers=procs[2], maxsize=procs[2])
+        out_ch      = IterableQueue(mp=True, producers=procs[2],    consumers=1,        maxsize=1)
 
         self._procs = []
         for n in range(procs[0]):

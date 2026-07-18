@@ -16,3 +16,4 @@ class I3ExtractorConfig(BaseModel):
     include:        list[str]
     ml_suite:       dict[str, Any]  # validation is up to ml_suite
     skip_missing:   bool            = False  # skip any files with no frames
+    suppress_icetray_output: bool   = True

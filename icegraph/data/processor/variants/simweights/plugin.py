@@ -40,9 +40,9 @@ class Simweighter(Processor[SimweighterConfig]):
         flux_model = FluxModelFactory.create(self.config.flux.name, **self.config.flux.kwargs)
         flux_model.attach(FluxModelContext())
 
-        # construct the weighter over item.data
+        # construct the weighter over item.quiver
         # nfiles is a valid and required parameter, weighter was apparently not typed properly
-        weighter = weighter_cls(item.data, nfiles=1)  # pyright: ignore[reportCallIssue]
+        weighter = weighter_cls(item.quiver, nfiles=1)  # pyright: ignore[reportCallIssue]
 
         # compute weights
         weights = weighter.get_weights(flux_model)

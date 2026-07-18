@@ -8,10 +8,13 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from collections.abc import Mapping
 import itertools
+from pathlib import Path
 
 import pandas as pd
 
 from icegraph.common.data import AttributeDomain
+
+from .quiver import QuiverIPC
 
 __all__ = ["Envelope"]
 
@@ -22,17 +25,11 @@ def nested_dict():
 
 @dataclass
 class Envelope:
-    """
-    Data wrapper passed between pipeline stages.
+    """Data wrapper passed between pipeline stages."""
+    # raw data
+    quiver:     QuiverIPC
 
-    Attributes:
-        main: The payload DataFrame.
-        tmp: Temp work space for processors. The selector moves frames to tmp, committer packs to main.
-        data: Raw data from the extractor.
-        attrs: Data attributes (auto-nesting until de-vivification). Must include 'GLOBAL' and 'LOCAL' domain.
-        state: Internal dict for inter-stage communication.
-    """
-    data:       dict[str, pd.DataFrame]
+    # tables and attrs
     tmp:        dict[str, pd.DataFrame]     = field(default_factory=dict)
     main:       pd.DataFrame                = field(default_factory=pd.DataFrame)
     attrs:      dict[str, dict[str, Any]]   = field(default_factory=nested_dict)
@@ -40,17 +37,7 @@ class Envelope:
     # not persisted
     state:      dict[str, Any]              = field(default_factory=nested_dict)
     metrics:    dict[str, float]            = field(default_factory=dict)
-
-    @property
-    def active(self) -> str | None:
-        return self.state.get("active")
-
-    @active.setter
-    def active(self, key: str | None) -> None:
-        if key is None:
-            self.state.pop("active", None)
-            return
-        self.state["active"] = key
+    active:     str | None                  = None
 
     def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str | int] | None = None) -> list[str | int]:
         _seen = set() if _seen is None else _seen

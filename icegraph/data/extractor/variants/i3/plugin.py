@@ -6,13 +6,17 @@ from __future__ import annotations
 from typing import ClassVar, Any
 import tempfile
 from pathlib import Path
+from contextlib import nullcontext
 
 import pandas as pd
+import pyarrow as pa
+import numpy as np
 import h5py
 
 from icegraph.utils.stdout import suppress_output
 from icegraph.data.envelope import Envelope
 from icegraph.data.extractor import Extractor
+from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
 
@@ -43,7 +47,7 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
     def _process(self, item: Path) -> Envelope | None:
         files = [str(self.config.gcd_path), str(item)]
 
-        with tempfile.NamedTemporaryFile(dir="/dev/shm") as out:
+        with tempfile.NamedTemporaryFile(dir=self._ctx.scratch) as out:
             tray = I3Tray()
 
             tray.Add("I3Reader", Filenamelist=files)
@@ -57,12 +61,18 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 CompressionLevel=0
             )
 
-            # suppress garbage output from icetray
-            with suppress_output():
+            # suppress output from icetray if desired
+            ctx = suppress_output if self.config.suppress_icetray_output else nullcontext
+            with ctx():
                 tray.Execute()
 
-            # load each into a dict to pass to envelope
-            data: dict[str, pd.DataFrame] = {}
+            # load each key into a dict to save to an arrow IPC
+            tables: dict[str, pa.Table] = {}
+
+            # persistent quiver dir inside scratch
+            # cleaned up when the pipeline tears down scratch
+            quiver_dir = Path(tempfile.mkdtemp(dir=self._ctx.scratch, prefix="quiver-"))
+
             with h5py.File(out.name, "r") as f:
 
                 # ensure key exists in file
@@ -76,15 +86,19 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
 
                         # if skip missing is set to False, raise and break out
                         raise KeyError(
-                            f"Missing HDF5 key '{key}' for input file {item}. Available keys: {available}"
+                            f"Missing key '{key}' for input file {item}. Available keys: {available}"
                         )
 
-                    dset = f[key]
-                    assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
-                    data[key] = pd.DataFrame(dset[:])
+                    for key in self.config.include:
+                        dset = f[key]
+                        assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
+                        rec = dset[:]
+                        tables[key] = pa.table(
+                            {n: np.ascontiguousarray(rec[n]) for n in rec.dtype.names}
+                        )
 
         # create the envelope
-        env = Envelope(data=data)
+        env = Envelope(quiver=QuiverIPC.from_data(data=tables, root=quiver_dir))
 
         # register metadata
         env.set_local_attr("origin", str(item))
