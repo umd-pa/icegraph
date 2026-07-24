@@ -45,15 +45,8 @@ class Pivoter(Processor[PivotConfig]):
 
         index_cols = item.resolve_cols(self.config.index)
 
-        # fast path: pivot assumes uniqueness so only run here on no dupe dfs
-        try:
-            item.tmp[active] = main.pivot(
-                col, index=index_cols, values=values, aggregate_function=None
-            )
-        except pl.exceptions.PolarsError:
-            logger.warning("Fast pivot failed (likely due to duplicate keys), falling back to slower duplicate-safe version.")
-            item.tmp[active] = main.pivot(
-                col, index=index_cols, values=values, aggregate_function="first"
-            )
+        item.tmp[active] = main.pivot(
+            col, index=index_cols, values=values, aggregate_function=None
+        )
 
         return item

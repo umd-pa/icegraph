@@ -39,8 +39,11 @@ class Unique(Processor[UniqueConfig]):
         # update for each col
         for col in cols:
             series = main.get_column(col).drop_nulls()
+
+            # if dtype is float, filter out nans
             if series.dtype.is_float():
                 series = series.filter(~series.is_nan())
+
             item.set_column_attr(
                 col, "unique", series.unique(maintain_order=True).to_list(), domain=AttributeDomain.LOCAL
             )

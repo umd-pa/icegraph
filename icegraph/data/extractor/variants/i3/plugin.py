@@ -1,4 +1,4 @@
-# Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
+ # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
 from __future__ import annotations
@@ -68,10 +68,6 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             # load each key into a dict to save to an arrow IPC
             tables: dict[str, pl.DataFrame] = {}
 
-            # persistent quiver dir inside scratch
-            # cleaned up when the pipeline tears down scratch
-            quiver_dir = Path(tempfile.mkdtemp(dir=self._ctx.scratch, prefix="quiver-"))
-
             with h5py.File(out.name, "r") as f:
 
                 # ensure key exists in file
@@ -92,8 +88,12 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                     assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
                     rec = dset[:]
                     tables[key] = pl.DataFrame(
-                        {n: np.ascontiguousarray(rec[n]) for n in rec.dtype.names}
+                        {n: self._to_native(rec[n]) for n in rec.dtype.names}
                     )
+
+        # persistent quiver dir inside scratch
+        # cleaned up when the pipeline tears down scratch
+        quiver_dir = Path(tempfile.mkdtemp(dir=self._ctx.scratch, prefix="quiver-"))
 
         # create the envelope
         env = Envelope(quiver=QuiverIPC.from_data(data=tables, root=quiver_dir))
@@ -106,4 +106,16 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         env.state["extractor"]["src_file_ext"] = type(self).file_ext
 
         return env
+
+    @staticmethod
+    def _to_native(a: np.ndarray) -> np.ndarray:
+        # arrow has some quirks with endianness, so need to manually check and convert if necessary
+        # this will essentially never actually be a problem (most everything writes in little-endian anyway),
+        # but the error is extremely cryptic and hard to diagnose so better safe than sorry
+
+        # for subarray fields the byte order lives on the base dtype
+        base = a.dtype.base
+        if base.names is None and not base.isnative:
+            a = a.astype(a.dtype.newbyteorder("="))
+        return np.ascontiguousarray(a)
 

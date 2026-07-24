@@ -44,7 +44,6 @@ class Stage(Plugin[C, StageContext[I]], Generic[C, I]):
         """Consume inputs, process them, and emit results downstream."""
         logger.debug("stage %s starting", self.name)
 
-
         try:
             for i, item in enumerate(self._ctx.src):
                 # if we are on last stage, need to devivify the env before processing
@@ -92,7 +91,7 @@ class Stage(Plugin[C, StageContext[I]], Generic[C, I]):
                     self._ctx.dst.put(out)  # blocks when full, backpressure
 
         finally:
-            logger.debug("stage %s finished, sentinel emitted and queue closed", self.name)
+            logger.debug("stage %s finished consuming", self.name)
 
     @abstractmethod
     def _process(self, item: I) -> Envelope | None:

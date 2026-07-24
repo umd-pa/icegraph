@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import torch
 from torch import Tensor
 
-import numpy as np
+from jaxtyping import Int
 
 from icegraph.common.record import Record
 
@@ -46,3 +46,12 @@ class StandardRecordDecoder(RecordDecoder[StandardRecordDecoderConfig]):
             ) from e
         
         return tensor
+
+    def _extract_edge_index(self, record: Record, key: str) -> Int[Tensor, "2 E"] | None:
+        tensor = self.extract(record, key)
+
+        if tensor is None:
+            return None
+
+        # need to ensure contiguity after transpose or downstream will explode
+        return tensor.t().contiguous()

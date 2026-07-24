@@ -80,7 +80,7 @@ class Envelope:
     def set_column_attr(self, column: str | int, key: str, data: Any, *, domain: AttributeDomain) -> None:
         self.attrs[domain.name]["columns"][column][key] = data
 
-    def sync_column_names(self, mapping: dict[str | int, str | int]) -> None:
+    def sync_column_names(self, mapping: dict[str, str]) -> None:
         for domain in AttributeDomain.all():
             cols = self.attrs[domain.name]["columns"]
             renamed = {mapping.get(k, k): v for k, v in cols.items()}

@@ -44,7 +44,7 @@ class QuiverIPC(Mapping[str, pl.DataFrame]):
         return sum(1 for _ in self.root.rglob("*.arrow"))
 
     def arrays(self) -> QuiverArrays:
-        """Lazy column-dict view (tables as ``dict[str, np.ndarray]``), e.g. for simweights."""
+        """Lazy column-dict view (tables as ``dict[str, np.ndarray]``)"""
         return QuiverArrays(self)
 
     @classmethod

@@ -55,7 +55,13 @@ class RecordService(Service[RecordConfig]):
 
     @cached_property
     def file_count(self) -> int:
-        return len(list(self.source.resolve(self._target_file_ext)))
+        file_count = len(list(self.source.resolve(self._target_file_ext)))
+
+        # do a quick check to ensure non-0 file count
+        if file_count == 0:
+            raise FileNotFoundError("Record service received 0 data files.")
+
+        return file_count
 
     @cached_property
     def source(self) -> Source:

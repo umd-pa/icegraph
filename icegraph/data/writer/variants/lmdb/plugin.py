@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Any, Literal, cast
+from typing import ClassVar, Any, Literal, cast, Iterator
 from pathlib import Path
 import msgpack
 from datetime import datetime
@@ -15,7 +15,7 @@ import polars as pl
 from icegraph import __version__
 from icegraph.data.envelope import Envelope
 from icegraph.data.writer import Writer
-from icegraph.utils.hashutils import stable_hash_blake2b
+from icegraph.utils.hashutils import CBORBlake2B
 from icegraph.common.data import AttributeDomain
 
 from .config import LMDBWriterConfig
@@ -32,21 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 _MB = 1 << 20
-
-# rows are packed with msgpack-numpy, so nested cells must be materialized as typed numpy arrays
-_PL_TO_NP: dict[Any, np.dtype] = {
-    pl.Float64: np.dtype(np.float64),
-    pl.Float32: np.dtype(np.float32),
-    pl.Int64: np.dtype(np.int64),
-    pl.Int32: np.dtype(np.int32),
-    pl.Int16: np.dtype(np.int16),
-    pl.Int8: np.dtype(np.int8),
-    pl.UInt64: np.dtype(np.uint64),
-    pl.UInt32: np.dtype(np.uint32),
-    pl.UInt16: np.dtype(np.uint16),
-    pl.UInt8: np.dtype(np.uint8),
-    pl.Boolean: np.dtype(np.bool_),
-}
 
 
 class LMDB(Writer[LMDBWriterConfig]):
@@ -65,9 +50,10 @@ class LMDB(Writer[LMDBWriterConfig]):
         origin = Path(item.get_local_attr("origin"))
         path = self.config.outdir / origin.with_suffix(".lmdb").name
 
-        # add id and set id to attrs
-        _id = stable_hash_blake2b(item.main.rows())
-        _set_id = stable_hash_blake2b(item.attrs[AttributeDomain.GLOBAL.name])
+        # compute id and set id
+        hasher = CBORBlake2B()
+        _id = hasher(item.main.rows())
+        _set_id = hasher(item.attrs[AttributeDomain.GLOBAL.name])
 
         # register ids
         item.set_local_attr("id", _id)
@@ -88,7 +74,7 @@ class LMDB(Writer[LMDBWriterConfig]):
         environ, dbs = self.handle(path, map_size)
 
         try:
-            self.write(item, environ, dbs)
+            self.write(item, environ, dbs, hasher=hasher.name)
         finally:
             environ.close()
 
@@ -120,31 +106,31 @@ class LMDB(Writer[LMDBWriterConfig]):
         return msgpack.packb(value, use_bin_type=True)  # pyright: ignore[reportReturnType]
 
     @staticmethod
-    def _nested_dtypes(schema: pl.Schema) -> dict[str, np.dtype | None]:
-        """Map each nested (List/Array) column to the numpy dtype of its leaf values."""
-        nested: dict[str, np.dtype | None] = {}
-        for name, dtype in schema.items():
-            if not isinstance(dtype, (pl.List, pl.Array)):
-                continue
+    def _records(main: pl.DataFrame) -> Iterator[dict[str, Any]]:
+        """Yield per-row dicts."""
+        columns = main.columns
+        schema = main.schema
 
-            # walk to the leaf dtype
-            leaf = dtype
-            while isinstance(leaf, (pl.List, pl.Array)):
-                leaf = leaf.inner
+        nested_cols = [n for n, dt in schema.items() if isinstance(dt, (pl.List, pl.Array))]
+        scalar_cols = [n for n in columns if n not in nested_cols]
 
-            # None leaves conversion to numpy inference
-            nested[name] = _PL_TO_NP.get(type(leaf))
+        # one dtype-correct numpy array per nested column
+        # an object array of typed arrays for List columns, or a single typed ND array for
+        # fixed-width Array columns
+        nested = {n: main.get_column(n).to_numpy() for n in nested_cols}
 
-        return nested
+        # scalars are iterated natively, nested cells are pulled from nested,
+        # so the large graph payloads are materialized only once
+        scalar_iter = main.select(scalar_cols).iter_rows(named=True) if scalar_cols else None
 
-    @staticmethod
-    def _to_record(row: dict[str, Any], nested: dict[str, np.dtype | None]) -> dict[str, Any]:
-        """Convert nested cells of a row dict to typed numpy arrays for msgpack-numpy."""
-        for name, dtype in nested.items():
-            value = row[name]
-            if value is not None:
-                row[name] = np.asarray(value, dtype=dtype)
-        return row
+        for i in range(len(main)):
+            scal = next(scalar_iter) if scalar_iter is not None else {}
+
+            row: dict[str, Any] = {}
+            for name in columns:
+                row[name] = nested[name][i] if name in nested else scal[name]
+
+            yield row
 
     def estimate_map_size(self, main: pl.DataFrame, attrs: dict[str, Any]) -> int:
         # determine size of packed attrs
@@ -155,14 +141,9 @@ class LMDB(Writer[LMDBWriterConfig]):
         # determine size of packed data frame
         sample_count = min(256, len(main))
         if sample_count:
-            nested = self._nested_dtypes(main.schema)
-
             sample_size = 0
-            for row in main.head(sample_count).iter_rows(named=True):
-                # pack the row exactly as write() will
-                record = self._to_record(row, nested)
-
-                # record size (4 bytes for uint32be key)
+            for record in self._records(main.head(sample_count)):
+                # pack the row exactly as write() will (4 bytes for uint32be key)
                 sample_size += len(self._pack(record)) + 4
 
             average_size = sample_size / sample_count
@@ -174,7 +155,7 @@ class LMDB(Writer[LMDBWriterConfig]):
         size = ((size + _MB - 1) // _MB) * _MB  # round up to nearest MB
         return size
 
-    def write(self, env: Envelope, environ: lmdb.Environment, dbs: dict[Literal['data', 'attr'], Any]) -> None:
+    def write(self, env: Envelope, environ: lmdb.Environment, dbs: dict[Literal['data', 'attr'], Any], hasher: str) -> None:
         # first write attrs
         with environ.begin(db=dbs["attr"], write=True) as txn:
             # write timestamp and icegraph version info
@@ -192,7 +173,7 @@ class LMDB(Writer[LMDBWriterConfig]):
                     "attr": "utf-8"
                 },
                 "packer": "msgpack-numpy",
-                "hasher": stable_hash_blake2b.name  # type: ignore
+                "hasher": hasher
             }
             txn.put("info".encode(), self._pack(info))
 
@@ -202,19 +183,15 @@ class LMDB(Writer[LMDBWriterConfig]):
 
         # write data in chunks
         chunk_size = 1000
-        nested = self._nested_dtypes(env.main.schema)
 
         for start in range(0, len(env.main), chunk_size):
             # set next stop checkpoint
             length = min(chunk_size, len(env.main) - start)
 
             with environ.begin(db=dbs["data"], write=True) as txn:
-                for i, row in enumerate(env.main.slice(start, length).iter_rows(named=True), start=start):
-                    # normalize nested cells to typed numpy arrays
-                    record = self._to_record(row, nested)
-
+                for offset, record in enumerate(self._records(env.main.slice(start, length))):
                     # use 4 byte big-endian integer as the key for numeric ordering
-                    key = i.to_bytes(4, "big", signed=False)
+                    key = (start + offset).to_bytes(4, "big", signed=False)
                     txn.put(key, self._pack(record))
 
         environ.sync()

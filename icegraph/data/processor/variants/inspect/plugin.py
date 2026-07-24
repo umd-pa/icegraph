@@ -34,7 +34,7 @@ class Inspector(Processor[InspectConfig]):
 
         # print the dataframe info
         with pl.Config(tbl_cols=-1, tbl_width_chars=console.width):
-            console.print(main.glimpse(return_as_string=True))
+            console.print(main.glimpse(return_type="string"))
             console.print(main.head())
 
         # print attrs

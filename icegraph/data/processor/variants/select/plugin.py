@@ -10,6 +10,9 @@ from icegraph.data.envelope import Envelope
 
 from .config import SelectConfig
 
+import logging
+logger = logging.getLogger(__name__)
+
 __all__ = ["Selector"]
 
 
@@ -26,17 +29,21 @@ class Selector(Processor[SelectConfig]):
         return SelectConfig(**config)
 
     def _process(self, item: Envelope) -> Envelope | None:
-        # set active frame
-        item.active = self.config.key
+        key = self.config.key
 
-        if item.active not in item.tmp:
+        if key not in item.tmp:
             # load required data from the quiver if not in tmp yet
-            df = item.quiver.get(item.active)
+            df = item.quiver.get(key)
+
+            logger.info(f"Loading arrow '{key}' from quiver.")
 
             if df is None:
-                raise RuntimeError(f"Could not resolve key '{item.active}' in data.")
+                raise RuntimeError(f"Could not resolve arrow '{key}' from quiver.")
 
             # cache to tmp
-            item.tmp[item.active] = df
+            item.tmp[key] = df
+
+        # set active frame
+        item.active = key
 
         return item

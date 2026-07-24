@@ -50,8 +50,14 @@ class DOMProcessor(Processor[DOMConfig]):
             self._geometry = self._get_geometry(gcd_path)
 
         # get string, om, pmt cols
-        cols = item.resolve_cols(self.config.cols)
+        cols = [self.config.string, self.config.om, self.config.pmt]
         out = item.resolve_cols(self.config.out)
+
+        # ensure out resolves to three col names
+        if len(out) != 3:
+            raise RuntimeError(
+                f"DOMProcessor: expected 'out' to resolve to three column names (one for each of x, y, z), got '{out}'"
+            )
 
         # get list of all unique dom ids in frame
         lut = main.select(cols).unique(maintain_order=True)

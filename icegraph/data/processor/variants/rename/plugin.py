@@ -30,7 +30,7 @@ class Renamer(Processor[RenameConfig]):
         main = item.tmp[active]
 
         # load rename map or cols/out
-        # normalize to str: polars column names are always strings
+        # normalize to str since polars column names are always strings
         map_ = self.config.map_
         if map_ is not None:
             map_ = {str(k): str(v) for k, v in map_.items()}

@@ -1,4 +1,4 @@
-# Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
+ # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
 from __future__ import annotations
@@ -104,7 +104,11 @@ class Compressor(Processor[CompressorConfig]):
         ]
 
         # build the output frame
-        result = grouped.drop("__row_idx__").with_columns(pl.Series(out, packed))
+        inner = pl.Series(values=values.reshape(-1)[:0]).dtype  # numpy dtype -> polars dtype
+        col_dtype = pl.List(pl.Array(inner, values.shape[1]))
+        result = grouped.drop("__row_idx__").with_columns(
+            pl.Series(out, packed, dtype=col_dtype)
+        )
 
         # record the compression
         if self.config.record_names:

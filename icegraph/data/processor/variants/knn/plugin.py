@@ -39,17 +39,25 @@ class KNN(Processor[KNNConfig]):
 
         # load config
         by = item.resolve_cols(self.config.by)
-        col = self.config.col
+        col = str(self.config.col)
 
         # edges
         edge_index: list[ArrayI64] = []
         edge_weight: list[ArrayF64] = []
 
         # iterate over each event dom data
-        for row in main.get_column(col).to_list():
-            # each row is of shape (N, 3) where N is dom count and 3 for x, y, z coordinates
-            # thus this is already in the correct shape for cKDTree
-            pos = np.asarray(row, dtype=np.float64)
+        geo = main.get_column(col)
+
+        # ensure correct dtype
+        # each row should be of shape (N, 3) where N is dom count and 3 for x, y, z coordinates
+        # thus this should already in the correct shape for KDTree
+        target = pl.List(pl.Array(pl.Float64, 3))
+        if geo.dtype != target:
+            geo = geo.cast(target)
+
+        sub: pl.Series
+        for sub in geo:
+            pos = sub.to_numpy()
 
             # drop any infinite values (unlikely, just in case)
             mask = np.isfinite(pos).all(axis=1)
@@ -62,7 +70,7 @@ class KNN(Processor[KNNConfig]):
         # set up payload
         out = item.resolve_cols(self.config.out)
         if len(out) != 2:
-            raise RuntimeError(f"KNN: expected out to have two elements, got {out}")
+            raise RuntimeError(f"KNN: expected 'out' to have two elements, got {out}")
 
         # sanity checks
         n = len(main)
@@ -73,8 +81,8 @@ class KNN(Processor[KNNConfig]):
 
         # payload must include the merge keys
         payload = main.select(by).with_columns(
-            pl.Series(out[0], edge_index),
-            pl.Series(out[1], edge_weight),
+            pl.Series(out[0], edge_index, dtype=pl.List(pl.Array(pl.Int64, 2))),
+            pl.Series(out[1], edge_weight, dtype=pl.List(pl.Float64)),
         )
 
         return item.merge(payload, to=active, on=by, validate="1:1")
@@ -84,7 +92,7 @@ class KNN(Processor[KNNConfig]):
 
         n = pos.shape[0]
         if n <= 1:
-            return np.empty((2, 0), dtype=np.int64), np.empty((0,), dtype=np.float64)
+            return np.empty((0, 2), dtype=np.int64), np.empty((0,), dtype=np.float64)
 
         # get effective k
         k = min(self.config.k, n - 1)
@@ -97,19 +105,17 @@ class KNN(Processor[KNNConfig]):
         dists: ArrayF64 = np.asarray(dists_raw)
         indices: ArrayI = np.asarray(indices_raw)
 
-        if k == 1:
-            dists = dists[:, None]
-            indices = indices[:, None]
-
+        # remove self to self dist and index
         dists = dists[:, 1:]
         indices = indices[:, 1:]
 
         src = np.repeat(np.arange(n, dtype=np.int64), k)
         dst = indices.reshape(-1).astype(np.int64, copy=False)
 
-        edge_index = np.empty((2, n * k), dtype=np.int64)
-        edge_index[0] = src
-        edge_index[1] = dst
+        # stack indices
+        edge_index = np.stack([src, dst])
 
+        # format weights
         edge_weight = dists.reshape(-1).astype(np.float64, copy=False)
-        return edge_index, edge_weight
+
+        return edge_index.T.copy(), edge_weight

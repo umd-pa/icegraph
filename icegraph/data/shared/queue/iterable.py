@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from typing import Generic, TypeVar, cast, Any
-from queue import Queue
+from queue import Queue, Empty
 from multiprocessing import Value, get_context
 from multiprocessing.context import BaseContext
 from multiprocessing.queues import Queue as MPQueueType
@@ -45,6 +45,7 @@ class IterableQueue(Iterator[O], Generic[O]):
 
         # active flag
         self._closed = False
+        self._terminated = False
 
         # multiprocessing
         self._consumers = consumers
@@ -71,6 +72,22 @@ class IterableQueue(Iterator[O], Generic[O]):
             raise StopIteration
         return cast(O, item)
 
+    def poll(self, timeout: float) -> O | None:
+        """
+        Get the next item, or None if nothing arrived within `timeout`.
+
+        Lets a consumer stay responsive to out-of-band shutdown signals instead
+        of blocking forever on a queue no live producer will ever feed again.
+        """
+        try:
+            item = self._q.get(timeout=timeout)
+        except Empty:
+            return None
+
+        if isinstance(item, _Sentinel):
+            raise StopIteration
+        return cast(O, item)
+
     def put(self, item: O) -> None:
         with self._lock:
             if self._closed:
@@ -79,6 +96,10 @@ class IterableQueue(Iterator[O], Generic[O]):
 
     def done(self) -> None:
         """Called once per producer; closes the queue when the last producer finishes."""
+        with self._lock:
+            if self._terminated or self._remaining is None:
+                return
+
         with self._remaining.get_lock():
             self._remaining.value -= 1
             last = self._remaining.value == 0
@@ -87,10 +108,25 @@ class IterableQueue(Iterator[O], Generic[O]):
 
     def close(self) -> None:
         with self._lock:
-            if self._closed:
+            if self._closed or self._terminated:
                 return
 
             self._closed = True
 
         for _ in range(self._consumers):
             self._q.put(_Sentinel())
+
+    def terminate(self) -> None:
+        """Release OS-backed resources (mp queue feeder thread and named semaphores).
+        Idempotent. Distinct from close(), which only broadcasts sentinels.
+        """
+        with self._lock:
+            if self._terminated:
+                return
+
+            self._terminated = True
+
+        if isinstance(self._q, MPQueueType):
+            self._q.cancel_join_thread()  # don't wait on a feeder whose consumer is dead
+            self._q.close()
+        # stdlib Queue owns no OS handles
