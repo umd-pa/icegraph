@@ -61,7 +61,10 @@ def _extract_worker(
         error.set()
 
     finally:
-        stage.close()
+        try:
+            stage.close()
+        finally:
+            dst.done()
 
 
 def _process_worker(
@@ -131,8 +134,11 @@ def _process_worker(
         error.set()
 
     finally:
-        for s in stages:
-            s.close()
+        try:
+            for s in stages:
+                s.close()
+        finally:
+            dst.done()
 
 
 def _write_worker(
@@ -143,7 +149,8 @@ def _write_worker(
         stage_count: int,
         error: Event,
         errors: mp.Queue,
-        worker_index: int
+        worker_index: int,
+        outdir: Path
 ) -> None:
     set_proctitle(f"icegraph-writer-{worker_index}")
 
@@ -153,7 +160,16 @@ def _write_worker(
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
-        stage.attach(StageContext(src=src, dst=dst, scratch=Path(scratch), index=stage_count - 1, total=stage_count))
+        stage.attach(
+            StageContext(
+                src=src,
+                dst=dst,
+                scratch=Path(scratch),
+                index=stage_count - 1,
+                total=stage_count,
+                outdir=outdir
+            )
+        )
         stage.execute()
 
     except SystemExit:
@@ -164,7 +180,10 @@ def _write_worker(
         error.set()
 
     finally:
-        stage.close()
+        try:
+            stage.close()
+        finally:
+            dst.done()
 
 
 class Pipeline:
@@ -178,11 +197,15 @@ class Pipeline:
     def __init__(
             self,
             source: Source | SourceType,
+            outdir: str | Path,
             extractor: Extractor[Any],
             processors: list[Processor[Any]],
             writer: Writer[Any]
     ) -> None:
         source = Source(source)
+
+        # cache outdir to pass to writers
+        self._outdir = Path(outdir)
 
         self._extractor = extractor
         self._processors = processors
@@ -199,7 +222,7 @@ class Pipeline:
         self._errors:   mp.Queue[Any] | None        = None
 
     @classmethod
-    def from_yaml(cls, source: Source | SourceType, config_path: str | Path) -> Self:
+    def from_yaml(cls, source: Source | SourceType, outdir: str | Path, config_path: str | Path) -> Self:
         with Path(config_path).open("r") as f:
             config = Config(**yaml.safe_load(f))
 
@@ -213,7 +236,7 @@ class Pipeline:
         stage_config = config.writer
         writer = WriterFactory.create(stage_config.name, **stage_config.kwargs)
 
-        return cls(source, extractor, processors, writer)
+        return cls(source, outdir, extractor, processors, writer)
 
     def __enter__(self) -> Self:
         return self
@@ -284,7 +307,7 @@ class Pipeline:
         for n in range(procs[2]):
             self._procs.append(_MP_CTX.Process(
                 target=_write_worker,
-                args=(self._writer, self._channels[2], self._channels[3], scratch, stage_count, self._error, self._errors, n),
+                args=(self._writer, self._channels[2], self._channels[3], scratch, stage_count, self._error, self._errors, n, self._outdir),
                 name=f"icegraph-writer-{n}", daemon=True
             ))
 
@@ -300,14 +323,22 @@ class Pipeline:
         metrics = self.track(self._channels[3], self._error)
 
         if self._error.is_set():
+            # drain the error channel before close() tears it down
+            message = self._first_error(self._errors)
+
             # a stage died, surviving workers are blocked on queues that will
             # never be fed again, so stop them rather than join forever
             self.close()
-            raise RuntimeError(f"Pipeline stage crashed: {self._first_error(self._errors)}")
+
+            raise RuntimeError(f"Pipeline stage crashed: {message}")
 
         for p in self._procs:
-            p.join()
+            p.join(timeout=30)
 
+        if any(p.is_alive() for p in self._procs):
+            logger.warning("workers did not exit cleanly, terminating")
+
+        self.close()
         return metrics
 
     @staticmethod
@@ -366,6 +397,9 @@ class Pipeline:
                 # nothing ready yet, re-check for failures
                 if item is None:
                     if error is not None and error.is_set():
+                        break
+                    if count >= self._file_count:
+                        logger.warning("all %d outputs received but no sentinel arrived", count)
                         break
                     continue
 

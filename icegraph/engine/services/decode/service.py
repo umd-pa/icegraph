@@ -186,10 +186,6 @@ class DecodeService(Service[DecodeConfig]):
             names=self.get_columns(role)
         ).to(device)
 
-    @cached_property
-    def count_by_weight_group(self) -> dict[str, int]:
-        return self._attr_decoder.extract_count_by_weight_group()
-
     ### RECORD DECODER HOOKS
     # the excluded parameter, despite seemingly redundant, allows this service to fully control
     # the structure of empty roles

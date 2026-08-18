@@ -37,6 +37,7 @@ _MB = 1 << 20
 class LMDB(Writer[LMDBWriterConfig]):
     name: ClassVar[str] = "lmdb"
     version: ClassVar[int] = 1
+    suffix = ".lmdb"
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> LMDBWriterConfig:
@@ -48,16 +49,7 @@ class LMDB(Writer[LMDBWriterConfig]):
     def _process(self, item: Envelope) -> Envelope | None:
         # build output file path
         origin = Path(item.get_local_attr("origin"))
-        path = self.config.outdir / origin.with_suffix(".lmdb").name
-
-        # compute id and set id
-        hasher = CBORBlake2B()
-        _id = hasher(item.main.rows())
-        _set_id = hasher(item.attrs[AttributeDomain.GLOBAL.name])
-
-        # register ids
-        item.set_local_attr("id", _id)
-        item.set_global_attr("set_id", _set_id)
+        path = self.outdir / origin.with_suffix(".lmdb").name
 
         # ensure no stale keys
         if path.exists():
@@ -74,7 +66,7 @@ class LMDB(Writer[LMDBWriterConfig]):
         environ, dbs = self.handle(path, map_size)
 
         try:
-            self.write(item, environ, dbs, hasher=hasher.name)
+            self.write(item, environ, dbs, hasher="name")
         finally:
             environ.close()
 
@@ -156,6 +148,7 @@ class LMDB(Writer[LMDBWriterConfig]):
         return size
 
     def write(self, env: Envelope, environ: lmdb.Environment, dbs: dict[Literal['data', 'attr'], Any], hasher: str) -> None:
+
         # first write attrs
         with environ.begin(db=dbs["attr"], write=True) as txn:
             # write timestamp and icegraph version info

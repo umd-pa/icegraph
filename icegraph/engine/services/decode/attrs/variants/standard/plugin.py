@@ -196,30 +196,3 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
 
         # merge and return using functools reduce
         return reduce(add, stats, first)  # type: ignore[args]
-
-    def _extract_count_by_weight_group(
-            self, *,
-            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> dict[str, int]:
-        count: dict[str, int] = defaultdict(int)
-
-        # loop over each shards attributes
-        for attr in attrs():
-            weight_group = attr[AttributeDomain.LOCAL].get("weight_group")
-
-            if weight_group is None:
-                raise RuntimeError(
-                    f"Local attribute 'weight_group' not found in shard ID={attr.shard_id}. This error might "
-                    "occur if you are trying to load simweights from a file that does not contain any."
-                )
-
-            if not isinstance(weight_group, str):
-                raise TypeError(
-                    f"Local attribute 'weight_group' must be a str, got "
-                    f"{type(weight_group)} in shard ID={attr.shard_id}."
-                )
-
-            # count this weight group
-            count[weight_group] += 1
-
-        return count

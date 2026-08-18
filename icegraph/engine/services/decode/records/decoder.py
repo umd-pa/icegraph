@@ -6,7 +6,6 @@ from __future__ import annotations
 from abc import abstractmethod, ABC
 from typing import TypeVar, final
 
-import torch
 from torch import Tensor
 from jaxtyping import Float, Int
 

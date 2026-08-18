@@ -39,6 +39,10 @@ Selected as ``name: i3``.
      - Skip files that contain no usable frames instead of failing.
      - bool
      - ``false``
+   * - ``suppress_icetray_output``
+     - Suppress any output from IceTray.
+     - bool
+     - ``true``
 
 .. code-block:: yaml
 

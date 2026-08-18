@@ -43,7 +43,7 @@ services:
 
   record:
     source:
-      - /data/i3store/users/tstjean/data/23122_I
+      - /data/i3store/users/tstjean/131341
 
     reader:
       name: lmdb

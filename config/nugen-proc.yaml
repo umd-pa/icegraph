@@ -89,7 +89,9 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: domproc
     kwargs:
-      cols: [ string, om, pmt ]
+      string: string
+      om: om
+      pmt: pmt
       out: dom_pos
 
   - name: compress  # need a copy of only dom positions compressed for edges

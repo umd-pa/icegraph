@@ -177,38 +177,3 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
     ) -> StatisticService:
         ...
-
-    def extract_count_by_weight_group(self) -> dict[str, int]:
-        counts = self._extract_count_by_weight_group(
-            attrs=self._ctx.attrs,
-            global_attrs=self._ctx.global_attrs
-        )
-
-        cls = type(self).__name__
-
-        if not isinstance(counts, dict):
-            raise TypeError(
-                f"{cls}._extract_count_by_weight_group() must return a dict, "
-                f"got {type(counts).__name__}."
-            )
-
-        for k, v in counts.items():
-            if not isinstance(k, str):
-                raise TypeError(
-                    f"{cls}._extract_count_by_weight_group() keys must be str, "
-                    f"got {type(k).__name__}: {k!r}."
-                )
-            if not isinstance(v, int):
-                raise TypeError(
-                    f"{cls}._extract_count_by_weight_group() values must be int, "
-                    f"got {type(v).__name__} for key {k!r}: {v!r}."
-                )
-
-        return counts
-
-    @abstractmethod
-    def _extract_count_by_weight_group(
-            self, *,
-            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> dict[str, int]:
-        ...

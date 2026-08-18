@@ -58,10 +58,7 @@ class GraphDataset(IterableDataset[GraphData]):
 
     @staticmethod
     def _seed(*parts: int) -> int:
-        # merge parts into a single int. stdlib random rejects tuple seeds,
-        # and str/bytes seeds go through PYTHONHASHSEED-randomized hashing -> a
-        # shared seed would differ across ranks and break the
-        # disjoint chunk partition. FNV-1a is deterministic across processes.
+        # merge parts into a single int. FNV-1a is deterministic across processes.
         h = 0xCBF29CE484222325
         for p in parts:
             h = ((h ^ (int(p) & 0xFFFFFFFFFFFFFFFF)) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF

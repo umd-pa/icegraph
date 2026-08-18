@@ -50,7 +50,13 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             tray = I3Tray()
 
             tray.Add("I3Reader", Filenamelist=files)
-            tray.Add(ml_suite.EventFeatureExtractorModule, cfg_file=self.config.ml_suite, output_key="features")
+            tray.Add(
+                ml_suite.EventFeatureExtractorModule,
+                cfg_file=self.config.ml_suite,
+                output_key="features",
+                # want to only process InIceSplit frames
+                If=lambda f: f.Has("I3EventHeader") and f["I3EventHeader"].sub_event_stream == "InIceSplit"
+            )
 
             tray.AddSegment(
                 hdfwriter.I3HDFWriter,

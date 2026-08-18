@@ -56,10 +56,6 @@ Graph construction:
 * :doc:`knn <variants/knn/index>`: build k-nearest-neighbor graph edges.
 * :doc:`compress <variants/compress/index>`: stack rows into per-event arrays.
 * :doc:`pivot <variants/pivot/index>`: reshape long-form data to wide.
-
-Weighting and splitting:
-
-* :doc:`simweights <variants/simweights/index>`: compute event weights.
 * :doc:`splitmap <variants/splitmap/index>`: assign train/validation/test splits.
 
 Debugging:
@@ -116,6 +112,5 @@ and implements the transformation:
    variants/knn/index
    variants/compress/index
    variants/pivot/index
-   variants/simweights/index
    variants/splitmap/index
    variants/inspect/index

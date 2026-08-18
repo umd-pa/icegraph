@@ -5,10 +5,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-__all__ = ["PowerLawConfig"]
+__all__ = ["ZarrWriterConfig"]
 
 
-class PowerLawConfig(BaseModel):
-    g:      int | float
-    phi0:   int | float
-    e0:     int | float
+class ZarrWriterConfig(BaseModel):
+    chunk_size: int = 8
