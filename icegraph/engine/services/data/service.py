@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import time
+
 from typing import Any, ClassVar
 import multiprocessing as mp
 from functools import partial, cached_property
@@ -17,6 +19,9 @@ from .config import DataConfig
 from .loader import GraphDataLoader
 from .dataset import GraphDataset
 from .spec import LoaderSpec
+
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["DataService"]
 
@@ -66,6 +71,7 @@ class DataService(Service[DataConfig]):
 
     def _new_dataloader(self) -> partial[GraphDataLoader]:
         """Build a new dataloader spec."""
+        start = time.perf_counter()
         kwargs: dict[str, Any] = {
             "num_workers":  self.config.num_workers,
             "batch_size":   self.config.batch_size
@@ -80,13 +86,20 @@ class DataService(Service[DataConfig]):
                 pin_memory=torch.cuda.is_available()
             )
 
-        return partial(GraphDataLoader, **kwargs)
+        loader = partial(GraphDataLoader, **kwargs)
+        logger.info(f"[DataService] Constructed new dataloader in {time.perf_counter() - start} s.")
+        return loader
 
     def _new_dataset(self) -> partial[GraphDataset]:
-        return partial(
+        start = time.perf_counter()
+        dataset = partial(
             GraphDataset,
             chunk_size=self.config.chunk_size,
             buffer_size=self.config.buffer_size,
+            batch_size=self.config.batch_size,
             shuffle_chunks=self.config.shuffle_chunks,
             services=self._ctx.services
         )
+        logger.info(f"[DataService] Constructed new dataset in {time.perf_counter() - start} s.")
+        return dataset
+

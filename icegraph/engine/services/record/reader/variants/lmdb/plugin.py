@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from dataclasses import dataclass
 from functools import cached_property
 from typing_extensions import Buffer
 
@@ -10,8 +13,9 @@ import lmdb
 from typing import Any, ClassVar
 import msgpack
 
-from icegraph.common.data import AttributeDomain
-from icegraph.common.record import Record, Attributes
+from icegraph.common.record import Record
+from icegraph.typing.common import ArrayI
+from icegraph.common.data import restore
 
 from ...reader import Reader
 
@@ -24,7 +28,19 @@ m.patch()  # allow msgpack to work with numpy objects
 __all__ = ["LMDB"]
 
 
-class LMDB(Reader[Config]):
+@dataclass(frozen=True)
+class Handle:
+    env: lmdb.Environment
+    dbs: dict[str, lmdb._Database]
+
+    def close(self) -> None:
+        vars(self).pop("dbs", None)
+        env = vars(self).pop("env", None)
+        if env is not None:
+            env.close()
+
+
+class LMDB(Reader[Config, Handle]):
     name: ClassVar[str] = "lmdb"
     version: ClassVar[int] = 1
 
@@ -37,13 +53,8 @@ class LMDB(Reader[Config]):
     def validate_config(cls, config: dict[str, Any]) -> Config:
         return Config(**config)
 
-    def record_count(self) -> int:
-        with self.env.begin(db=self.dbs["data"]) as txn:
-            # this is correct, likely stub issue with lmdb
-            return int(txn.stat()["entries"])  # pyright: ignore[reportCallIssue]
-
     def validate_file(self) -> None:
-        with self.env.begin(db=self.dbs["data"]) as txn, txn.cursor() as cur:
+        with self.handle.env.begin(db=self.handle.dbs["data"]) as txn, txn.cursor() as cur:
             if not cur.first():
                 raise KeyError("Database is empty, cannot find first key.")
             first = int.from_bytes(cur.key(), "big", signed=False)
@@ -57,10 +68,10 @@ class LMDB(Reader[Config]):
                 "Database failed first/last sanity check. All records must be contiguous, indexed from 0 to N-1."
             )
 
-    @cached_property
-    def env(self) -> lmdb.Environment:
-        return lmdb.open(
-            str(self._path),
+    def _open(self, path: Path) -> Handle:
+        # open file handle
+        env = lmdb.open(
+            str(path),
             readonly=True,
             lock=False,
             subdir=False,
@@ -68,54 +79,44 @@ class LMDB(Reader[Config]):
             readahead=True
         )
 
-    @cached_property
-    def dbs(self) -> dict[str, lmdb._Database]:
-        return {key: self.env.open_db(key.encode()) for key in ["data", "attr"]}
+        # open database specific handles
+        dbs = {key: env.open_db(key.encode()) for key in ["data", "attr"]}
+
+        return Handle(env, dbs)
+
+    def _close(self, handle: Handle) -> None:
+        handle.close()
 
     @staticmethod
     def _unpack(value: Buffer, **kwargs) -> Any:
         """Unpack a byte value using msgpack."""
         return msgpack.unpackb(value, object_hook=m.decode, raw=False, **kwargs)
 
-    def _build_attrs(self) -> Attributes:
+    @cached_property
+    def _attrs_dict(self) -> dict[str, Any]:
         """Build an Attributes object."""
-        attrs: dict[AttributeDomain, Any] = {}
-        with self.env.begin(db=self.dbs["attr"]) as txn:
-            for domain in AttributeDomain.all():
-                # load attrs from file
-                attrs_bytes = txn.get(domain.name.encode())
+        attrs: dict[str, Any] = {}
+        with self.handle.env.begin(db=self.handle.dbs["attr"]) as txn:
+            for key, value in txn.cursor():
+                attrs[key.decode()] = self._unpack(value)
 
-                if attrs_bytes is None:
-                    # key not found, raise
-                    raise KeyError(f"Key '{domain.name}' not found in LMDB file {self._path}.")
+        return attrs
 
-                attrs[domain] = self._unpack(attrs_bytes)
+    def _get(self, indices: ArrayI) -> list[Record]:
+        records = []
+        with self.handle.env.begin(db=self.handle.dbs["data"]) as txn:
+            for index in indices:
+                # np ints lack .to_bytes, coerce to plain int
+                key = int(index).to_bytes(4, "big", signed=False)
+                data = txn.get(key)
 
-        return Attributes(attrs)
+                if data is None:
+                    raise KeyError(f"Index {index} not found in file {self._ctx.path}")
 
-    def get(self, index: int) -> Record:
-        # pack to unsigned 4 byte big-endian
-        key = index.to_bytes(4, "big", signed=False)
+                records.append(Record(
+                    index=index,
+                    shard_id=self.attrs.shard_id,
+                    data=self._unpack(data),
+                ))
 
-        with self.env.begin(db=self.dbs["data"]) as txn:
-            data = txn.get(key)
-
-        # ensure data exists
-        if data is None:
-            raise KeyError(f"Index {index} not found in file {self._path}")
-
-        # build sample
-        record = Record(
-            index=index,
-            shard_id=self.attrs.shard_id,
-            data=self._unpack(data)
-        )
-
-        return record
-
-    def sleep(self) -> None:
-        # close the environment and remove all references
-        vars(self).pop("dbs", None)
-        env = vars(self).pop("env", None)
-        if env is not None:
-            env.close()
+        return records

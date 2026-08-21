@@ -28,6 +28,20 @@ class DataConfig(BaseModel):
         if self.buffer_size < 1:
             raise ValueError("Buffer size must be equal to or greater than 1.")
 
+        if self.buffer_size < self.batch_size:
+            logger.warning(
+                f"Buffer size ({self.buffer_size}) is smaller than batch size ({self.batch_size}), "
+                f"there will be no fine mixing."
+            )
+
+        elif 1 < self.buffer_size < self.chunk_size * 10:
+            logger.warning(
+                f"Buffer size ({self.buffer_size}) is less than 10x batch size "
+                + f"({self.batch_size}); buffer spans only "
+                + f"{self.buffer_size / self.chunk_size:.1f} batches, which may result in poor "
+                + "non-local mixing. Aim for a buffer:batch ratio above 10:1."
+            )
+
         return self
 
     @model_validator(mode="after")

@@ -3,14 +3,13 @@ Record
 
 The **record service** provides access to the on-disk dataset. It locates the
 dataset files, reads their raw records through a configurable reader, and serves
-them through a store. Components and other services obtain records and dataset
+them. Components and other services obtain records and dataset
 attributes from this service.
 
 Usage
 -----
 
-Configured under ``services.record``. The reader and store are themselves
-selectable plugins.
+Configured under ``services.record``. The reader is a selectable plugin.
 
 .. code-block:: yaml
 
@@ -22,19 +21,15 @@ selectable plugins.
        reader:
          name: lmdb
          kwargs: {}
-       store:
-         name: lru-shard
-         kwargs:
-           cache_size: 32
+       cache_size: 32
 
 How it works
 ------------
 
 The :doc:`reader <reader/index>` defines the on-disk format and knows how to read
-records and attributes from a single file. The :doc:`store <store/index>` presents
+records and attributes from a single file. It presents
 the collection of files as one indexable sequence and manages how much is held in
-memory at once. The storage format and the caching strategy can
-vary independently.
+memory at once.
 
 Configuration
 -------------
@@ -55,9 +50,9 @@ Configuration
      - Reader plugin selection (``name`` / ``kwargs``).
      - mapping
      - required
-   * - ``store``
-     - Store plugin selection (``name`` / ``kwargs``).
-     - mapping
+   * - ``cache_size``
+     - Number of file shards kept resident in memory at once.
+     - int
      - required
    * - ``ignore_checksum``
      - Skip dataset checksum verification.
@@ -71,4 +66,3 @@ Sub-slots
    :maxdepth: 2
 
    reader/index
-   store/index

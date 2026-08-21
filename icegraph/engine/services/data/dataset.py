@@ -7,12 +7,12 @@ import random
 from functools import cached_property
 from typing import TYPE_CHECKING
 from collections.abc import Iterator
-import math
 
 from torch.utils.data import IterableDataset, get_worker_info
 import torch
 
 from icegraph.common.data import GraphData, DataRole
+from icegraph.common.record import Record
 from icegraph.typing.common import ArrayI
 
 if TYPE_CHECKING:
@@ -35,6 +35,7 @@ class GraphDataset(IterableDataset[GraphData]):
         services: ServiceManager,
         chunk_size: int,
         buffer_size: int,
+        batch_size: int,
         shuffle_chunks: bool,
         exclude_roles: list[DataRole] | None = None,
     ) -> None:
@@ -43,6 +44,7 @@ class GraphDataset(IterableDataset[GraphData]):
         self._services = services
         self._chunk_size = chunk_size
         self._buffer_size = buffer_size
+        self._batch_size = batch_size
         self._shuffle_chunks = shuffle_chunks
         self._exclude_roles = exclude_roles if exclude_roles is not None else []
 
@@ -110,23 +112,16 @@ class GraphDataset(IterableDataset[GraphData]):
 
         return rank_chunks
 
-    def _iter_keys(self) -> Iterator[int]:
-        for lo, hi in self._assign_chunks():
-            for pos in range(lo, hi):
-                yield int(self.keys[pos])
-
     ### SAMPLE BUILDING
 
-    def _load(self, key: int) -> GraphData:
+    def _build(self, sample: Record) -> GraphData:
         decoder = self._services.require("decode", required_by=type(self))
-        records = self._services.require("record", required_by=type(self))
-
-        sample = records[key]
 
         data = GraphData()
         for role in DataRole.all():
             if role == DataRole.BATCH:
                 continue
+
             loader = getattr(decoder, f"load_{role.value}")
             setattr(
                 data, role.value, loader(
@@ -139,17 +134,22 @@ class GraphDataset(IterableDataset[GraphData]):
         return data
 
     def __iter__(self) -> Iterator[GraphData]:
-        raw = (self._load(k) for k in self._iter_keys())
+        records = self._services.require("record", required_by=type(self))
+
+        # contiguous, ascending key blocks; never straddles a chunk, one read each
+        blocks = (
+            [self._build(s) for s in records[self.keys[start:min(start + self._batch_size, hi)]]]
+            for lo, hi in self._assign_chunks()
+            for start in range(lo, hi, self._batch_size)
+        )
 
         if self._buffer_size > 1:
-            yield from self._buffer_shuffle(raw,  self._buffer_size)
+            yield from self._buffer_shuffle(blocks)
         else:
             #  self._buffer_size == 1 -> no fine shuffle
-            yield from raw
+            yield from (item for block in blocks for item in block)
 
-    def _buffer_shuffle(
-        self, source: Iterator[GraphData], buffer_size: int
-    ) -> Iterator[GraphData]:
+    def _buffer_shuffle(self, blocks: Iterator[list[GraphData]]) -> Iterator[GraphData]:
         state  = self._services.require("state", required_by=type(self))
         worker = get_worker_info()
         wid    = worker.id if worker is not None else 0
@@ -158,18 +158,15 @@ class GraphDataset(IterableDataset[GraphData]):
         # include epoch so mixing changes each epoch
         rng = random.Random(self._seed(state.seed, int(self._epoch[0]), state.rank, wid))
 
-        # this is a good candidate for async loading, maybe consider in the future
         buffer: list[GraphData] = []
-        for item in source:
-            # if the buffer isnt full, fill it
-            if len(buffer) < buffer_size:
-                buffer.append(item)
-                continue
+        for block in blocks:
+            buffer.extend(block)
 
-            # otherwise, yield a random one and refill that slot
-            i = rng.randrange(buffer_size)
-            yield buffer[i]
-            buffer[i] = item
+            # drain back down to buffer_size before pulling the next block
+            while len(buffer) > self._buffer_size:
+                i = rng.randrange(len(buffer))
+                buffer[i], buffer[-1] = buffer[-1], buffer[i]
+                yield buffer.pop()
 
         rng.shuffle(buffer)
         yield from buffer

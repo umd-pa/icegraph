@@ -8,13 +8,14 @@ from functools import cached_property
 from pathlib import Path
 from typing import ClassVar, TypeVar, Any
 from datetime import datetime
+import math
 import shutil
 
 import polars as pl
 
 from icegraph import __version__
 from icegraph.utils.hashutils import CBORBlake2B
-from icegraph.common.data import AttributeDomain
+from icegraph.common.data import AttributeDomain, flatten
 
 from ..stage import Stage
 from ..envelope import Envelope
@@ -26,6 +27,7 @@ __all__ = ["Writer"]
 
 
 C = TypeVar("C")
+
 
 class Writer(Stage[C, Envelope]):
     """Base class for pipeline DataFrame writers."""
@@ -72,7 +74,7 @@ class Writer(Stage[C, Envelope]):
         item.set_global_attr("set_id", _set_id)
 
         # construct metadata
-        metadata = {
+        metadata: dict[str, Any] = {
             "info": {
                 "timestamp": datetime.now().timestamp(),
                 "icegraph": {
@@ -87,6 +89,12 @@ class Writer(Stage[C, Envelope]):
 
         # include env metadata
         metadata.update(item.attrs)
+
+        # add entry count to metadata
+        metadata["entries"] = item.main.height
+
+        # make metadata serializable
+        metadata = flatten(metadata)
 
         # generate output file path
         origin = Path(item.get_local_attr("origin"))

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import ClassVar, Any
 from pathlib import Path
+import math
 
 import zarr
 import numpy as np
@@ -34,24 +35,6 @@ class Zarr(Writer[ZarrWriterConfig]):
 
     def build(self) -> None:
         return
-
-    def _write_meta(self, root: zarr.Group, data: dict[str, Any]) -> None:
-        for key, value in data.items():
-            # recurse creating subgroups as necessary
-            if isinstance(value, dict):
-                self._write_meta(root.require_group(key), value)
-
-            # store normalized to numpy array
-            else:
-                array = np.asarray(value)
-
-                # fixed-width unicode has no zarr v3 spec, use variable-length utf-8
-                if array.dtype.kind == "U":
-                    dtype, array = str, array.astype(object)
-                else:
-                    dtype = array.dtype
-
-                root.require_array(key, shape=array.shape, dtype=dtype)[...] = array
 
     def _write_data(self, root: zarr.Group, data: pl.DataFrame) -> None:
         values = root.require_group("values")
@@ -93,20 +76,26 @@ class Zarr(Writer[ZarrWriterConfig]):
             row_bytes = arr.dtype.itemsize * int(np.prod(arr.shape[1:], dtype=np.int64))
             rows = max(1, min(arr.shape[0], (self.config.chunk_size * 1024 ** 2) // row_bytes))
 
+            # one shard per array, rounded up to a whole number of chunks
+            shard_rows = max(rows, math.ceil(arr.shape[0] / rows) * rows)
+
             # write values as array
             values.create_array(
                 name,
                 shape=arr.shape,
                 dtype=str if arr.dtype == object else arr.dtype,
                 chunks=(rows,) + arr.shape[1:],
+                shards=(shard_rows,) + arr.shape[1:],
             )[...] = arr
 
             # write offsets as array
+            off_chunk = min(len(off), 65536)
             offsets.create_array(
                 name,
                 shape=off.shape,
                 dtype=off.dtype,
-                chunks=(min(len(off), 65536),),
+                chunks=(off_chunk,),
+                shards=(max(off_chunk, math.ceil(len(off) / off_chunk) * off_chunk),),
             )[...] = off
 
     def _write_schema(self, root: zarr.Group, data: pl.DataFrame) -> None:
@@ -114,10 +103,7 @@ class Zarr(Writer[ZarrWriterConfig]):
         root.require_array("_schema", shape=blob.shape, dtype=blob.dtype)[...] = blob
 
     def _write(self, table: pl.DataFrame, metadata: dict[str, Any], fp: Path) -> None:
-        root = zarr.open_group(fp, mode="w")
-
-        # write metadata
-        self._write_meta(root.require_group("_meta"), metadata)
+        root = zarr.open_group(fp, mode="w", attributes=metadata)
 
         # write schema
         self._write_schema(root, table)

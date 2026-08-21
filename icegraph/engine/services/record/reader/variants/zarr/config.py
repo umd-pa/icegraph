@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-__all__ = ["LRUStoreConfig"]
+__all__ = ["Config"]
 
 
-class LRUStoreConfig(BaseModel):
-    cache_size: int
+class Config(BaseModel):
+    pass

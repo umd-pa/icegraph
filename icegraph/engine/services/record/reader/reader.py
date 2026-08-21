@@ -5,123 +5,128 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import final, Iterator, Any, ClassVar, TypeVar, overload
+from typing import Generic, final, Any, ClassVar, TypeVar
 from functools import cached_property
 
 import numpy as np
 
 from icegraph.common.plugins import Plugin
 from icegraph.common.record import Attributes, Record
+from icegraph.typing.common import ArrayI
+from icegraph.common.data import AttributeDomain
 
 from .types import ReaderContext
+
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["Reader"]
 
 
 C = TypeVar("C")
+_HANDLE = TypeVar("_HANDLE")
 
 
-class Reader(Plugin[C, ReaderContext]):
+class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
     file_ext: ClassVar[str]
 
     def on_attach(self) -> None:
-        if not self._path.is_file():
-            raise FileNotFoundError(f"Path '{self._path!s}' does not resolve to a valid file.")
+        if not self._ctx.path.exists():
+            raise FileNotFoundError(f"Path '{self._ctx.path!s}' does not resolve to a valid file or directory.")
 
         self.validate_file()
-        self.sleep()
+        self.close()
 
     @final
     def __len__(self) -> int:
-        # build using subclass logic
-        count = self.record_count()
-
-        # make sure handles are closed
-        self.sleep()
-
-        return count
+        return self.sample_count
 
     @final
-    def __iter__(self) -> Iterator[Record]:
-        """Iterate through all records."""
-        for i in range(len(self)):
-            yield self.get(i)
+    def __getitem__(self, indices: ArrayI) -> list[Record]:
+        # ensure indices is array
+        if not isinstance(indices, np.ndarray):
+            raise TypeError(f"Indices must be an npt.NDArray, got {type(index).__name__}.")
 
-    @overload
-    def __getitem__(self, index: int) -> Record:...
+        # ensure array contains ints
+        if not np.issubdtype(indices.dtype, np.integer):
+            raise TypeError(f"Indices must be an npt.NDArray[np.integer], got {indices.dtype}")
 
-    @overload
-    def __getitem__(self, index: slice) -> list[Record]:...
-
-    @final
-    def __getitem__(self, index: int | slice) -> Record | list[Record]:
-        # handle slices
-        if isinstance(index, slice):
-            start, stop, step = index.indices(len(self))
-            return [self.get(i) for i in range(start, stop, step)]
-
-        # get dataset length
-        record_count = len(self)
-
-        # ensure index is an int
-        if not isinstance(index, (int, np.integer)):
-            raise TypeError(f"Index must be int or slice, got {type(index).__name__}.")
+        # ensure array is 1 dim
+        if indices.ndim > 1:
+            raise ValueError(f"Indices must be an array with exactly 1 dim, got {indices.ndim}")
 
         # ensure valid index
-        if not (-record_count <= index < record_count):
-            raise IndexError(f"Index {index} out of bounds for length {record_count}.")
+        out_of_bounds = (indices < -len(self)) | (indices >= len(self))
+
+        if out_of_bounds.any():
+            raise IndexError(f"Index {indices[out_of_bounds]} out of bounds for dataset of length {len(self)}.")
 
         # normalize index
-        index = int(index % record_count)
-        return self.get(index)
-
-    def __del__(self) -> None:
-        self.close()
+        return self._get(indices)
 
     def __getstate__(self) -> dict[str, Any]:
-        # sleep the instance, this closes and removes file handles
-        self.sleep()
+        # close before pickle
+        self.close()
 
-        # return __dict__
         return self.__dict__.copy()
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         vars(self).update(state)
 
+    @cached_property
+    def sample_count(self) -> int:
+        count = self._attrs_dict["entries"]
+
+        if isinstance(count, np.ndarray):
+            count = int(count)
+
+        if not isinstance(count, int):
+            raise TypeError(f"root.attrs.entries must be an int, got {count} ({type(count)}).")
+
+        if count < 0:
+            raise TypeError(f"root.attrs.entries must be a positive int, got {count} ({type(count)}).")
+
+        if count == 0:
+            raise RuntimeError("Received a file with no entries.")
+
+        return count
+
+    @cached_property
+    def handle(self) -> _HANDLE:
+        return self._open(self._ctx.path)
+
     def validate_file(self) -> None:
         pass
 
     @cached_property
-    def _path(self) -> Path:
-        return self._ctx.path
-
-    @final
-    @cached_property
     def attrs(self) -> Attributes:
-        # build using subclass logic
-        attrs = self._build_attrs()
+        data = self._attrs_dict
 
-        # make sure handles are closed
-        self.sleep()
+        # normalize keys to AttributeDomain
+        attrs = {
+            AttributeDomain.LOCAL: data["LOCAL"],
+            AttributeDomain.GLOBAL: data["GLOBAL"]
+        }
 
-        return attrs
+        return Attributes(attrs)
+
+    @cached_property
+    @abstractmethod
+    def _attrs_dict(self) -> dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def _open(self, path: Path) -> _HANDLE:
+        ...
+
+    @abstractmethod
+    def _close(self, handle: _HANDLE) -> None:
+        ...
+
+    @abstractmethod
+    def _get(self, indices: ArrayI) -> list[Record]:
+        ...
 
     def close(self) -> None:
-        self.sleep()
-
-    @abstractmethod
-    def record_count(self) -> int:
-        ...
-
-    @abstractmethod
-    def sleep(self) -> None:
-        """Sleep the instance, removing any file handles or pointers."""
-        ...
-
-    @abstractmethod
-    def get(self, index: int) -> Record:
-        ...
-
-    @abstractmethod
-    def _build_attrs(self) -> Attributes:
-        ...
+        self._close(self.handle)
+        vars(self).pop("handle", None)

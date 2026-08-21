@@ -7,6 +7,7 @@ from typing import ClassVar, Any
 from functools import cached_property
 
 import torch
+import numpy as np
 
 from icegraph.common.data import AttributeDomain, DataRole
 
@@ -28,30 +29,52 @@ class Multiclass(Policy[MulticlassConfig]):
 
     def _extract_classlist(self, metadata: dict[str, Any], label: str) -> set[int]:
         cls = type(self).__name__
-
         column = metadata.get(label)
+
         if column is None:
             raise KeyError(
                 f"{cls}: missing key 'columns.{label}' in dataset local attributes."
             )
+
         if not isinstance(column, dict):
             raise TypeError(
                 f"{cls}: value at key 'columns.{label}' must be a dict."
             )
 
         uniques = column.get("unique")
+
         if uniques is None:
             raise KeyError(
                 f"{cls}: missing key 'columns.{label}.unique' in dataset local attributes."
             )
+
+        # the writer normalizes metadata through np.asarray, so a list of int
+        # round-trips as an integer-dtype ndarray
+        if isinstance(uniques, np.ndarray):
+            if uniques.ndim != 1:
+                raise TypeError(
+                    f"{cls}: value at key 'columns.{label}.unique' must be 1-dimensional, "
+                    f"got {uniques.ndim} dims."
+                )
+
+            if not np.issubdtype(uniques.dtype, np.integer):
+                raise TypeError(
+                    f"{cls}: value at key 'columns.{label}.unique' must have an integer dtype, "
+                    f"got {uniques.dtype}."
+                )
+
+            uniques = uniques.tolist()
+
+        if not isinstance(uniques, list):
+            raise TypeError(
+                f"{cls}: value at key 'columns.{label}.unique' must be a list or ndarray."
+            )
+
         if not uniques:
             raise ValueError(
                 f"{cls}: key 'columns.{label}.unique' must be non-empty."
             )
-        if not isinstance(uniques, list):
-            raise TypeError(
-                f"{cls}: value at key 'columns.{label}.unique' must be a list."
-            )
+
         for value in uniques:
             if not isinstance(value, int) or isinstance(value, bool):
                 raise TypeError(

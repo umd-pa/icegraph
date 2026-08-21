@@ -76,9 +76,20 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
                 f"Missing key 'columns.{role}.names' in dataset global attributes."
             )
 
+        # the writer normalizes metadata through np.asarray, so a list of str
+        # round-trips as an object-dtype (or fixed-width unicode) ndarray
+        if isinstance(names, np.ndarray):
+            if names.ndim != 1:
+                raise TypeError(
+                    f"Global attribute 'columns.{role}.names' must be 1-dimensional, "
+                    f"got {names.ndim} dims."
+                )
+
+            names = names.tolist()
+
         if not isinstance(names, list):
             raise TypeError(
-                f"Global attribute 'columns.{role}.names' must be a list, "
+                f"Global attribute 'columns.{role}.names' must be a list or ndarray, "
                 f"got {type(names).__name__}."
             )
 

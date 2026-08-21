@@ -12,6 +12,8 @@ import numpy as np
 import polars as pl
 import pyarrow as pa
 
+from icegraph.common.data import restore
+
 from ..inspector import Inspector
 
 __all__ = ["ZarrInspector"]
@@ -72,20 +74,4 @@ class ZarrInspector(Inspector):
         })
 
     def _load_attrs(self) -> dict[str, Any]:
-        def walk(group: zarr.Group) -> dict[str, Any]:
-            return {
-                key: walk(member) if isinstance(member, zarr.Group) else member[()]
-                for key, member in group.members()
-            }
-
-        try:
-            group = self._root["_meta"]
-
-            # ensure this is a group not an array
-            if not isinstance(group, zarr.Group):
-                raise TypeError(f"expected a group at '_meta', found an array")
-
-            return walk(group)
-
-        except KeyError:
-            return {}
+        return restore(dict(self._root.attrs))

@@ -1,6 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .lrustore import LRUShardStore
+from .plugin import Zarr
 
-__all__ = ["LRUShardStore"]
+__all__ = ["Zarr"]

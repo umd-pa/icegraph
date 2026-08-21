@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import time
 from abc import abstractmethod, ABC
 from typing import TypeVar, Iterator, Callable, final
 
@@ -15,6 +16,9 @@ from icegraph.common.record import GlobalAttributes, Attributes
 
 from .types import AttributeDecoderContext
 
+import logging
+logger = logging.getLogger(__name__)
+
 __all__ = ["AttributeDecoder"]
 
 
@@ -26,6 +30,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_columns(self, role: str) -> list[str]:
+        start = time.perf_counter()
         columns = self._extract_columns(
             role,
             attrs=self._ctx.attrs,
@@ -49,6 +54,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                     f"element [{i}] is {type(item).__name__}."
                 )
 
+        logger.info(f"[DecodeService] Extracted column data for role '{role}' in {time.perf_counter() - start} s.")
         return columns
 
     @abstractmethod
@@ -60,6 +66,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_offsets(self, role: str) -> ArrayI:
+        start = time.perf_counter()
         offsets = self._extract_offsets(
             role,
             attrs=self._ctx.attrs,
@@ -113,6 +120,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                 f"offsets[{bad}]={offsets[bad]} >= offsets[{bad + 1}]={offsets[bad + 1]}."
             )
 
+        logger.info(f"[DecodeService] Extracted offset data for role '{role}' in {time.perf_counter() - start} s.")
         return offsets
 
     @abstractmethod
@@ -124,6 +132,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_keys(self, split: int) -> ArrayI:
+        start = time.perf_counter()
         keys = self._extract_keys(
             split,
             attrs=self._ctx.attrs,
@@ -144,6 +153,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                 f"got dtype {keys.dtype.str}."
             )
 
+        logger.info(f"[DecodeService] Extracted keys for split '{split}' in {time.perf_counter() - start} s.")
         return keys
 
     @abstractmethod
@@ -155,6 +165,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_stats(self, key: tuple[int, str]) -> StatisticService:
+        start = time.perf_counter()
         split, role = key
         stats = self._extract_stats(
             split, role,
@@ -169,6 +180,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                 f"{cls}._extract_stats() must return a StatisticService instance, got {type(stats).__name__}"
             )
 
+        logger.info(f"[DecodeService] Extracted statistics for role '{role}', split '{split}' in {time.perf_counter() - start} s.")
         return stats
 
     @abstractmethod

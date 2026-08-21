@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Self, Any, overload, Literal
 from typing_extensions import override
 from dataclasses import dataclass, field
@@ -18,8 +19,10 @@ from .metrics import MetricService
 from .data import DataService
 from .record import RecordService
 from .decode import DecodeService
-
 from .types import ServiceContext
+
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["ServiceManager"]
 
@@ -67,6 +70,8 @@ class ServiceManager(Mapping[str, Service[Any]]):
 
     @classmethod
     def from_config(cls, config: dict[str, dict[str, Any]], *, debug: bool) -> Self:
+        start = time.perf_counter()
+
         # iteratively construct the service manager
         instance = cls()
 
@@ -93,6 +98,7 @@ class ServiceManager(Mapping[str, Service[Any]]):
         for name in order:
             instance._services[name].attach(context)
 
+        logger.info(f"[ServiceManager] Initialized and attached services in {time.perf_counter() - start} s.")
         return instance
 
     def close(self) -> None:

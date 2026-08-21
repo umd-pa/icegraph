@@ -5,7 +5,7 @@ from typing import Any
 from collections import OrderedDict
 from typing import Iterator
 
-from icegraph.engine.services.record.reader import Reader
+from .reader import Reader
 
 __all__ = ["ShardLRUCache"]
 
@@ -70,7 +70,7 @@ class ShardLRUCache:
 
         # pop least recently used and sleep instance
         evicted = self._awake.popitem(last=False)[0]
-        self._readers[evicted].sleep()
+        self._readers[evicted].close()
 
     def mru(self) -> Reader | None:
         """Return the most recently used reader (MRU), or None if empty."""
