@@ -45,7 +45,7 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
     def __getitem__(self, indices: ArrayI) -> list[Record]:
         # ensure indices is array
         if not isinstance(indices, np.ndarray):
-            raise TypeError(f"Indices must be an npt.NDArray, got {type(index).__name__}.")
+            raise TypeError(f"Indices must be an npt.NDArray, got {type(indices).__name__}.")
 
         # ensure array contains ints
         if not np.issubdtype(indices.dtype, np.integer):
@@ -128,5 +128,8 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
         ...
 
     def close(self) -> None:
+        if "handle" not in vars(self):
+            return
+
         self._close(self.handle)
         vars(self).pop("handle", None)

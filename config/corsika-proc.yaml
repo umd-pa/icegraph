@@ -2,6 +2,7 @@ extractor:
   name: i3
   kwargs:
     gcd_path: /cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz
+    suppress_icetray_output: true
 
     # mclabeler configurations, see mclabeler docs
     mclabeler:
@@ -13,7 +14,7 @@ extractor:
     # ml_suite configurations, see ml_suite docs
     ml_suite:
       # Define name of pulse series from which to extract features
-      pulse_key: InIceDSTPulses
+      pulse_key: SplitInIcePulses
 
       # Define DOM and TimeWindow exclusions. Leave empty if no exclusions
       dom_exclusions:
@@ -88,7 +89,9 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: domproc
     kwargs:
-      cols: [ string, om, pmt ]
+      string: string
+      om: om
+      pmt: pmt
       out: dom_pos
 
   - name: compress  # need a copy of only dom positions compressed for edges
@@ -108,7 +111,7 @@ processors:  # ordered list of processors, each can be used any number of times
       by: event_ids
       cols: [ feature_cols, dom_pos ]
       out: features
-      dtype: float64
+      dtype: float32
 
   - name: select
     kwargs:
@@ -145,15 +148,6 @@ processors:  # ordered list of processors, each can be used any number of times
     kwargs:
       key: compressed
 
-  - name: simweights
-    kwargs:
-      out: simweights
-      weight_group: corsika_1e6-1e10
-      weighter: CorsikaWeighter
-      flux:
-        name: gaisser-h4a
-        kwargs: {}
-
   - name: knn  # output is compressed by default
     kwargs:
       by: event_ids
@@ -184,9 +178,9 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: commit
     kwargs:
       ids: event_ids
-      cols: [ features, edge_index, edge_weight, targets, simweights ]
+      cols: [ features, edge_index, edge_weight, targets ]
 
 writer:
-  name: lmdb
+  name: zarr
   kwargs:
-    outdir: /data/i3store/users/tstjean/tmp
+    chunk_size: 8

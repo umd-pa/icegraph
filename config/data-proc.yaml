@@ -1,14 +1,14 @@
 extractor:
   name: i3
   kwargs:
-    gcd_path: /data/i3store/users/tstjean/131341/Level2_IC86.2018_data_Run00131341_0801_74_406_GCD.i3.zst
+    gcd_path: /data/i3store/users/tstjean/raw/data/138146/Level2_IC86.2022_data_Run00138146_0713_84_748_GCD.i3.zst
     skip_missing: true
-    suppress_icetray_output: false
+    suppress_icetray_output: true
 
     # ml_suite configurations, see ml_suite docs
     ml_suite:
       # Define name of pulse series from which to extract features
-      pulse_key: InIceDSTPulses
+      pulse_key: SplitInIcePulses
 
       # Define DOM and TimeWindow exclusions. Leave empty if no exclusions
       dom_exclusions:
@@ -83,7 +83,9 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: domproc
     kwargs:
-      cols: [ string, om, pmt ]
+      string: string
+      om: om
+      pmt: pmt
       out: dom_pos
 
   - name: compress  # compress the main feature table
@@ -104,6 +106,6 @@ processors:  # ordered list of processors, each can be used any number of times
       cols: [ features ]
 
 writer:
-  name: lmdb
+  name: zarr
   kwargs:
-    outdir: /data/i3store/users/tstjean/131341/processed
+    chunk_size: 8

@@ -101,4 +101,7 @@ class Engine(ABC, Generic[C]):
         ...
 
     def close(self) -> None:
-        return None
+        if "components" in self.__dict__:
+            self.components.close()
+        if "services" in self.__dict__:
+            self.services.close()

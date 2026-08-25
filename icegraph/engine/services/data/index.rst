@@ -20,7 +20,7 @@ Configured under ``services.data``.
        chunk_size: 4096
        num_workers: 8
        prefetch_factor: 8
-       mp_context: fork
+       mp_context: spawn
        persistent_workers: true
 
 How it works
@@ -68,8 +68,8 @@ Configuration
      - int
      - required
    * - ``mp_context``
-     - Multiprocessing start method.
-     - ``fork`` | ``spawn`` | ``forkserver``
+     - Multiprocessing start method, 'fork' is not supported.
+     - ``spawn`` | ``forkserver``
      - required
    * - ``persistent_workers``
      - Keep worker processes alive between epochs.

@@ -14,7 +14,7 @@ extractor:
     # ml_suite configurations, see ml_suite docs
     ml_suite:
       # Define name of pulse series from which to extract features
-      pulse_key: InIceDSTPulses
+      pulse_key: SplitInIcePulses
 
       # Define DOM and TimeWindow exclusions. Leave empty if no exclusions
       dom_exclusions:
@@ -148,18 +148,6 @@ processors:  # ordered list of processors, each can be used any number of times
     kwargs:
       key: compressed
 
-  - name: simweights
-    kwargs:
-      out: simweights
-      weight_group: nugen_1e8-1e10
-      weighter: NuGenWeighter
-      flux:
-        name: power-law
-        kwargs:
-          g: 2.37
-          phi0: 1.44e-18
-          e0: 1.0e+5
-
   - name: knn  # output is compressed by default
     kwargs:
       by: event_ids
@@ -190,9 +178,9 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: commit
     kwargs:
       ids: event_ids
-      cols: [ features, edge_index, edge_weight, targets, simweights ]
+      cols: [ features, edge_index, edge_weight, targets ]
 
 writer:
-  name: lmdb
+  name: zarr
   kwargs:
-    outdir: /data/i3store/users/tstjean/tmp
+    chunk_size: 8

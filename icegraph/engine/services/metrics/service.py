@@ -28,6 +28,13 @@ class MetricService(Service[MetricConfig]):
     def validate_config(cls, config: dict[str, Any]) -> MetricConfig:
         return MetricConfig(**config)
 
+    def __getstate__(self) -> dict[str, Any]:
+        # spawn workers pickle the whole service manager, metric state lives on
+        # the accelerator after the first epoch and must not pull CUDA into workers
+        state = self.__dict__.copy()
+        state.pop("_metrics", None)
+        return state
+
     @cached_property
     def _metrics(self) -> list[Metric]:
         # load user metric selections

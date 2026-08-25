@@ -36,12 +36,6 @@ class RecordService(Service[RecordConfig]):
     def build(self) -> None:
         return
 
-    def on_attach(self) -> None:
-        # in order for each process to not have to scan each file, need to eagerly load
-        # attrs in parent proc, this is expensive both for CPU and mem. results will be
-        # copied to spawned procs via pickle
-        _ = self._cache
-
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> RecordConfig:
         return RecordConfig(**config)
@@ -181,12 +175,7 @@ class RecordService(Service[RecordConfig]):
     def _cache(self) -> ShardLRUCache:
         start = time.perf_counter()
         readers: list[Reader] = []
-        for path in track(
-                self.source.resolve(self._target_file_ext),
-                description="Initializing readers...",
-                console=console,
-                total=self.file_count
-        ):
+        for path in self.source.resolve(self._target_file_ext):
             # create the reader
             reader = ReaderFactory.create(self.config.reader.name, **self.config.reader.kwargs)
 
@@ -197,18 +186,8 @@ class RecordService(Service[RecordConfig]):
             # append to list
             readers.append(reader)
 
-        pairs: list[tuple[str, Reader]] = []
-
-        with Progress(console=console) as progress:
-            task = progress.add_task("Loading attributes...", total=len(readers))
-            with ThreadPoolExecutor(64) as ex:
-                futs = {ex.submit(attrgetter("attrs.shard_id"), r): r for r in readers}
-                for f in as_completed(futs):
-                    pairs.append((f.result(), futs[f]))
-                    progress.advance(task)
-
-        pairs.sort(key=itemgetter(0))
-        readers = [r for _, r in pairs]
+        # sort readers by shard id
+        readers.sort(key=attrgetter("attrs.shard_id"))
 
         # since we are sorting by shard id, we need to open each file handle to access attributes
         # thus we need to go through and close all readers again

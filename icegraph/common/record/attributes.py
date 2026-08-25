@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import Mapping, Iterator, Any
-from types import MappingProxyType
 from dataclasses import dataclass
 
 from icegraph.common.data import AttributeDomain
@@ -16,10 +15,6 @@ __all__ = ["Attributes", "GlobalAttributes"]
 @dataclass(frozen=True)
 class Attributes(Mapping[AttributeDomain, dict[str, Any]]):
     _data: dict[AttributeDomain, dict[str, Any]]
-
-    def __post_init__(self):
-        # convert to read-only mapping
-        object.__setattr__(self, "_data", MappingProxyType(self._data))
 
     def __getitem__(self, key: AttributeDomain) -> dict[str, Any]:
         return self._data[key]
@@ -50,10 +45,6 @@ class Attributes(Mapping[AttributeDomain, dict[str, Any]]):
 @dataclass(frozen=True)
 class GlobalAttributes(Mapping[str, Any]):
     _data: dict[str, Any]
-
-    def __post_init__(self):
-        # convert to read-only mapping
-        object.__setattr__(self, "_data", MappingProxyType(self._data))
 
     def __getitem__(self, key: str) -> Any:
         return self._data[key]

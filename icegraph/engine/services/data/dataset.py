@@ -136,9 +136,9 @@ class GraphDataset(IterableDataset[GraphData]):
     def __iter__(self) -> Iterator[GraphData]:
         records = self._services.require("record", required_by=type(self))
 
-        # contiguous, ascending key blocks; never straddles a chunk, one read each
+        # contiguous, ascending key blocks that never straddles a chunk, one read each
         blocks = (
-            [self._build(s) for s in records[self.keys[start:min(start + self._batch_size, hi)]]]
+            [self._build(s) for s in records[self.keys[start:min(start + self._chunk_size, hi)]]]
             for lo, hi in self._assign_chunks()
             for start in range(lo, hi, self._batch_size)
         )

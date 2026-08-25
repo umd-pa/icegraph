@@ -343,5 +343,4 @@ class Trainer(Engine[TrainerConfig]):
             ctx = context.TeardownContext(engine=self)
             self.callbacks.fire("on_teardown", ctx)
         finally:
-            self.services.close()
-            self.components.close()
+            super().close()

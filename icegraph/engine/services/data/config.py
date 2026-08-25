@@ -20,7 +20,7 @@ class DataConfig(BaseModel):
     buffer_size:        int
     num_workers:        int
     prefetch_factor:    int
-    mp_context:         Literal["fork", "spawn", "forkserver"]
+    mp_context:         Literal["spawn", "forkserver"]
     persistent_workers: int
 
     @model_validator(mode="after")
@@ -34,12 +34,20 @@ class DataConfig(BaseModel):
                 f"there will be no fine mixing."
             )
 
-        elif 1 < self.buffer_size < self.chunk_size * 10:
+        elif 1 < self.buffer_size < self.batch_size * 10:
             logger.warning(
                 f"Buffer size ({self.buffer_size}) is less than 10x batch size "
                 + f"({self.batch_size}); buffer spans only "
-                + f"{self.buffer_size / self.chunk_size:.1f} batches, which may result in poor "
+                + f"{self.buffer_size / self.batch_size:.1f} batches, which may result in poor "
                 + "non-local mixing. Aim for a buffer:batch ratio above 10:1."
+            )
+
+        if 1 < self.buffer_size < self.chunk_size * 10:
+            logger.warning(
+                f"Buffer size ({self.buffer_size}) is less than 10x chunk size "
+                + f"({self.chunk_size}); buffer spans only "
+                + f"{self.buffer_size / self.chunk_size:.1f} chunks, which may give poor "
+                + "mixing across chunk boundaries. Aim for a buffer:chunk ratio above 10:1."
             )
 
         return self
@@ -48,17 +56,5 @@ class DataConfig(BaseModel):
     def validate_chunk_size(self) -> Self:
         if self.chunk_size < 1:
             raise ValueError("Chunk size must be equal to or greater than 1.")
-
-        return self
-
-    @model_validator(mode="after")
-    def validate_chunk_to_buffer_ratio(self) -> Self:
-        if 1 < self.buffer_size < self.chunk_size * 10:
-            logger.warning(
-                f"Buffer size ({self.buffer_size}) is less than 10x chunk size "
-                + f"({self.chunk_size}); buffer spans only "
-                + f"{self.buffer_size / self.chunk_size:.1f} chunks, which may give poor "
-                + "mixing across chunk boundaries. Aim for a buffer:chunk ratio above 10:1."
-            )
 
         return self

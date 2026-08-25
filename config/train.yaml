@@ -1,4 +1,4 @@
-outdir: /data/i3store/users/tstjean/BSN
+outdir: /data/i3store/users/tstjean/temp
 
 # epochs and val interval
 max_epochs: 10000
@@ -16,11 +16,11 @@ services:
     # buffer and chunk size configure the buffer sample count and the chunk size
     # chunks are shuffled as blocks
     buffer_size: 16384
-    chunk_size: 4096
+    chunk_size: 2048
 
     num_workers: 8
     prefetch_factor: 8
-    mp_context: fork
+    mp_context: spawn
     persistent_workers: true
 
   decode:
@@ -46,17 +46,15 @@ services:
 
   record:
     source:
-      - /scratch/users/tstjean/23122
-      - /scratch/users/tstjean/23016
+      - /data/i3store/users/tstjean/processed/sim/23016
+      - /data/i3store/users/tstjean/processed/sim/22803
+      - /data/i3store/users/tstjean/processed/sim/23123
 
     reader:
-      name: lmdb
+      name: zarr
       kwargs: { }
 
-    store:
-      name: lru-shard
-      kwargs:
-        cache_size: 32
+    cache_size: 32
 
   metrics:
     select:

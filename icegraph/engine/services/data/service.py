@@ -40,6 +40,14 @@ class DataService(Service[DataConfig]):
     def validate_config(cls, config: dict[str, Any]) -> DataConfig:
         return DataConfig(**config)
 
+    def __getstate__(self) -> dict[str, Any]:
+        # spawn workers pickle the whole service manager, built loaders hold
+        # live iterators under persistent_workers
+        # and must never ride along
+        state = self.__dict__.copy()
+        state.pop("_dls", None)
+        return state
+
     @property
     def loader_spec(self) -> type[LoaderSpec]:
         return LoaderSpec
