@@ -12,8 +12,9 @@ from typing_extensions import Buffer
 import lmdb
 from typing import Any, ClassVar
 import msgpack
+import numpy as np
 
-from icegraph.common.record import Record
+from icegraph.common.record import Column, RecordBlock
 from icegraph.typing.common import ArrayI
 from icegraph.common.data import restore
 
@@ -102,8 +103,8 @@ class LMDB(Reader[Config, Handle]):
 
         return attrs
 
-    def _get(self, indices: ArrayI) -> list[Record]:
-        records = []
+    def _get(self, indices: ArrayI) -> RecordBlock:
+        rows: list[dict[str, Any]] = []
         with self.handle.env.begin(db=self.handle.dbs["data"]) as txn:
             for index in indices:
                 # np ints lack .to_bytes, coerce to plain int
@@ -113,10 +114,33 @@ class LMDB(Reader[Config, Handle]):
                 if data is None:
                     raise KeyError(f"Index {index} not found in file {self._ctx.path}")
 
-                records.append(Record(
-                    index=index,
-                    shard_id=self.attrs.shard_id,
-                    data=self._unpack(data),
-                ))
+                rows.append(self._unpack(data))
 
-        return records
+        return self._to_block(rows)
+
+    @staticmethod
+    def _to_block(rows: list[dict[str, Any]]) -> RecordBlock:
+        """Stack row-oriented records into a columnar block.
+
+        Scalars stack to one row per record; arrays concatenate along dim 0
+        with per-record row offsets (a record's 1-d array of length T is T
+        rows of scalars, uniform-width tables are recovered downstream).
+        """
+        height = len(rows)
+
+        columns: dict[str, Column] = {}
+        for name in rows[0] if rows else ():
+            values = [np.asarray(row[name]) for row in rows]
+
+            if values[0].ndim == 0:
+                columns[name] = Column(np.asarray(values))
+                continue
+
+            lengths = np.fromiter((v.shape[0] for v in values), dtype=np.int64, count=height)
+
+            offsets = np.zeros(height + 1, np.int64)
+            np.cumsum(lengths, out=offsets[1:])
+
+            columns[name] = Column(np.concatenate(values, axis=0), offsets)
+
+        return RecordBlock(height=height, columns=columns)

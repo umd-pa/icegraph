@@ -26,10 +26,12 @@ Configured under ``services.data``.
 How it works
 ------------
 
-Samples are read in contiguous chunks and passed through a shuffle buffer so
-that batches can mix across chunk boundaries without holding the whole dataset in
-memory. A pool of worker processes reads and assembles batches ahead of the model
-to reduce I/O latency. The service builds and caches one loader per requested split.
+Samples are read in contiguous chunks, kept columnar, and gathered into groups
+of roughly ``buffer_size`` samples. Each group is permuted per record and sliced
+into ready-made batches, so batches mix across chunk boundaries without the
+whole dataset in memory and without materializing individual samples. A pool of
+worker processes reads and assembles batches ahead of the model to reduce I/O
+latency. The service builds and caches one loader per requested split.
 
 Configuration
 -------------
@@ -51,8 +53,9 @@ Configuration
      - int
      - required
    * - ``buffer_size``
-     - Size of the shuffle buffer, in samples. Chunks are mixed within it; aim for
-       a buffer-to-chunk ratio above 10:1.
+     - Size of the shuffle window, in samples. Chunks are grouped up to this
+       size and records permuted across the group; aim for a buffer-to-chunk
+       ratio of at least 8:1.
      - int
      - required
    * - ``shuffle_chunks``

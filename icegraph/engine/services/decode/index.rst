@@ -32,8 +32,9 @@ How it works
 
 Two decoders divide the work. The :doc:`attribute decoder <attrs/index>` reads
 dataset-level metadata, such as column names, per-column statistics, and the set of
-observed label values. The :doc:`record decoder <records/index>` reads an
-individual record and extracts relevant tensors (such as ``features``, ``targets``, etc).
+observed label values. The :doc:`record decoder <records/index>` reads a columnar
+block of records and decodes its columns (such as ``features``, ``targets``, etc)
+into flat tensors.
 
 Configuration
 -------------

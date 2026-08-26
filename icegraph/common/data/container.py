@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self, cast, Callable, Mapping
+from typing import TYPE_CHECKING, Self, Callable, Mapping
 
-from torch_geometric.data import Data, Batch
-from torch_geometric.data.data import BaseData
+from torch_geometric.data import Batch
 from jaxtyping import Int, Float
 import torch
 
@@ -17,34 +16,12 @@ from ..tensors import SegmentedTensor, SegmentLayout
 if TYPE_CHECKING:
     from torch import Tensor
 
-__all__ = ["GraphData", "RawGraphBatch", "GraphBatch", "ProcessedGraphBatch"]
-
-
-class GraphData(Data):
-    if TYPE_CHECKING:
-        # features
-        features:       Float[Tensor, "N F"]
-
-        # truth
-        targets:        Float[Tensor, "1 T"] | Int[Tensor, "1 T"]
-        auxiliary:      Float[Tensor, "1 A"] | Int[Tensor, "1 A"]
-
-        # weights
-        simweights:     Float[Tensor, "0"] | Float[Tensor, "1"]
-
-        # edges
-        # this is just type hinting so ignore pyright complaints
-        edge_index:     Int[Tensor, "2 E"]          # pyright: ignore[reportIncompatibleMethodOverride]
-        edge_attr:      Float[Tensor, "E ATTR"]     # pyright: ignore[reportIncompatibleMethodOverride]
-
-    def __cat_dim__(self, key: str, value: Tensor, *args, **kwargs) -> int:
-        if key in {"features", "targets", "auxiliary", "edge_attr"}:
-            return 0
-
-        return super().__cat_dim__(key, value, *args, **kwargs)
+__all__ = ["RawGraphBatch", "GraphBatch", "ProcessedGraphBatch"]
 
 
 class RawGraphBatch(Batch):
+    """Batched graphs in plain-tensor form, assembled columnar by the decode service."""
+
     if TYPE_CHECKING:
         # features
         features:       Float[Tensor, "M F"]  # M = sum(N_i)
@@ -60,8 +37,9 @@ class RawGraphBatch(Batch):
         edge_index:     Int[Tensor, "2 K"]  # K = sum(E_i)
         edge_attr:      Float[Tensor, "K ATTR"]
 
-        # batch vector
+        # batch vector and per-graph node offsets
         batch:          Int[Tensor, "M"]
+        ptr:            Int[Tensor, "B+1"]
 
     def to_device(
         self,
@@ -70,15 +48,6 @@ class RawGraphBatch(Batch):
     ) -> Self:
         # .to exists, just not stubbed
         return super().to(device=device, non_blocking=non_blocking)  # pyright: ignore[reportAttributeAccessIssue]
-
-    if TYPE_CHECKING:
-        @classmethod
-        def from_data_list(
-            cls,
-            data_list: list[BaseData],
-            follow_batch: list[str] | None = None,
-            exclude_keys: list[str] | None = None,
-        ) -> Self: ...
 
 
 class GraphBatch(Batch):

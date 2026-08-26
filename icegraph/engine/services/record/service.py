@@ -3,19 +3,16 @@
 
 from __future__ import annotations
 
-from typing import Iterator, Any, ClassVar, overload
+from typing import Iterator, Any, ClassVar
 from functools import cached_property
-from operator import itemgetter, attrgetter
+from operator import attrgetter
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
-from rich.progress import track, Progress
 
 from icegraph.common.files import Source
-from icegraph.common.record import Record, Attributes, GlobalAttributes
+from icegraph.common.record import RecordBlock, Attributes, GlobalAttributes
 from icegraph.typing.common import ArrayI
-from icegraph.ui import console
 
 from ..service import Service
 
@@ -40,97 +37,37 @@ class RecordService(Service[RecordConfig]):
     def validate_config(cls, config: dict[str, Any]) -> RecordConfig:
         return RecordConfig(**config)
 
-    def __iter__(self) -> Iterator[Record]:
-        """Iterate through all records."""
-        for i in range(len(self)):
-            yield self[i]
-
-    @overload
-    def __getitem__(self, index: int) -> Record: ...
-
-    @overload
-    def __getitem__(self, index: slice | list[int] | ArrayI) -> list[Record]: ...
-
-    @overload
-    def __getitem__(self, index: int | slice | list[int] | ArrayI) -> Record | list[Record]: ...
-
-    def __getitem__(self, index: int | slice | list[int] | ArrayI) -> Record | list[Record]:
+    def read(self, indices: ArrayI) -> RecordBlock:
         """
-        Retrieve one or more records.
+        Read the given records as one columnar block.
 
-        Args:
-            index: Integer index or slice object.
+        Indices must be ascending and in bounds; shards are visited in order,
+        so the block preserves the requested order.
         """
-        scalar_input = False
-        if isinstance(index, (int, np.integer)) and not isinstance(index, bool):
-            scalar_input = True
+        if not isinstance(indices, np.ndarray):
+            raise TypeError(f"Indices must be an npt.NDArray, got {type(indices).__name__}.")
 
-            # check index valid
-            if not (-len(self) <= index < len(self)):
-                raise IndexError(f"Index {index} out of bounds for dataset of length {len(self)}.")
+        if indices.ndim != 1 or not np.issubdtype(indices.dtype, np.integer):
+            raise TypeError(f"Indices must be a 1-dim integer array, got ndim {indices.ndim}, dtype {indices.dtype}.")
 
-            index_array = np.asarray([index])
+        if len(indices) == 0:
+            raise ValueError("Cannot read an empty index array.")
 
-        elif isinstance(index, slice):
-            if index.start is not None and not (-len(self) <= index.start <= len(self)):
-                raise IndexError(f"Index slice start {index.start} out of bounds for dataset of length {len(self)}")
-
-            if index.stop is not None and not (-len(self) <= index.stop <= len(self)):
-                raise IndexError(f"Index slice stop {index.stop} out of bounds for dataset of length {len(self)}")
-
-            if index.step == 0:
-                raise ValueError("Index slice step cannot be zero")
-
-            index_array = np.asarray(list(range(*index.indices(len(self)))))
-
-        elif isinstance(index, (list, np.ndarray)):
-            index_array = np.asarray(index)
-
-            if index_array.ndim > 1:
-                raise ValueError(f"Index array cannot contain more than 1 dim, got {index_array.ndim}.")
-
-            if not np.issubdtype(index_array.dtype, np.integer):
-                raise TypeError(f"Index array must have an integer dtype, got {index_array.dtype}.")
-
-            out_of_bounds = (index_array < -len(self)) | (index_array >= len(self))
-
-            if out_of_bounds.any():
-                raise IndexError(f"Index {index_array[out_of_bounds]} out of bounds for dataset of length {len(self)}.")
-
-        # assert index is an int, slice, list, ndarray
-        else:
-            raise TypeError(f"Index must be of type int | list[int] | np.NDArray[np.integer] | slice, got '{type(index).__name__}'.")
-
-        # at this point, index should be an array
-        assert isinstance(index_array, np.ndarray)
-
-        # wrap
-        index_array = index_array % len(self)
+        if indices[0] < 0 or indices[-1] >= len(self) or np.any(np.diff(indices) <= 0):
+            raise IndexError(
+                f"Indices must be strictly ascending and within [0, {len(self)}), "
+                f"got range [{indices[0]}, {indices[-1]}]."
+            )
 
         # get shard and row indices and load reader from cache
-        shard_idxs, row_idxs = self._indices_from_global(index_array)
+        shard_idxs, row_idxs = self._indices_from_global(indices)
 
-        positions: list[ArrayI] = []
-        gathered: list[Record] = []
-
+        blocks: list[RecordBlock] = []
         for shard_idx in np.unique(shard_idxs):
-            mask = shard_idxs == shard_idx
             reader = self._cache.get_reader(shard_idx)
+            blocks.append(reader[row_idxs[shard_idxs == shard_idx]])
 
-            positions.append(np.flatnonzero(mask))
-            gathered.extend(reader[row_idxs[mask]])
-
-        if not positions:
-            return []
-
-        # restore requested order
-        slots = np.concatenate(positions)
-        inverse = np.empty_like(slots)
-        inverse[slots] = np.arange(slots.size)
-
-        samples = [gathered[i] for i in inverse]
-
-        return samples[0] if scalar_input else samples
+        return RecordBlock.concat(blocks)
 
     def __len__(self) -> int:
         """Return the total number of records managed by the service."""

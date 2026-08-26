@@ -14,7 +14,7 @@ import io
 import polars as pl
 import numpy as np
 
-from icegraph.common.record import Record
+from icegraph.common.record import Column, RecordBlock
 from icegraph.typing.common import ArrayI
 from icegraph.common.data import restore
 
@@ -89,9 +89,11 @@ class Zarr(Reader[Config, Handle]):
 
     @cached_property
     def _offsets(self) -> dict[str, ArrayI]:
+        # only List columns have non-arange offsets; plain columns are indexed directly
         return {
             name: np.asarray(self.handle.get_array(name, self.handle.offsets)[:])
-            for name in self._schema
+            for name, dtype in self._schema.items()
+            if isinstance(dtype, pl.List)
         }
 
     @cached_property
@@ -99,46 +101,54 @@ class Zarr(Reader[Config, Handle]):
         """Build an Attributes object."""
         return restore(dict(self.handle.root.attrs))
 
-    def _get(self, indices: ArrayI) -> list[Record]:
-        # ascending for the read, remember where each came from
-        order = np.argsort(indices, kind="stable")
-        ordered = indices[order]
+    # covering-slice reads are one sequential request; fall back to exact row
+    # gathers only when the needed rows are a small fraction of the span
+    _DENSE_READ_FRACTION: ClassVar[float] = 0.5
 
-        columns: dict[str, tuple[np.ndarray, np.ndarray, bool]] = {}
+    def _read_rows(self, name: str, starts: ArrayI, stops: ArrayI) -> np.ndarray:
+        """Read the row segments ``[starts[i], stops[i])``, concatenated."""
+        array = self.handle.get_array(name, self.handle.values)
+
+        lengths = stops - starts
+        local = np.zeros(len(starts) + 1, np.int64)
+        np.cumsum(lengths, out=local[1:])
+        total = int(local[-1])
+
+        if total == 0:
+            return np.empty((0,) + array.shape[1:], dtype=array.dtype)
+
+        lo, hi = int(starts[0]), int(stops[-1])
+
+        # segments are disjoint and ascending, so total == span means no gaps
+        if total == hi - lo:
+            return np.asarray(array[lo:hi])
+
+        # positions of the needed rows, relative to the covering span
+        rows = np.arange(total, dtype=np.int64) + np.repeat(starts - local[:-1], lengths)
+
+        if total >= (hi - lo) * self._DENSE_READ_FRACTION:
+            return np.asarray(array[lo:hi])[rows - lo]
+
+        return np.asarray(array.oindex[rows])
+
+    def _get(self, indices: ArrayI) -> RecordBlock:
+        columns: dict[str, Column] = {}
 
         for name, dtype in self._schema.items():
             # mirrors the writer: only List columns get non-arange offsets
-            ragged = isinstance(dtype, pl.List)
+            if isinstance(dtype, pl.List):
+                off = self._offsets[name]
+                starts, stops = off[indices], off[indices + 1]
 
-            off = self._offsets[name]
-            starts, stops = off[ordered], off[ordered + 1]
+                values = self._read_rows(name, starts, stops)
 
-            # read only the rows this batch needs
-            rows = np.concatenate([np.arange(s, e) for s, e in zip(starts, stops)])
-            flat = np.asarray(self.handle.get_array(name, self.handle.values).oindex[rows])
+                # offsets local to this block
+                local = np.zeros(len(indices) + 1, np.int64)
+                np.cumsum(stops - starts, out=local[1:])
 
-            # offsets local to this batch
-            local = np.zeros(len(ordered) + 1, np.int64)
-            np.cumsum(stops - starts, out=local[1:])
+                columns[name] = Column(values, local)
+            else:
+                values = self._read_rows(name, indices, indices + 1)
+                columns[name] = Column(values)
 
-            columns[name] = (flat, local, ragged)
-
-        shard_id = self.attrs.shard_id
-
-        records = [
-            Record(
-                index=int(index),
-                shard_id=shard_id,
-                data={
-                    name: flat[local[i]:local[i + 1]] if ragged else flat[local[i]]
-                    for name, (flat, local, ragged) in columns.items()
-                },
-            )
-            for i, index in enumerate(ordered)
-        ]
-
-        # invert the permutation to restore requested order
-        inverse = np.empty_like(order)
-        inverse[order] = np.arange(order.size)
-
-        return [records[i] for i in inverse]
+        return RecordBlock(height=len(indices), columns=columns)

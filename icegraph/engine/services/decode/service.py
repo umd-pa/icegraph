@@ -13,7 +13,7 @@ from jaxtyping import Int, Float
 
 from icegraph.statistics import StatisticService
 from icegraph.common.data import DataRole, Split, ColumnarRole
-from icegraph.common.record import Record
+from icegraph.common.record import RecordBlock
 from icegraph.typing.common import ArrayI
 from icegraph.common.tensors import SegmentLayout
 
@@ -187,78 +187,98 @@ class DecodeService(Service[DecodeConfig]):
         ).to(device)
 
     ### RECORD DECODER HOOKS
-    # the excluded parameter, despite seemingly redundant, allows this service to fully control
-    # the structure of empty roles
+    # each hook decodes one role's columns from a block; a role resolves to an
+    # empty tensor either when excluded by the caller or when absent from the
+    # data — this service fully controls the structure of empty roles
 
     def _empty_tensor(self, shape: tuple[int, ...], dtype: torch.dtype) -> Tensor:
         return torch.empty(shape, dtype=dtype)
 
-    def load_features(self, record: Record, excluded: bool = False) -> Float[Tensor, "N F"]:
+    @lru_cache(maxsize=None)
+    def _is_full_selection(self, role: ColumnarRole, width: int) -> bool:
+        indices = self._indices(role)
+        return indices.numel() == width and bool(torch.equal(indices, torch.arange(width)))
+
+    def _select(self, tensor: Tensor, role: ColumnarRole) -> Tensor:
+        """Select the configured physical columns along the last dim."""
+        if self._is_full_selection(role, int(tensor.shape[-1])):
+            return tensor
+
+        return tensor.index_select(-1, self._indices(role))
+
+    def load_features(self, block: RecordBlock, excluded: bool = False) -> tuple[Float[Tensor, "M F"], ArrayI]:
+        """Node feature rows [M, F] plus per-record node counts."""
+        empty = self._empty_tensor((0,), torch.float32), np.zeros(block.height, dtype=np.int64)
+
         if excluded:
-            return self._empty_tensor((0,), dtype=torch.float32)
+            return empty
 
         key = self.config.keymap.features
-        raw = self._record_decoder.extract_features(record, key)      # [N, F_pre]
+        out = self._record_decoder.extract_features(block, key)       # [M, F_pre], counts
 
-        if raw is None:
-            return self._empty_tensor((0,), dtype=torch.float32)
+        if out is None:
+            return empty
 
-        return raw[..., self._indices(DataRole.FEATURES)]          # [N, F]
+        features, counts = out
+        return self._select(features, DataRole.FEATURES), counts      # [M, F]
 
-    def load_targets(self, record: Record, excluded: bool = False) -> Float[Tensor, "1 T"] | Int[Tensor, "1 T"]:
+    def load_targets(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B T"] | Int[Tensor, "B T"]:
         if excluded:
-            return self._empty_tensor((1, 0), dtype=torch.float32)
+            return self._empty_tensor((block.height, 0), dtype=torch.float32)
 
         key = self.config.keymap.truth
-        raw = self._record_decoder.extract_targets(record, key)         # [1, T_pre]
+        raw = self._record_decoder.extract_targets(block, key)        # [B, T_pre]
 
         if raw is None:
-            return self._empty_tensor((1, 0), dtype=torch.float32)
+            return self._empty_tensor((block.height, 0), dtype=torch.float32)
 
-        return raw[..., self._indices(DataRole.TARGETS)]           # [1, T]
+        return self._select(raw, DataRole.TARGETS)                    # [B, T]
 
-    def load_auxiliary(self, record: Record, excluded: bool = False) -> Float[Tensor, "1 A"] | Int[Tensor, "1 A"]:
+    def load_auxiliary(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B A"] | Int[Tensor, "B A"]:
         if excluded:
-            return torch.empty((1, 0), dtype=torch.float32)
+            return self._empty_tensor((block.height, 0), dtype=torch.float32)
 
         key = self.config.keymap.truth
-        raw = self._record_decoder.extract_auxiliary(record, key)       # [1, A_pre]
+        raw = self._record_decoder.extract_auxiliary(block, key)      # [B, A_pre]
 
         if raw is None:
-            return self._empty_tensor((1, 0), dtype=torch.float32)
+            return self._empty_tensor((block.height, 0), dtype=torch.float32)
 
-        return raw[..., self._indices(DataRole.AUXILIARY)]         # [1, A]
+        return self._select(raw, DataRole.AUXILIARY)                  # [B, A]
 
-    def load_edge_index(self, record: Record, excluded: bool = False) -> Int[Tensor, "2 E"]:
+    def load_edge_index(self, block: RecordBlock, excluded: bool = False) -> tuple[Int[Tensor, "2 K"], ArrayI]:
+        """Unshifted edge indices [2, K] plus per-record edge counts."""
+        empty = self._empty_tensor((2, 0), torch.long), np.zeros(block.height, dtype=np.int64)
+
         if excluded:
-            return self._empty_tensor((2, 0), dtype=torch.long)
+            return empty
 
         key = self.config.keymap.edge_index
-        raw = self._record_decoder.extract_edge_index(record, key)
+        out = self._record_decoder.extract_edge_index(block, key)
 
-        if raw is None:
-            return self._empty_tensor((2, 0), dtype=torch.long)
+        if out is None:
+            return empty
 
-        return raw
+        return out
 
-    def load_edge_attr(self, record: Record, excluded: bool = False) -> Float[Tensor, "E ATTR"]:
+    def load_edge_attr(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "K ATTR"]:
         if excluded:
             return self._empty_tensor((0,), dtype=torch.float32)
 
         key = self.config.keymap.edge_attr
-        raw = self._record_decoder.extract_edge_attr(record, key)
+        raw = self._record_decoder.extract_edge_attr(block, key)
 
         if raw is None:
             return self._empty_tensor((0,), dtype=torch.float32)
 
         return raw
 
-    def load_simweights(self, record: Record, excluded: bool = False) -> Float[Tensor, "1"] | Float[Tensor, "0"]:
+    def load_simweights(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B"] | Float[Tensor, "0"]:
         if excluded:
             return self._empty_tensor((0,), dtype=torch.float32)
 
         key = self.config.keymap.simweights
-        raw = self._record_decoder.extract_simweights(record, key)
+        raw = self._record_decoder.extract_simweights(block, key)
 
         if raw is None:
             return self._empty_tensor((0,), dtype=torch.float32)

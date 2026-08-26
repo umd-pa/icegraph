@@ -80,9 +80,10 @@ class DataService(Service[DataConfig]):
     def _new_dataloader(self) -> partial[GraphDataLoader]:
         """Build a new dataloader spec."""
         start = time.perf_counter()
+
+        # batch_size lives on the dataset; the loader passes batches through
         kwargs: dict[str, Any] = {
             "num_workers":  self.config.num_workers,
-            "batch_size":   self.config.batch_size
         }
 
         # if num workers is greater than 0 (multiprocessing)
