@@ -6,6 +6,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from pathlib import Path
 from typing import Generic, final, Any, ClassVar, TypeVar
+from collections.abc import Collection
 from functools import cached_property
 
 import numpy as np
@@ -43,10 +44,19 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
 
     @final
     def __getitem__(self, indices: ArrayI) -> RecordBlock:
+        """Read the given rows, every stored column."""
+        return self.read(indices)
+
+    @final
+    def read(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
         """Read the given rows as one columnar block.
 
         Indices must be ascending; callers (the record service) sort once so
         readers can turn each request into large sequential reads.
+
+        ``columns`` restricts the read to the named columns. Names absent from
+        the file are skipped rather than raising, matching the decode service,
+        which treats a missing column as an empty role. ``None`` reads all.
         """
         # ensure indices is array
         if not isinstance(indices, np.ndarray):
@@ -67,7 +77,7 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
             raise IndexError(f"Index {indices[out_of_bounds]} out of bounds for dataset of length {len(self)}.")
 
         # normalize index
-        return self._get(indices)
+        return self._get(indices, columns)
 
     def __getstate__(self) -> dict[str, Any]:
         # close before pickle
@@ -129,7 +139,7 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
         ...
 
     @abstractmethod
-    def _get(self, indices: ArrayI) -> RecordBlock:
+    def _get(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
         ...
 
     def close(self) -> None:

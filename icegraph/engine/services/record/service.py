@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import Iterator, Any, ClassVar
+from collections.abc import Collection
 from functools import cached_property
 from operator import attrgetter
 import time
@@ -37,12 +38,14 @@ class RecordService(Service[RecordConfig]):
     def validate_config(cls, config: dict[str, Any]) -> RecordConfig:
         return RecordConfig(**config)
 
-    def read(self, indices: ArrayI) -> RecordBlock:
+    def read(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
         """
         Read the given records as one columnar block.
 
         Indices must be ascending and in bounds; shards are visited in order,
         so the block preserves the requested order.
+
+        ``columns`` restricts the read to the named columns; ``None`` reads all.
         """
         if not isinstance(indices, np.ndarray):
             raise TypeError(f"Indices must be an npt.NDArray, got {type(indices).__name__}.")
@@ -65,7 +68,7 @@ class RecordService(Service[RecordConfig]):
         blocks: list[RecordBlock] = []
         for shard_idx in np.unique(shard_idxs):
             reader = self._cache.get_reader(shard_idx)
-            blocks.append(reader[row_idxs[shard_idxs == shard_idx]])
+            blocks.append(reader.read(row_idxs[shard_idxs == shard_idx], columns))
 
         return RecordBlock.concat(blocks)
 

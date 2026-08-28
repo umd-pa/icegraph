@@ -5,9 +5,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any, ClassVar
+from collections.abc import Collection
 
 import zarr
 import io
@@ -28,6 +29,20 @@ __all__ = ["Zarr"]
 @dataclass(frozen=True)
 class Handle:
     root: zarr.Group
+
+    # a zarr group re-fetches and re-parses zarr.json on every member lookup, so
+    # resolving an array per read costs two store round-trips before any data
+    # moves, the hot path resolves each array once and keeps it
+    _values: dict[str, zarr.Array] = field(default_factory=dict, repr=False, compare=False)
+
+    def value_array(self, name: str) -> zarr.Array:
+        """Resolve a values array once, then serve it from the handle."""
+        array = self._values.get(name)
+
+        if array is None:
+            array = self._values[name] = self.get_array(name, self.values)
+
+        return array
 
     # sub dbs
     @property
@@ -101,7 +116,7 @@ class Zarr(Reader[Config, Handle]):
 
     def _read_rows(self, name: str, starts: ArrayI, stops: ArrayI) -> np.ndarray:
         """Read the row segments ``[starts[i], stops[i])``, concatenated."""
-        array = self.handle.get_array(name, self.handle.values)
+        array = self.handle.value_array(name)
 
         lengths = stops - starts
         local = np.zeros(len(starts) + 1, np.int64)
@@ -125,10 +140,19 @@ class Zarr(Reader[Config, Handle]):
 
         return np.asarray(array.oindex[rows])
 
-    def _get(self, indices: ArrayI) -> RecordBlock:
-        columns: dict[str, Column] = {}
+    def _selected(self, columns: Collection[str] | None) -> list[str]:
+        """Requested columns that the file actually holds, in schema order."""
+        if columns is None:
+            return list(self._schema)
 
-        for name in self._schema:
+        # an absent column is not an error: the decode service already treats a
+        # missing column as an empty role, so intersect rather than raise
+        return [name for name in self._schema if name in columns]
+
+    def _get(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
+        block: dict[str, Column] = {}
+
+        for name in self._selected(columns):
             off = self._offsets[name]
             starts, stops = off[indices], off[indices + 1]
 
@@ -138,6 +162,6 @@ class Zarr(Reader[Config, Handle]):
             local = np.zeros(len(indices) + 1, np.int64)
             np.cumsum(stops - starts, out=local[1:])
 
-            columns[name] = Column(values, local)
+            block[name] = Column(values, local)
 
-        return RecordBlock(height=len(indices), columns=columns)
+        return RecordBlock(height=len(indices), columns=block)

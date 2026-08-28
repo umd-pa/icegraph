@@ -7,6 +7,7 @@ from pathlib import Path
 
 from dataclasses import dataclass
 from functools import cached_property
+from collections.abc import Collection
 from typing_extensions import Buffer
 
 import lmdb
@@ -103,7 +104,7 @@ class LMDB(Reader[Config, Handle]):
 
         return attrs
 
-    def _get(self, indices: ArrayI) -> RecordBlock:
+    def _get(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
         rows: list[dict[str, Any]] = []
         with self.handle.env.begin(db=self.handle.dbs["data"]) as txn:
             for index in indices:
@@ -116,15 +117,22 @@ class LMDB(Reader[Config, Handle]):
 
                 rows.append(self._unpack(data))
 
-        return self._to_block(rows)
+        return self._to_block(rows, columns)
 
     @staticmethod
-    def _to_block(rows: list[dict[str, Any]]) -> RecordBlock:
-        """Stack row-oriented records into a columnar block."""
+    def _to_block(rows: list[dict[str, Any]], columns: Collection[str] | None = None) -> RecordBlock:
+        """Stack row-oriented records into a columnar block.
+
+        A record is stored whole, so unwanted columns cannot be skipped on read;
+        restricting them still avoids stacking and copying what nothing decodes.
+        """
         height = len(rows)
 
-        columns: dict[str, Column] = {}
-        for name in rows[0] if rows else ():
+        stored = rows[0] if rows else {}
+        selected = stored if columns is None else [n for n in stored if n in columns]
+
+        block: dict[str, Column] = {}
+        for name in selected:
             values = [np.asarray(row[name]) for row in rows]
 
             lengths = np.fromiter((v.shape[0] for v in values), dtype=np.int64)
@@ -132,6 +140,6 @@ class LMDB(Reader[Config, Handle]):
             offsets = np.zeros(height + 1, np.int64)
             np.cumsum(lengths, out=offsets[1:])
 
-            columns[name] = Column(np.concatenate(values, axis=0), offsets)
+            block[name] = Column(np.concatenate(values, axis=0), offsets)
 
-        return RecordBlock(height=height, columns=columns)
+        return RecordBlock(height=height, columns=block)

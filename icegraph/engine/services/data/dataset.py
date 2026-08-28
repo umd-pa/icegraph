@@ -151,7 +151,11 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
     def __iter__(self) -> Iterator[RawGraphBatch]:
         records = self._services.require("record", required_by=type(self))
+        decode = self._services.require("decode", required_by=type(self))
         state = self._services.require("state", required_by=type(self))
+
+        # only read what the non-excluded roles will actually decode
+        columns = decode.required_keys(self._exclude_roles)
 
         worker = get_worker_info()
         wid = worker.id if worker is not None else 0
@@ -179,7 +183,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
             """
             blocks: list[RecordBlock] = []
             for lo, hi in group:
-                block = records.read(self.keys[lo:hi])
+                block = records.read(self.keys[lo:hi], columns)
                 if block.height:
                     blocks.append(block)
             return blocks

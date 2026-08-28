@@ -186,6 +186,28 @@ class DecodeService(Service[DecodeConfig]):
             names=self.get_columns(role)
         ).to(device)
 
+    ### READ PLANNING
+
+    @lru_cache(maxsize=None)
+    def required_keys(self, excluded: frozenset[DataRole] = frozenset()) -> frozenset[str]:
+        """Record columns the non-excluded roles decode from.
+
+        Lets the reader skip columns nothing will look at. Targets and auxiliary
+        share the truth column, so it is needed unless both are excluded.
+        """
+        keys: set[str] = set()
+
+        if DataRole.FEATURES not in excluded:
+            keys.add(self.config.keymap.features)
+
+        if not {DataRole.TARGETS, DataRole.AUXILIARY} <= excluded:
+            keys.add(self.config.keymap.truth)
+
+        if DataRole.SIMWEIGHT not in excluded:
+            keys.add(self.config.keymap.simweights)
+
+        return frozenset(keys)
+
     ### RECORD DECODER HOOKS
     # the excluded parameter, despite seemingly redundant, allows this service to fully control
     # the structure of empty roles

@@ -16,7 +16,7 @@ services:
     # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
     buffer_size: 12
-    chunk_size: 2048
+    chunk_size: 4096
 
     num_workers: 8
     prefetch_factor: 8
@@ -86,8 +86,8 @@ components:
       k: 10
 
       # logical feature column groups
-      neighbor_cols: [ dom_pos ]
-      weight_cols: [ dom_pos ]
+      neighbor_cols: [ dom_x, dom_y, dom_z ]
+      weight_cols: [ dom_x, dom_y, dom_z ]
 
   optimizer:
     name: adam
