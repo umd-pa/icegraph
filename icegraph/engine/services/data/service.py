@@ -81,8 +81,7 @@ class DataService(Service[DataConfig]):
         """Build a new dataloader spec."""
         start = time.perf_counter()
         kwargs: dict[str, Any] = {
-            "num_workers":  self.config.num_workers,
-            "batch_size":   self.config.batch_size
+            "num_workers":  self.config.num_workers
         }
 
         # if num workers is greater than 0 (multiprocessing)
@@ -106,6 +105,7 @@ class DataService(Service[DataConfig]):
             buffer_size=self.config.buffer_size,
             batch_size=self.config.batch_size,
             shuffle_chunks=self.config.shuffle_chunks,
+            buffer_refill_threshold=self.config.buffer_refill_threshold,
             services=self._ctx.services
         )
         logger.info(f"[DataService] Constructed new dataset in {time.perf_counter() - start} s.")

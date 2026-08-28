@@ -51,14 +51,17 @@ Configuration
      - int
      - required
    * - ``buffer_size``
-     - Size of the shuffle buffer, in samples. Chunks are mixed within it; aim for
-       a buffer-to-chunk ratio above 10:1.
+     - Size of the shuffle buffer, in chunks. Chunks are mixed within it; aim for >10 if memory allows.
      - int
      - required
    * - ``shuffle_chunks``
      - Whether to shuffle whole chunks as blocks.
      - bool
      - ``false``
+   * - ``buffer_refill_threshold``
+     - Fraction of the buffer size at which a refill is triggered.
+     - float
+     - 0.25
    * - ``num_workers``
      - Number of worker processes loading data.
      - int

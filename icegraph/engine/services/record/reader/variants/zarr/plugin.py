@@ -14,7 +14,7 @@ import io
 import polars as pl
 import numpy as np
 
-from icegraph.common.record import Record
+from icegraph.common.record import RecordBlock, Column
 from icegraph.typing.common import ArrayI
 from icegraph.common.data import restore
 
@@ -99,46 +99,45 @@ class Zarr(Reader[Config, Handle]):
         """Build an Attributes object."""
         return restore(dict(self.handle.root.attrs))
 
-    def _get(self, indices: ArrayI) -> list[Record]:
-        # ascending for the read, remember where each came from
-        order = np.argsort(indices, kind="stable")
-        ordered = indices[order]
+    def _read_rows(self, name: str, starts: ArrayI, stops: ArrayI) -> np.ndarray:
+        """Read the row segments ``[starts[i], stops[i])``, concatenated."""
+        array = self.handle.get_array(name, self.handle.values)
 
-        columns: dict[str, tuple[np.ndarray, np.ndarray, bool]] = {}
+        lengths = stops - starts
+        local = np.zeros(len(starts) + 1, np.int64)
+        np.cumsum(lengths, out=local[1:])
+        total = int(local[-1])
 
-        for name, dtype in self._schema.items():
-            # mirrors the writer: only List columns get non-arange offsets
-            ragged = isinstance(dtype, pl.List)
+        if total == 0:
+            return np.empty((0,) + array.shape[1:], dtype=array.dtype)
 
+        lo, hi = int(starts[0]), int(stops[-1])
+
+        # segments are disjoint and ascending, so total == span means no gaps
+        if total == hi - lo:
+            return np.asarray(array[lo:hi])
+
+        # positions of the needed rows, relative to the covering span
+        rows = np.arange(total, dtype=np.int64) + np.repeat(starts - local[:-1], lengths)
+
+        if total >= (hi - lo) * self.config.dense_read_fraction:
+            return np.asarray(array[lo:hi])[rows - lo]
+
+        return np.asarray(array.oindex[rows])
+
+    def _get(self, indices: ArrayI) -> RecordBlock:
+        columns: dict[str, Column] = {}
+
+        for name in self._schema:
             off = self._offsets[name]
-            starts, stops = off[ordered], off[ordered + 1]
+            starts, stops = off[indices], off[indices + 1]
 
-            # read only the rows this batch needs
-            rows = np.concatenate([np.arange(s, e) for s, e in zip(starts, stops)])
-            flat = np.asarray(self.handle.get_array(name, self.handle.values).oindex[rows])
+            values = self._read_rows(name, starts, stops)
 
-            # offsets local to this batch
-            local = np.zeros(len(ordered) + 1, np.int64)
+            # offsets local to this block
+            local = np.zeros(len(indices) + 1, np.int64)
             np.cumsum(stops - starts, out=local[1:])
 
-            columns[name] = (flat, local, ragged)
+            columns[name] = Column(values, local)
 
-        shard_id = self.attrs.shard_id
-
-        records = [
-            Record(
-                index=int(index),
-                shard_id=shard_id,
-                data={
-                    name: flat[local[i]:local[i + 1]] if ragged else flat[local[i]]
-                    for name, (flat, local, ragged) in columns.items()
-                },
-            )
-            for i, index in enumerate(ordered)
-        ]
-
-        # invert the permutation to restore requested order
-        inverse = np.empty_like(order)
-        inverse[order] = np.arange(order.size)
-
-        return [records[i] for i in inverse]
+        return RecordBlock(height=len(indices), columns=columns)

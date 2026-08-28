@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import random
+import math
 from functools import cached_property
 from typing import TYPE_CHECKING
 from collections.abc import Iterator
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from torch.utils.data import IterableDataset, get_worker_info
 import torch
+import numpy as np
 
-from icegraph.common.data import GraphData, DataRole
-from icegraph.common.record import Record
+from icegraph.common.data import DataRole, RawGraphBatch
+from icegraph.common.record import RecordBlock
 from icegraph.typing.common import ArrayI
 
 if TYPE_CHECKING:
@@ -21,11 +25,13 @@ if TYPE_CHECKING:
 __all__ = ["GraphDataset"]
 
 
-class GraphDataset(IterableDataset[GraphData]):
+class GraphDataset(IterableDataset[RawGraphBatch]):
     """Iterable, DDP-safe dataset with two-level shuffling.
 
     Reads are kept chunk-granular for large files: the order of contiguous
-    key-chunks is shuffled, reads within a chunk stay sequential.
+    key-chunks is shuffled, reads within a chunk stay sequential. Chunks are
+    then gathered into groups of ~``buffer_size`` samples, permuted per record,
+    and sliced into batches.
     """
 
     def __init__(
@@ -37,6 +43,7 @@ class GraphDataset(IterableDataset[GraphData]):
         buffer_size: int,
         batch_size: int,
         shuffle_chunks: bool,
+        buffer_refill_threshold: float,
         exclude_roles: list[DataRole] | None = None,
     ) -> None:
         # keys stay in ascending order
@@ -46,7 +53,8 @@ class GraphDataset(IterableDataset[GraphData]):
         self._buffer_size = buffer_size
         self._batch_size = batch_size
         self._shuffle_chunks = shuffle_chunks
-        self._exclude_roles = exclude_roles if exclude_roles is not None else []
+        self._buffer_refill_threshold = buffer_refill_threshold
+        self._exclude_roles = frozenset(exclude_roles) if exclude_roles is not None else frozenset()
 
         # epoch needs to be updated for each worker
         # so epoch has to be a scalar tensor with shared memory
@@ -114,70 +122,123 @@ class GraphDataset(IterableDataset[GraphData]):
 
     ### SAMPLE BUILDING
 
-    def _build(self, sample: Record) -> GraphData:
-        decoder = self._services.require("decode", required_by=type(self))
+    def assemble_batch(
+            self,
+            block: RecordBlock,
+            exclude_roles: frozenset[DataRole] = frozenset(),
+    ) -> RawGraphBatch:
+        """Assemble one batch from a columnar block of records."""
+        decode = self._services.require("decode", required_by=type(self))
 
-        data = GraphData()
-        for role in DataRole.all():
-            if role == DataRole.BATCH:
-                continue
+        height = block.height
 
-            loader = getattr(decoder, f"load_{role.value}")
-            setattr(
-                data, role.value, loader(
-                    sample, excluded=role in self._exclude_roles
-                )
-            )
+        features, node_counts = decode.load_features(block, excluded=DataRole.FEATURES in exclude_roles)
 
-        # excluded features carries shape [N=1, F=0] so this is fine either way
-        data.num_nodes = data.features.shape[0]
-        return data
+        # per graph node offsets drive the batch vector and the edge shifts
+        ptr = np.zeros(height + 1, dtype=np.int64)
+        np.cumsum(node_counts, out=ptr[1:])
 
-    def __iter__(self) -> Iterator[GraphData]:
-        records = self._services.require("record", required_by=type(self))
+        batch = np.repeat(np.arange(height, dtype=np.int64), node_counts)
 
-        # contiguous, ascending key blocks that never straddles a chunk, one read each
-        blocks = (
-            [self._build(s) for s in records[self.keys[start:min(start + self._chunk_size, hi)]]]
-            for lo, hi in self._assign_chunks()
-            for start in range(lo, hi, self._batch_size)
+        edge_index, edge_counts = decode.load_edge_index(block, excluded=DataRole.EDGE_INDEX in exclude_roles)
+
+        if edge_index.numel():
+            # shift each graphs node ids by its node offset
+            edge_index = edge_index + torch.from_numpy(np.repeat(ptr[:-1], edge_counts))
+
+        return RawGraphBatch(
+            features=features,
+            targets=decode.load_targets(block, excluded=DataRole.TARGETS in exclude_roles),
+            auxiliary=decode.load_auxiliary(block, excluded=DataRole.AUXILIARY in exclude_roles),
+            simweights=decode.load_simweights(block, excluded=DataRole.SIMWEIGHT in exclude_roles),
+            edge_index=edge_index,
+            edge_attr=decode.load_edge_attr(block, excluded=DataRole.EDGE_ATTR in exclude_roles),
+            batch=torch.from_numpy(batch),
+            ptr=torch.from_numpy(ptr),
         )
 
-        if self._buffer_size > 1:
-            yield from self._buffer_shuffle(blocks)
-        else:
-            #  self._buffer_size == 1 -> no fine shuffle
-            yield from (item for block in blocks for item in block)
-
-    def _buffer_shuffle(self, blocks: Iterator[list[GraphData]]) -> Iterator[GraphData]:
-        state  = self._services.require("state", required_by=type(self))
+    def __iter__(self) -> Iterator[RawGraphBatch]:
+        records = self._services.require("record", required_by=type(self))
+        state = self._services.require("state", required_by=type(self))
         worker = get_worker_info()
-        wid    = worker.id if worker is not None else 0
-
+        wid = worker.id if worker is not None else 0
         # include rank and worker so disjoint shards decorrelate
         # include epoch so mixing changes each epoch
-        rng = random.Random(self._seed(state.seed, int(self._epoch[0]), state.rank, wid))
+        rng = np.random.default_rng(self._seed(state.seed, int(self._epoch[0]), state.rank, wid))
 
-        buffer: list[GraphData] = []
-        for block in blocks:
-            buffer.extend(block)
+        shuffle = self._buffer_size > 1
+        pending = deque(self._assign_chunks())
+        refill = max(1, round(self._buffer_size * (1 - self._buffer_refill_threshold)))
+        refill_threshold = max(self._batch_size, (self._buffer_size - refill) * self._chunk_size)
 
-            # drain back down to buffer_size before pulling the next block
-            while len(buffer) > self._buffer_size:
-                i = rng.randrange(len(buffer))
-                buffer[i], buffer[-1] = buffer[-1], buffer[i]
-                yield buffer.pop()
+        def claim(count: int) -> list[tuple[int, int]]:
+            """Remove up to ``count`` chunk ranges from the front of the queue."""
+            return [pending.popleft() for _ in range(min(count, len(pending)))]
 
-        rng.shuffle(buffer)
-        yield from buffer
+        def read(group: list[tuple[int, int]]) -> list[RecordBlock]:
+            """One sequential read per chunk, dropping empties.
+
+            Runs on the prefetch thread: zarr and blosc release the GIL for both
+            the store read and the decode, so this overlaps with shuffle/collate.
+            """
+            blocks: list[RecordBlock] = []
+            for lo, hi in group:
+                block = records.read(self.keys[lo:hi])
+                if block.height:
+                    blocks.append(block)
+            return blocks
+
+        io = ThreadPoolExecutor(max_workers=1, thread_name_prefix="loader-prefetch")
+        try:
+            inflight: Future[list[RecordBlock]] | None = (
+                io.submit(read, claim(self._buffer_size)) if pending else None
+            )
+            carry: list[RecordBlock] = []  # survivors of the previous pool (zero or one block)
+
+            while inflight is not None or carry:
+                # --- refill
+                fresh = inflight.result() if inflight is not None else []
+                # hand the thread its next group before doing any work ourselves
+                inflight = io.submit(read, claim(refill)) if pending else None
+
+                parts, carry = [*carry, *fresh], []
+                if not parts:
+                    continue  # a group of empty chunks; not the end of the epoch
+
+                pool = RecordBlock.concat(parts)
+                order = rng.permutation(pool.height) if shuffle else np.arange(pool.height)
+
+                # --- drain
+                cursor = 0
+                while cursor < pool.height:
+                    remaining = pool.height - cursor
+
+                    # stop short so survivors carry into the next pool: the mixing
+                    # window slides instead of resetting at the group boundary
+                    if inflight is not None and remaining < refill_threshold:
+                        carry = [pool.take(order[cursor:])]
+                        break
+
+                    size = min(self._batch_size, remaining)
+                    block = pool.take(order[cursor:cursor + size])
+                    cursor += size
+
+                    yield self.assemble_batch(block, self._exclude_roles)
+
+        finally:
+            io.shutdown(wait=False, cancel_futures=True)
 
     @cached_property
-    def _sample_count(self) -> int:
+    def _batch_count(self) -> int:
         state = self._services.require("state", required_by=type(self))
         num_chunks = len(self.keys) // self._chunk_size
 
         # for inference state.world must be 1 or some items might not be processed
-        return (num_chunks // state.world) * self._chunk_size
+        samples = (num_chunks // state.world) * self._chunk_size
+
+        # exact when batch_size divides the group size; otherwise per-worker
+        # tail batches make this a lower bound (same approximation as before)
+        return math.ceil(samples / self._batch_size)
 
     def __len__(self) -> int:
-        return self._sample_count
+        return self._batch_count

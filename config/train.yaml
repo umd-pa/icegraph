@@ -13,9 +13,9 @@ services:
     # training batch (see torch DataLoader batch_size argument)
     batch_size: 2048
 
-    # buffer and chunk size configure the buffer sample count and the chunk size
+    # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
-    buffer_size: 16384
+    buffer_size: 12
     chunk_size: 2048
 
     num_workers: 8

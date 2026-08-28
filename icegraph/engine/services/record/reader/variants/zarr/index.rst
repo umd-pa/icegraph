@@ -6,7 +6,20 @@ Zarr
 Configuration
 -------------
 
-Selected as ``name: zarr``. Takes no options.
+.. list-table::
+   :header-rows: 1
+   :widths: 22 50 18 10
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``dense_read_fraction``
+     - Density threshold, below which a point-gather load method is used.
+     - float
+     - 0.5
+
+Selected as ``name: zarr``.
 
 .. code-block:: yaml
 
@@ -14,4 +27,5 @@ Selected as ``name: zarr``. Takes no options.
      record:
        reader:
          name: zarr
-         kwargs: {}
+         kwargs:
+           dense_read_fraction: 0.5

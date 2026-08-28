@@ -11,7 +11,7 @@ from functools import cached_property
 import numpy as np
 
 from icegraph.common.plugins import Plugin
-from icegraph.common.record import Attributes, Record
+from icegraph.common.record import Attributes, RecordBlock
 from icegraph.typing.common import ArrayI
 from icegraph.common.data import AttributeDomain
 
@@ -42,7 +42,12 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
         return self.sample_count
 
     @final
-    def __getitem__(self, indices: ArrayI) -> list[Record]:
+    def __getitem__(self, indices: ArrayI) -> RecordBlock:
+        """Read the given rows as one columnar block.
+
+        Indices must be ascending; callers (the record service) sort once so
+        readers can turn each request into large sequential reads.
+        """
         # ensure indices is array
         if not isinstance(indices, np.ndarray):
             raise TypeError(f"Indices must be an npt.NDArray, got {type(indices).__name__}.")
@@ -124,7 +129,7 @@ class Reader(Plugin[C, ReaderContext], Generic[C, _HANDLE]):
         ...
 
     @abstractmethod
-    def _get(self, indices: ArrayI) -> list[Record]:
+    def _get(self, indices: ArrayI) -> RecordBlock:
         ...
 
     def close(self) -> None:
