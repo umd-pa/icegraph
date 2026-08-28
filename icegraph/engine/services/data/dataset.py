@@ -146,20 +146,24 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
             auxiliary=decode.load_auxiliary(block, excluded=DataRole.AUXILIARY in exclude_roles),
             simweights=decode.load_simweights(block, excluded=DataRole.SIMWEIGHT in exclude_roles),
             batch=torch.from_numpy(batch),
-            ptr=torch.from_numpy(ptr),
+            ptr=torch.from_numpy(ptr)
         )
 
     def __iter__(self) -> Iterator[RawGraphBatch]:
         records = self._services.require("record", required_by=type(self))
         state = self._services.require("state", required_by=type(self))
+
         worker = get_worker_info()
         wid = worker.id if worker is not None else 0
+        worker_count = worker.num_workers if worker is not None else 1
+
         # include rank and worker so disjoint shards decorrelate
         # include epoch so mixing changes each epoch
         rng = np.random.default_rng(self._seed(state.seed, int(self._epoch[0]), state.rank, wid))
 
         shuffle = self._buffer_size > 1
         pending = deque(self._assign_chunks())
+
         refill = max(1, round(self._buffer_size * (1 - self._buffer_refill_threshold)))
         refill_threshold = max(self._batch_size, (self._buffer_size - refill) * self._chunk_size)
 
@@ -183,7 +187,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
         io = ThreadPoolExecutor(max_workers=1, thread_name_prefix="loader-prefetch")
         try:
             inflight: Future[list[RecordBlock]] | None = (
-                io.submit(read, claim(self._buffer_size)) if pending else None
+                io.submit(read, claim(self._buffer_size - (state.rank * worker_count + wid) % refill)) if pending else None
             )
             carry: list[RecordBlock] = []  # survivors of the previous pool (zero or one block)
 
