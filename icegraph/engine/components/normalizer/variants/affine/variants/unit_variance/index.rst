@@ -1,7 +1,7 @@
 Unit Variance
 =============
 
-Affine :doc:`normalizer <../index>` that scales each feature column to unit
+Affine :doc:`normalizer <../../index>` that scales each feature column to unit
 variance without recentering it.
 
 * **offset**: none (zero).

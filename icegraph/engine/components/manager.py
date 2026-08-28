@@ -14,6 +14,7 @@ from .config import ComponentConfig
 from .factory import ComponentFactoryBase
 
 # import each built in component
+from .edges import EdgeBuilder, EdgeBuilderFactory
 from .loss import LossFunction, LossFactory
 from .model import Model, ModelFactory
 from .normalizer import Normalizer, NormalizerFactory
@@ -37,6 +38,7 @@ _BUILD_ORDER: tuple[ComponentKind, ...] = (
     ComponentKind.MODEL,
     ComponentKind.TRANSFORMER,
     ComponentKind.NORMALIZER,
+    ComponentKind.EDGES,
     ComponentKind.LOSS,
     ComponentKind.OPTIMIZER,
 )
@@ -58,6 +60,8 @@ class ComponentManager(Mapping[ComponentKind, Component[Any]]):
     def __len__(self) -> int:
         return len(self._components)
 
+    @overload
+    def require(self, component: Literal[ComponentKind.EDGES], *, required_by: type[Any] | None = None) -> EdgeBuilder[Any]: ...
     @overload
     def require(self, component: Literal[ComponentKind.LOSS], *, required_by: type[Any] | None = None) -> LossFunction[Any]: ...
     @overload
@@ -104,6 +108,7 @@ class ComponentManager(Mapping[ComponentKind, Component[Any]]):
             ComponentKind.MODEL: ModelFactory,
             ComponentKind.NORMALIZER: NormalizerFactory,
             ComponentKind.TRANSFORMER: TransformerFactory,
+            ComponentKind.EDGES: EdgeBuilderFactory,
             ComponentKind.OPTIMIZER: OptimizerFactory,
             ComponentKind.LOSS: LossFactory
         }[kind]

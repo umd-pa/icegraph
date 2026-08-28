@@ -1,7 +1,7 @@
 Mean Centering
 ==============
 
-Affine :doc:`normalizer <../index>` that subtracts each column's mean
+Affine :doc:`normalizer <../../index>` that subtracts each column's mean
 without scaling it.
 
 * **offset**: the column mean.

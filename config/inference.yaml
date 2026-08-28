@@ -31,7 +31,6 @@ services:
 
     keymap:
       truth: targets
-      edge_attr: edge_weight
 
     attrs:
       name: standard

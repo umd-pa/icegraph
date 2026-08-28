@@ -33,10 +33,6 @@ class RawGraphBatch(Batch):
         # weights
         simweights:     Float[Tensor, "0"] | Float[Tensor, "B"]
 
-        # edges
-        edge_index:     Int[Tensor, "2 K"]  # K = sum(E_i)
-        edge_attr:      Float[Tensor, "K ATTR"]
-
         # batch vector and per-graph node offsets
         batch:          Int[Tensor, "M"]
         ptr:            Int[Tensor, "B+1"]
@@ -60,10 +56,6 @@ class GraphBatch(Batch):
 
     # weights
     simweights:     Float[Tensor, "0"] | Float[Tensor, "B"]
-
-    # edges
-    edge_index:     Int[Tensor, "2 K"]  # K = sum(E_i)
-    edge_attr:      Float[Tensor, "K ATTR"]
 
     # batch vector
     batch:          Int[Tensor, "M"]

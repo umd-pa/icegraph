@@ -22,13 +22,14 @@ transform.
 Variants
 --------
 
-* :doc:`ZScore <variants/zscore>`: offset by the mean, scale by the inverse
+* :doc:`ZScore <variants/zscore/index>`: offset by the mean, scale by the inverse
   standard deviation.
-* :doc:`Unit Variance <variants/unit_variance>`: no offset, scale by the inverse
-  standard deviation.
-* :doc:`Mean Centering <variants/mean_centering>`: offset by the mean, no scaling.
-* :doc:`MinMax <variants/minmax>`: offset by the minimum, scale by the inverse
-  range.
+* :doc:`Unit Variance <variants/unit_variance/index>`: no offset, scale by the
+  inverse standard deviation.
+* :doc:`Mean Centering <variants/mean_centering/index>`: offset by the mean, no
+  scaling.
+* :doc:`MinMax <variants/minmax/index>`: offset by the minimum, scale by the
+  inverse range.
 
 Registering a new affine normalizer
 -----------------------------------
@@ -46,6 +47,7 @@ subclass implements only:
 
 .. code-block:: python
 
+   # plugin.py
    from typing import ClassVar
 
    from icegraph.common.transforms import TransformSpace
@@ -69,7 +71,7 @@ subclass implements only:
 .. toctree::
    :hidden:
 
-   variants/zscore
-   variants/unit_variance
-   variants/mean_centering
-   variants/minmax
+   variants/zscore/index
+   variants/unit_variance/index
+   variants/mean_centering/index
+   variants/minmax/index

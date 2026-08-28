@@ -1,7 +1,7 @@
 MinMax
 ======
 
-Affine :doc:`normalizer <../index>` that rescales each column into the
+Affine :doc:`normalizer <../../index>` that rescales each column into the
 ``[0, 1]`` range.
 
 * **offset**: the column minimum.

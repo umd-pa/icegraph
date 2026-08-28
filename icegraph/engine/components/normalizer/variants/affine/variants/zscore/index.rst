@@ -1,7 +1,7 @@
 ZScore
 ======
 
-Affine :doc:`normalizer <../index>` that centers each feature column on its
+Affine :doc:`normalizer <../../index>` that centers each feature column on its
 training-split mean and scales it to unit variance, the standard z-score
 transform.
 

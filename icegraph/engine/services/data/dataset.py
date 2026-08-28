@@ -134,25 +134,17 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
         features, node_counts = decode.load_features(block, excluded=DataRole.FEATURES in exclude_roles)
 
-        # per graph node offsets drive the batch vector and the edge shifts
+        # per graph node offsets drive the batch vector
         ptr = np.zeros(height + 1, dtype=np.int64)
         np.cumsum(node_counts, out=ptr[1:])
 
         batch = np.repeat(np.arange(height, dtype=np.int64), node_counts)
-
-        edge_index, edge_counts = decode.load_edge_index(block, excluded=DataRole.EDGE_INDEX in exclude_roles)
-
-        if edge_index.numel():
-            # shift each graphs node ids by its node offset
-            edge_index = edge_index + torch.from_numpy(np.repeat(ptr[:-1], edge_counts))
 
         return RawGraphBatch(
             features=features,
             targets=decode.load_targets(block, excluded=DataRole.TARGETS in exclude_roles),
             auxiliary=decode.load_auxiliary(block, excluded=DataRole.AUXILIARY in exclude_roles),
             simweights=decode.load_simweights(block, excluded=DataRole.SIMWEIGHT in exclude_roles),
-            edge_index=edge_index,
-            edge_attr=decode.load_edge_attr(block, excluded=DataRole.EDGE_ATTR in exclude_roles),
             batch=torch.from_numpy(batch),
             ptr=torch.from_numpy(ptr),
         )

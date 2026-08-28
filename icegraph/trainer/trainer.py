@@ -114,6 +114,10 @@ class Trainer(Engine[TrainerConfig]):
     def transformer(self):
         return self.components.require(ComponentKind.TRANSFORMER, required_by=type(self))
 
+    @cached_property
+    def edges(self):
+        return self.components.require(ComponentKind.EDGES, required_by=type(self))
+
     # training algo
 
     @staticmethod
@@ -140,8 +144,11 @@ class Trainer(Engine[TrainerConfig]):
         features    = batch.features
         targets     = batch.targets
         index       = batch.batch
-        edge_index  = batch.edge_index
-        edge_attr   = batch.edge_attr
+
+        # build connectivity while the feature block still holds raw values:
+        # the transformer and normalizer rescale columns independently, which
+        # would distort the space the neighbour search runs in
+        edge_index, edge_attr = self.edges(features, batch=index)
 
         # transform and normalize features on accelerator
         features = self.transformer(features, DataRole.FEATURES)

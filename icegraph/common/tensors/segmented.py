@@ -130,6 +130,29 @@ class SegmentedTensor(Sequence[Tensor]):
         for i in range(len(self)):
             yield self[i]
 
+    def block(self, names: Sequence[str], *, contiguous: bool = False) -> Tensor:
+        """Return the columns of the named logical segments, concatenated along dim 1.
+
+        A single segment is one span of ``data``, so it comes back as a view; pass
+        ``contiguous`` when the consumer rejects a strided tensor. Concatenating
+        several segments always materializes, and the flag is redundant there.
+        """
+        if not names:
+            raise ValueError(f"{type(self).__name__} requires at least one segment name.")
+
+        missing = [name for name in names if name not in self.names]
+        if missing:
+            raise KeyError(
+                f"{type(self).__name__}: unknown segment(s) {missing}; "
+                f"available: {self.names}."
+            )
+
+        if len(names) == 1:
+            block = self[self.names.index(names[0])]
+            return block.contiguous() if contiguous else block
+
+        return torch.cat([self[self.names.index(name)] for name in names], dim=1)
+
     @property
     def device(self) -> torch.device:
         return self.data.device

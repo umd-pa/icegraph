@@ -32,18 +32,14 @@ A record decoder is a subclass of ``RecordDecoder`` that declares a ``name`` and
 Register it with ``RecordDecoderFactory``.
 
 The ``RecordDecoder`` additionally provides optional hooks for role-specific
-decoding overrides. Roles whose row count varies per record (features, edges)
-return the flat values together with per-record row counts:
+decoding overrides. Roles whose row count varies per record (features) return the
+flat values together with per-record row counts:
 
 ``_extract_features(self, block, key) -> tuple[Tensor, counts] | None``
 
 ``_extract_targets(self, block, key) -> Tensor | None``
 
 ``_extract_auxiliary(self, block, key) -> Tensor | None``
-
-``_extract_edge_index(self, block, key) -> tuple[Tensor, counts] | None``
-
-``_extract_edge_attr(self, block, key) -> Tensor | None``
 
 ``_extract_simweights(self, block, key) -> Tensor | None``
 

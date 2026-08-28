@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from typing import Any
-from torch_geometric import edge_index
 from typing_extensions import override
 from pathlib import Path
 from functools import cached_property
@@ -103,13 +102,18 @@ class BatchInference(Engine[InferenceConfig]):
     def transformer(self):
         return self.components.require(ComponentKind.TRANSFORMER, required_by=type(self))
 
+    @cached_property
+    def edges(self):
+        return self.components.require(ComponentKind.EDGES, required_by=type(self))
+
     @torch.no_grad()
     def _process_batch(self, batch: GraphBatch) -> Tensor:
         # pull from batch
         features = batch.features
         index       = batch.batch
-        edge_index  = batch.edge_index
-        edge_attr   = batch.edge_attr
+
+        # build connectivity while the feature block still holds raw values
+        edge_index, edge_attr = self.edges(features, batch=index)
 
         features = self.transformer(features, DataRole.FEATURES)
         features = self.normalizer(features, DataRole.FEATURES)
@@ -153,7 +157,7 @@ class BatchInference(Engine[InferenceConfig]):
         keys = np.arange(len(self.record), dtype=np.int64)
 
         # no need for targets in inference
-        # technically edges, simweights, auxiliary not needed as well, but allow them if user wants
+        # technically simweights, auxiliary not needed as well, but allow them if user wants
         # to include for plotting, inference with edges, etc
         exclude_roles = [DataRole.TARGETS]
 

@@ -12,9 +12,19 @@ class ComponentKind(StrEnum):
     NORMALIZER  = "normalizer"
     MODEL       = "model"
     TRANSFORMER = "transformer"
+    EDGES       = "edges"
     OPTIMIZER   = "optimizer"
     LOSS        = "loss"
 
     @classmethod
     def all(cls) -> tuple[ComponentKind, ...]:
         return tuple(cls)
+
+    @classmethod
+    def inference(cls) -> tuple[ComponentKind, ...]:
+        """Kinds an inference run reconstructs from an exported model.
+
+        The exporter writes the config and state of exactly these, so both sides
+        of the round trip stay in step.
+        """
+        return cls.MODEL, cls.NORMALIZER, cls.TRANSFORMER, cls.EDGES

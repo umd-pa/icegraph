@@ -34,7 +34,6 @@ services:
 
     keymap:
       truth: targets
-      edge_attr: edge_weight
 
     attrs:
       name: standard
@@ -80,6 +79,15 @@ components:
   normalizer:
     name: zscore
     kwargs: { }
+
+  edges:
+    name: sum-in-quadrature
+    kwargs:
+      k: 10
+
+      # logical feature column groups
+      neighbor_cols: [ dom_pos ]
+      weight_cols: [ dom_pos ]
 
   optimizer:
     name: adam

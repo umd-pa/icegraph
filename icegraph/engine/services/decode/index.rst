@@ -19,7 +19,6 @@ themselves selectable plugins.
        auxiliary: []
        keymap:
          truth: targets
-         edge_attr: edge_weight
        attrs:
          name: standard
          kwargs: {}
@@ -74,8 +73,7 @@ Configuration
      - required
 
 The ``keymap`` accepts the keys ``truth`` (the source of both targets and
-auxiliary), ``features``, ``edge_index``, ``edge_attr``, and ``simweights``; each
-defaults to its own name.
+auxiliary), ``features``, and ``simweights``; each defaults to its own name.
 
 Sub-slots
 ---------

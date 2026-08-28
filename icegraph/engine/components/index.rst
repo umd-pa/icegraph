@@ -9,7 +9,9 @@ engine configuration, one per kind:
 * **transformer**, which applies per-feature value transforms such as a
   logarithmic or inverse-hyperbolic-sine mapping,
 * **normalizer**, which rescales feature and target tensors into a conditioned
-  range.
+  range,
+* **edges**, which builds graph connectivity on the accelerator from node feature
+  columns,
 * **optimizer**, the optimization algorithm that updates model weights, and
 * **loss**, the objective minimized during training.
 
@@ -28,5 +30,6 @@ be checked against any contract issued by the :doc:`policy <../policy/index>`.
    model/index
    transformer/index
    normalizer/index
+   edges/index
    optimizer/index
    loss/index

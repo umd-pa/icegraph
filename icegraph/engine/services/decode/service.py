@@ -245,33 +245,6 @@ class DecodeService(Service[DecodeConfig]):
 
         return self._select(raw, DataRole.AUXILIARY)  # [B, A]
 
-    def load_edge_index(self, block: RecordBlock, excluded: bool = False) -> tuple[Int[Tensor, "2 K"], ArrayI]:
-        """Unshifted edge indices [2, K] plus per-record edge counts."""
-        empty = self._empty_tensor((2, 0), torch.long), np.zeros(block.height, dtype=np.int64)
-
-        if excluded:
-            return empty
-
-        key = self.config.keymap.edge_index
-        out = self._record_decoder.extract_edge_index(block, key)
-
-        if out is None:
-            return empty
-
-        return out
-
-    def load_edge_attr(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "K ATTR"]:
-        if excluded:
-            return self._empty_tensor((0,), dtype=torch.float32)
-
-        key = self.config.keymap.edge_attr
-        raw = self._record_decoder.extract_edge_attr(block, key)
-
-        if raw is None:
-            return self._empty_tensor((0,), dtype=torch.float32)
-
-        return raw
-
     def load_simweights(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B"] | Float[Tensor, "0"]:
         if excluded:
             return self._empty_tensor((0,), dtype=torch.float32)

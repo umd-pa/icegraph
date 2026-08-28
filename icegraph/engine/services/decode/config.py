@@ -13,8 +13,6 @@ __all__ = ["DecodeConfig", "KeyMapConfig"]
 class KeyMapConfig(BaseModel):
     truth:      str = "truth"  # both targets and auxiliary are derived from truth
     features:   str = "features"
-    edge_index: str = "edge_index"
-    edge_attr:  str = "edge_attr"
     simweights: str = "simweights"
 
 
