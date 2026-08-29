@@ -16,7 +16,7 @@ import torch
 import numpy as np
 
 from icegraph.common.data import DataRole, RawGraphBatch
-from icegraph.common.record import RecordBlock
+from icegraph.common.record import RecordBlock, PoolBuffer
 from icegraph.typing.common import ArrayI
 
 if TYPE_CHECKING:
@@ -194,6 +194,12 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
                     blocks.append(block)
             return blocks
 
+        # two buffers per worker per epoch
+        # survivors are gathered into one while the pool is read from the other,
+        # so neither the pool nor the carry allocates after the first refill
+        pool_buffer = PoolBuffer()
+        carry_buffer = PoolBuffer()
+
         io = ThreadPoolExecutor(max_workers=1, thread_name_prefix="loader-prefetch")
         try:
             inflight: Future[list[RecordBlock]] | None = (
@@ -211,7 +217,9 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
                 if not parts:
                     continue
 
-                pool = RecordBlock.concat(parts)
+                # the pool is concatenated into a buffer this worker keeps for the
+                # whole epoch, allocating a fresh pool each refill is costly to the kernel
+                pool = pool_buffer.concat(parts)
                 order = rng.permutation(pool.height) if shuffle else np.arange(pool.height)
 
                 # --- drain
@@ -221,7 +229,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
                     # stop short so survivors carry into the next pool
                     if inflight is not None and remaining < refill_threshold:
-                        carry = [pool.take(order[cursor:])]
+                        carry = [carry_buffer.take(pool, order[cursor:])]
                         break
 
                     size = min(self._batch_size, remaining)

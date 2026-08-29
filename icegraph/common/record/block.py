@@ -3,14 +3,70 @@
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
+import sys
 from dataclasses import dataclass
-from typing import Sequence
+from functools import lru_cache
+from math import ceil
+from typing import Callable, ClassVar, Sequence
 
 import numpy as np
 
 from icegraph.typing.common import ArrayI
 
-__all__ = ["Column", "RecordBlock"]
+__all__ = ["Column", "RecordBlock", "PoolBuffer"]
+
+
+# MADV_HUGEPAGE from <sys/mman.h>, and the sizes the kernel works in
+_MADV_HUGEPAGE = 14
+_PAGE = 4096
+_HUGE_PAGE = 2 * 1024 * 1024
+
+
+@lru_cache(maxsize=1)
+def _madvise() -> Callable[..., int] | None:
+    """The libc ``madvise`` entry point, or None where it cannot be used."""
+    if not sys.platform.startswith("linux"):
+        return None
+
+    try:
+        libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+        advise = libc.madvise
+    except (OSError, AttributeError):
+        return None
+
+    advise.argtypes = (ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int)
+    advise.restype = ctypes.c_int
+    return advise
+
+
+def _advise_huge_pages(array: np.ndarray) -> bool:
+    """Ask the kernel to back ``array`` with huge pages. Returns whether it asked. Purely advisory.
+
+    Worth asking because a pool is swept in random order when batches are
+    gathered out of it. At 4 KB a pool of any real size needs far more TLB
+    entries than the CPU holds, so most of those scattered reads pay a page walk
+    before they touch data. 2 MB pages cover the same buffer in a handful of
+    entries.
+    """
+    advise = _madvise()
+
+    # below one huge page there is nothing for the kernel to promote
+    if advise is None or array.nbytes < _HUGE_PAGE:
+        return False
+
+    start = array.__array_interface__["data"][0]
+    stop = start + array.nbytes
+
+    # madvise needs a page-aligned start
+    start = (start + _PAGE - 1) & ~(_PAGE - 1)
+    stop &= ~(_PAGE - 1)
+
+    if stop <= start:
+        return False
+
+    return advise(ctypes.c_void_p(start), ctypes.c_size_t(stop - start), _MADV_HUGEPAGE) == 0
 
 
 @dataclass(frozen=True)
@@ -25,23 +81,34 @@ class Column:
     offsets: ArrayI
 
     @property
+    def rows(self) -> int:
+        return int(self.offsets[-1])
+
+    @property
     def row_counts(self) -> ArrayI:
         """Rows contributed by each record."""
         return np.diff(self.offsets)
 
 
-def _gather_rows(column: Column, order: ArrayI) -> tuple[np.ndarray, ArrayI]:
-    """Gather ragged segments in ``order``, returning new flat values and offsets."""
+def _gather_rows(column: Column, order: ArrayI, offsets: ArrayI | None = None) -> tuple[ArrayI, ArrayI]:
+    """Plan a ragged gather of ``column`` in ``order``.
+
+    Fills ``offsets`` for the selection and returns the source rows to read in
+    output order. The caller owns where the values land, so this serves both a
+    fresh allocation and a reused buffer. ``offsets`` is allocated when omitted.
+    """
     lengths = column.row_counts[order]
 
-    out_off = np.zeros(len(order) + 1, dtype=np.int64)
-    np.cumsum(lengths, out=out_off[1:])
+    if offsets is None:
+        offsets = np.empty(len(order) + 1, dtype=np.int64)
 
-    # rows of segment j land at out_off[j]: shift each output position back to its source row
-    rows = np.arange(out_off[-1], dtype=np.int64) + np.repeat(column.offsets[order] - out_off[:-1], lengths)
+    offsets[0] = 0
+    np.cumsum(lengths, out=offsets[1:])
 
-    return column.values[rows], out_off
+    # rows of segment j land at offsets[j]: shift each output position back to its source row
+    rows = np.arange(offsets[-1], dtype=np.int64) + np.repeat(column.offsets[order] - offsets[:-1], lengths)
 
+    return rows, offsets
 
 @dataclass(frozen=True)
 class RecordBlock:
@@ -52,28 +119,12 @@ class RecordBlock:
 
     def take(self, indices: ArrayI) -> RecordBlock:
         """Select records by ``indices``."""
-        columns = {
-            name: Column(*_gather_rows(col, indices)) for name, col in self.columns.items()
-        }
-        return RecordBlock(height=len(indices), columns=columns)
-
-    def permute(self, order: ArrayI) -> RecordBlock:
-        """Reorder records by ``order`` (a permutation of ``range(height)``)."""
-        if len(order) != self.height:
-            raise ValueError(f"Expected a permutation of {self.height} records, got {len(order)}.")
-        return self.take(order)
-
-    def slice(self, start: int, stop: int) -> RecordBlock:
-        """View of records ``[start, stop)``; values are numpy views, not copies."""
         columns: dict[str, Column] = {}
         for name, column in self.columns.items():
-            lo, hi = column.offsets[start], column.offsets[stop]
-            columns[name] = Column(
-                column.values[lo:hi],
-                column.offsets[start:stop + 1] - lo,
-            )
+            rows, offsets = _gather_rows(column, indices)
+            columns[name] = Column(column.values[rows], offsets)
 
-        return RecordBlock(height=stop - start, columns=columns)
+        return RecordBlock(height=len(indices), columns=columns)
 
     @classmethod
     def concat(cls, blocks: Sequence[RecordBlock]) -> RecordBlock:
@@ -95,7 +146,7 @@ class RecordBlock:
             parts = [block.columns[name] for block in blocks]
             values = np.concatenate([part.values for part in parts], axis=0)
 
-            # re-base each block's offsets onto the concatenated values
+            # rebase each blocks offsets onto the concatenated values
             offsets = np.zeros(height + 1, dtype=np.int64)
             base, row = 0, 0
             for block, part in zip(blocks, parts):
@@ -106,3 +157,122 @@ class RecordBlock:
             columns[name] = Column(values, offsets)
 
         return cls(height=height, columns=columns)
+
+
+class PoolBuffer:
+    """Reusable backing store for concatenating blocks into one pool.
+
+    Concatenating a fresh pool on every refill allocates and frees tens of MB per
+    worker, which the kernel pays for in page-zeroing and TLB shootdowns rather
+    than useful work. Holding one buffer per column keeps the contiguous copy while
+    dropping churn.
+
+    The returned block views the buffer, so it stays valid only until the next
+    ``concat`` on the same instance. Everything derived from it must be a copy.
+    Not thread safe.
+    """
+
+    # spare capacity kept when growing, so ragged pools stop reallocating quickly
+    _HEADROOM: ClassVar[float] = 1.25
+
+    def __init__(self) -> None:
+        self._values: dict[str, np.ndarray] = {}
+        self._offsets: dict[str, ArrayI] = {}
+
+    def _values_for(self, name: str, rows: int, template: np.ndarray) -> np.ndarray:
+        buffer = self._values.get(name)
+
+        if (
+            buffer is None
+            or buffer.shape[0] < rows
+            or buffer.shape[1:] != template.shape[1:]  # this should never be the case, just for safety
+            or buffer.dtype != template.dtype  # also should never be the case
+        ):
+            capacity = ceil(rows * self._HEADROOM)
+            buffer = self._values[name] = np.empty((capacity,) + template.shape[1:], dtype=template.dtype)
+
+            # the buffer outlives every refill, so this is asked once on init and every resize
+            _advise_huge_pages(buffer)
+
+        return buffer[:rows]
+
+    def _offsets_for(self, name: str, height: int) -> ArrayI:
+        buffer = self._offsets.get(name)
+        needed = height + 1
+
+        if buffer is None or len(buffer) < needed:
+            buffer = self._offsets[name] = np.empty(ceil(needed * self._HEADROOM), dtype=np.int64)
+
+        return buffer[:needed]
+
+    def _owns(self, block: RecordBlock) -> bool:
+        """Whether any of ``block``'s storage lives in this buffer."""
+        stores = (*self._values.values(), *self._offsets.values())
+
+        return any(
+            np.may_share_memory(column.values, store) or np.may_share_memory(column.offsets, store)
+            for column in block.columns.values()
+            for store in stores
+        )
+
+    def take(self, block: RecordBlock, indices: ArrayI) -> RecordBlock:
+        """Select records out of ``block`` into this buffer.
+
+        The same selection as ``RecordBlock.take``, gathered straight into reused
+        storage rather than a fresh allocation. Use a buffer that ``block`` does
+        not come from.
+
+        Falls back to allocating when ``block`` does view this buffer, since the
+        gather would otherwise read rows it had already overwritten.
+        """
+        if self._owns(block):
+            return block.take(indices)
+
+        columns: dict[str, Column] = {}
+        for name, column in block.columns.items():
+            rows, offsets = _gather_rows(column, indices, self._offsets_for(name, len(indices)))
+
+            values = self._values_for(name, int(offsets[-1]), column.values)
+            np.take(column.values, rows, axis=0, out=values)
+
+            columns[name] = Column(values, offsets)
+
+        return RecordBlock(height=len(indices), columns=columns)
+
+    def concat(self, blocks: Sequence[RecordBlock]) -> RecordBlock:
+        """Concatenate into the buffer, invalidating any block returned earlier."""
+        if not blocks:
+            raise ValueError("Cannot concatenate zero blocks.")
+
+        # a lone block is already contiguous, and copying it in would only add work
+        if len(blocks) == 1:
+            return blocks[0]
+
+        names = blocks[0].columns.keys()
+        if any(block.columns.keys() != names for block in blocks[1:]):
+            raise ValueError("Cannot concatenate blocks with mismatched columns.")
+
+        height = sum(block.height for block in blocks)
+
+        columns: dict[str, Column] = {}
+        for name in names:
+            parts = [block.columns[name] for block in blocks]
+            rows = sum(part.rows for part in parts)
+
+            # retrieve reused buffers to populate
+            values = self._values_for(name, rows, parts[0].values)
+            offsets = self._offsets_for(name, height)
+            offsets[0] = 0
+
+            # copy each blocks rows in
+            record = row = 0
+            for block, part in zip(blocks, parts):
+                values[row:row + part.rows] = part.values
+                offsets[record + 1:record + block.height + 1] = part.offsets[1:] + row
+
+                row += part.rows
+                record += block.height
+
+            columns[name] = Column(values, offsets)
+
+        return RecordBlock(height=height, columns=columns)
