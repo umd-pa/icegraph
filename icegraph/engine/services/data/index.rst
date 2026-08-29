@@ -62,6 +62,18 @@ Configuration
      - Fraction of the buffer size at which a refill is triggered.
      - float
      - 0.25
+   * - ``max_chunks_per_epoch``
+     - Maximum number of chunks drawn per epoch. Chunk order is reshuffled each
+       epoch, so the full dataset is still covered after roughly
+       :math:`E \approx \frac{C}{K}\left(\ln C + \gamma\right)` epochs, where
+       :math:`C = \lfloor N / S \rfloor` is the total chunk count for :math:`N`
+       samples of ``chunk_size`` :math:`S`, :math:`K = \lfloor C_{\max} / W
+       \rfloor \cdot W` is the per-epoch budget rounded down to a multiple of
+       the world size :math:`W`, and :math:`\gamma \approx 0.577`. Requires
+       ``shuffle_chunks``, without it the same subset is selected every epoch.
+       Pass ``-1`` to use every chunk each epoch.
+     - int
+     - ``-1``
    * - ``num_workers``
      - Number of worker processes loading data.
      - int
@@ -75,6 +87,6 @@ Configuration
      - ``spawn`` | ``forkserver``
      - required
    * - ``persistent_workers``
-     - Keep worker processes alive between epochs.
+     - Keep worker processes alive between epochs. Highly recommended for performance.
      - bool
      - required

@@ -44,6 +44,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
         batch_size: int,
         shuffle_chunks: bool,
         buffer_refill_threshold: float,
+        max_chunks_per_epoch: int,
         exclude_roles: list[DataRole] | None = None,
     ) -> None:
         # keys stay in ascending order
@@ -54,6 +55,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
         self._batch_size = batch_size
         self._shuffle_chunks = shuffle_chunks
         self._buffer_refill_threshold = buffer_refill_threshold
+        self._max_chunks_per_epoch = max_chunks_per_epoch
         self._exclude_roles = frozenset(exclude_roles) if exclude_roles is not None else frozenset()
 
         # epoch needs to be updated for each worker
@@ -105,6 +107,10 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
         # disjoint chunk partitions
         if self._shuffle_chunks:
             random.Random(self._seed(state.seed, int(self._epoch[0]))).shuffle(chunks)
+
+        # apply max chunks if set
+        if self._max_chunks_per_epoch != -1:
+            chunks = chunks[:self._max_chunks_per_epoch]
 
         # equal chunks per rank for DDP
         # Drop the remainder so counts match across ranks
@@ -203,7 +209,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
                 parts, carry = [*carry, *fresh], []
                 if not parts:
-                    continue  # a group of empty chunks; not the end of the epoch
+                    continue
 
                 pool = RecordBlock.concat(parts)
                 order = rng.permutation(pool.height) if shuffle else np.arange(pool.height)
@@ -213,8 +219,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
                 while cursor < pool.height:
                     remaining = pool.height - cursor
 
-                    # stop short so survivors carry into the next pool: the mixing
-                    # window slides instead of resetting at the group boundary
+                    # stop short so survivors carry into the next pool
                     if inflight is not None and remaining < refill_threshold:
                         carry = [pool.take(order[cursor:])]
                         break
@@ -231,13 +236,18 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
     @cached_property
     def _batch_count(self) -> int:
         state = self._services.require("state", required_by=type(self))
-        num_chunks = len(self.keys) // self._chunk_size
+
+        # chunks available
+        available_chunks = len(self.keys) // self._chunk_size
+        num_chunks = (
+            available_chunks
+            if self._max_chunks_per_epoch == -1
+            else min(available_chunks, self._max_chunks_per_epoch)
+        )
 
         # for inference state.world must be 1 or some items might not be processed
         samples = (num_chunks // state.world) * self._chunk_size
 
-        # exact when batch_size divides the group size; otherwise per-worker
-        # tail batches make this a lower bound (same approximation as before)
         return math.ceil(samples / self._batch_size)
 
     def __len__(self) -> int:

@@ -106,6 +106,7 @@ class DataService(Service[DataConfig]):
             batch_size=self.config.batch_size,
             shuffle_chunks=self.config.shuffle_chunks,
             buffer_refill_threshold=self.config.buffer_refill_threshold,
+            max_chunks_per_epoch=self.config.max_chunks_per_epoch,
             services=self._ctx.services
         )
         logger.info(f"[DataService] Constructed new dataset in {time.perf_counter() - start} s.")

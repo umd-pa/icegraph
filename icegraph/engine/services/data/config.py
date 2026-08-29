@@ -16,13 +16,33 @@ __all__ = ["DataConfig"]
 class DataConfig(BaseModel):
     batch_size:                 int
     chunk_size:                 int
-    shuffle_chunks:             bool = False
+    shuffle_chunks:             bool = True
     buffer_size:                int
     num_workers:                int
     prefetch_factor:            int
     mp_context:                 Literal["spawn", "forkserver"]
     persistent_workers:         int
-    buffer_refill_threshold:    float = 0.25
+    buffer_refill_threshold:    float   = 0.25
+    max_chunks_per_epoch:       int     = -1
+
+    @model_validator(mode="after")
+    def validate_max_chunks_per_epoch(self) -> Self:
+        if self.max_chunks_per_epoch < 1 and self.max_chunks_per_epoch != -1:
+            raise ValueError(
+                f"Max batches per epoch must be either -1 or an integer "
+                f"greater than 0, got {self.max_chunks_per_epoch}."
+            )
+
+        if self.max_chunks_per_epoch != -1 and not self.shuffle_chunks:
+            raise ValueError(
+                f"max_chunks_per_epoch was set to {self.max_chunks_per_epoch}, "
+                f"but shuffle_chunks is set to False. A significant fraction of data may "
+                f"never be seen during training. To ensure all data is trained on, either "
+                f"set max_chunks_per_epoch to -1 (train on all data each epoch), or set "
+                f"shuffle_chunks to True."
+            )
+
+        return self
 
     @model_validator(mode="after")
     def validate_buffer_size(self) -> Self:

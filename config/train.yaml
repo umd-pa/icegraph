@@ -1,4 +1,4 @@
-outdir: /data/i3store/users/tstjean/temp
+outdir: /data/i3store/users/tstjean/BSN
 
 # epochs and val interval
 max_epochs: 10000
@@ -17,6 +17,8 @@ services:
     # chunks are shuffled as blocks
     buffer_size: 12
     chunk_size: 4096
+    max_chunks_per_epoch: 1000
+    shuffle_chunks: true
 
     num_workers: 8
     prefetch_factor: 8
