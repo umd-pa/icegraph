@@ -125,16 +125,15 @@ class BHistogramReducer(HistogramReducer):
         # return dense histogram
         return self._to_dense(flat)
 
-    def _build_artifact(self, accumulator: Accumulator, label: str) -> Histogram:
+    def _build_artifact(self, accumulator: Accumulator, label: str) -> tuple[Histogram, tuple[TransformSpace, ...]]:
         # stack bounds as expected by the histogram
         bounds = torch.stack(self.bounds(label).on("cpu"), dim=0).numpy()
 
         # build histogram object
         return Histogram(
-            space=self.scale,
             histogram=accumulator.data.cpu().numpy(),
             bounds=bounds
-        )
+        ), self.scale
 
     @lru_cache(maxsize=None)
     def bounds(self, label: str) -> DualResidentBounds:

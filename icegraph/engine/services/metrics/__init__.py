@@ -4,6 +4,6 @@
 from .service import MetricService
 
 # computed metric type
-from .types import ComputedMetric
+from .types import MetricValue
 
-__all__ = ["MetricService", "ComputedMetric"]
+__all__ = ["MetricService", "MetricValue"]

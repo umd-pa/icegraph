@@ -9,6 +9,7 @@ import torch
 from torch import Tensor
 
 # local package
+from icegraph.common.transforms import TransformSpace
 from icegraph.common.histogram import Histogram
 from icegraph.trainer.callbacks.base.accumulator import Accumulator
 
@@ -47,12 +48,11 @@ class CHistogramReducer(HistogramReducer):
         # return dense histogram
         return self._to_dense(flat)
 
-    def _build_artifact(self, accumulator: Accumulator, label: str) -> Histogram:
+    def _build_artifact(self, accumulator: Accumulator, label: str) -> tuple[Histogram, tuple[TransformSpace, ...]]:
         # build histogram object
         return Histogram(
-            space=self.scale,
             histogram=accumulator.data.cpu().numpy()
-        )
+        ), self.scale
 
     @abstractmethod
     def _build_bins(self) -> Tensor:

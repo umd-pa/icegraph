@@ -80,7 +80,9 @@ class BinaryPPositivePlotter(BHistogramReducer):
         return processed
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
+    def _dispatch(
+            self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str
+    ) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d histogram
@@ -101,6 +103,6 @@ class BinaryPPositivePlotter(BHistogramReducer):
             plot.set_ylabel("Count")
 
         # plot
-        path = save_dir / "p_positive" / f"{label}.p_positive.{epoch + 1}.html"
+        path = trainer.plotdir / "p_positive" / f"{label}.p_positive.{epoch + 1}.html"
         plot.plot(data, path)
         logger.info(f"new positive-class probability plot saved: %s", str(path))

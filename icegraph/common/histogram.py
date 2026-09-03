@@ -10,7 +10,6 @@ import functools
 import numpy as np
 
 from icegraph.typing.common import ArrayF32, ArrayF64, ArrayI64, ArrayG
-from icegraph.common.transforms import TransformSpace
 
 __all__ = ["Histogram"]
 
@@ -26,7 +25,6 @@ def require_bounds(func: Callable[..., Any]) -> Callable[..., Any]:
 
 @dataclass(frozen=True, slots=True)
 class Histogram:
-    space:      tuple[TransformSpace, ...]
     histogram:  ArrayF32
 
     # optional fields
@@ -86,19 +84,19 @@ class Histogram:
     @property
     @require_bounds
     def edges(self) -> tuple[ArrayF64, ...]:
-        return tuple(  # type: ignore
+        return tuple(
             np.linspace(low, high, n + 1) for low, high, n in zip(self.mins, self.maxs, self.bins)
         )
 
     @property
     @require_bounds
     def widths(self) -> ArrayF64:
-        return (self.maxs - self.mins) / np.asarray(self.bins, dtype=np.float64)  # type: ignore
+        return (self.maxs - self.mins) / np.asarray(self.bins, dtype=np.float64)
 
     @property
     @require_bounds
     def centers(self) -> tuple[ArrayF64, ...]:
-        return tuple((edge[:-1] + edge[1:]) / 2 for edge in self.edges)  # type: ignore
+        return tuple((edge[:-1] + edge[1:]) / 2 for edge in self.edges)
 
     @require_bounds
     def count_quantile(self, threshold: float, axis: int = 0) -> ArrayI64:
@@ -131,7 +129,7 @@ class Histogram:
         valid = totals > 0
         indices[valid] = quantile_indices[valid]
 
-        return indices  # type: ignore
+        return indices
 
     def apply(self, fn: Callable[[ArrayG], ArrayG]) -> None:
         """Applies the given function in-place to histogram data."""
@@ -143,7 +141,6 @@ class Histogram:
 
     def to_struct(self) -> dict[str, Any]:
         struct: dict[str, Any] = {
-            "space": [space.name for space in self.space],
             "histogram": self.histogram.tolist(),
             "bounds": None if self.bounds is None else self.bounds.tolist(),
             "overflow": None if self.overflow is None else self.overflow.tolist(),
@@ -154,7 +151,6 @@ class Histogram:
     @classmethod
     def from_struct(cls, struct: dict[str, Any]) -> Histogram:
         return cls(
-            space=tuple(TransformSpace[name] for name in struct["space"]),
             histogram=np.asarray(struct["histogram"], dtype=np.float32),
             bounds=(
                 None

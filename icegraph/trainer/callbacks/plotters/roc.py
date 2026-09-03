@@ -15,6 +15,7 @@ from torch import Tensor
 from icegraph.statistics import StatisticService
 from icegraph.renderer import Line2D, OneToOne
 from icegraph.common.histogram import Histogram
+from icegraph.common.transforms import TransformSpace
 
 # local subpackage
 from ..base import BHistogramReducer, HistogramAccumulator
@@ -114,7 +115,7 @@ class ROCPlotter(BHistogramReducer):
         return processed
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
+    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d line plot
@@ -134,7 +135,7 @@ class ROCPlotter(BHistogramReducer):
 
         plot.set_legend_location(x=0.98, y=0.02, xanchor="right", yanchor="bottom")
 
-        path = save_dir / "ROC" / f"{label}.roc.{epoch + 1}.html"
+        path = trainer.plotdir / "ROC" / f"{label}.roc.{epoch + 1}.html"
         plot.plot(data, path)
 
         logger.info("new ROC plot saved: %s", str(path))

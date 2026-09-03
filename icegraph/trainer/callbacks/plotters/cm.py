@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing_extensions import override
-from pathlib import Path
 from collections.abc import Mapping
 
 import torch
@@ -14,6 +13,7 @@ from torch import Tensor
 # local package
 from icegraph.renderer import Histogram2D, Labels
 from icegraph.common.histogram import Histogram
+from icegraph.common.transforms import TransformSpace
 
 # local subpackage
 from ..base import CHistogramReducer, HistogramAccumulator
@@ -45,7 +45,9 @@ class CMPlotter(CHistogramReducer):
         return {"Data": list(data.values())[0]}  # only one so this is fine
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
+    def _dispatch(
+            self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str
+    ) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d histogram
@@ -66,6 +68,6 @@ class CMPlotter(CHistogramReducer):
         plot.set_ylabel(ylabel)
 
         # plot
-        path = save_dir / "confusion_matrix" / f"{label}.CM.{epoch + 1}.html"
+        path = trainer.plotdir / "confusion_matrix" / f"{label}.CM.{epoch + 1}.html"
         plot.plot(data, path)
         logger.info(f"new CM plot saved: %s", str(path))

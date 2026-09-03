@@ -18,57 +18,6 @@ from icegraph.typing.common import ArrayI
 __all__ = ["Column", "RecordBlock", "PoolBuffer"]
 
 
-# MADV_HUGEPAGE from <sys/mman.h>, and the sizes the kernel works in
-_MADV_HUGEPAGE = 14
-_PAGE = 4096
-_HUGE_PAGE = 2 * 1024 * 1024
-
-
-@lru_cache(maxsize=1)
-def _madvise() -> Callable[..., int] | None:
-    """The libc ``madvise`` entry point, or None where it cannot be used."""
-    if not sys.platform.startswith("linux"):
-        return None
-
-    try:
-        libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
-        advise = libc.madvise
-    except (OSError, AttributeError):
-        return None
-
-    advise.argtypes = (ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int)
-    advise.restype = ctypes.c_int
-    return advise
-
-
-def _advise_huge_pages(array: np.ndarray) -> bool:
-    """Ask the kernel to back ``array`` with huge pages. Returns whether it asked. Purely advisory.
-
-    Worth asking because a pool is swept in random order when batches are
-    gathered out of it. At 4 KB a pool of any real size needs far more TLB
-    entries than the CPU holds, so most of those scattered reads pay a page walk
-    before they touch data. 2 MB pages cover the same buffer in a handful of
-    entries.
-    """
-    advise = _madvise()
-
-    # below one huge page there is nothing for the kernel to promote
-    if advise is None or array.nbytes < _HUGE_PAGE:
-        return False
-
-    start = array.__array_interface__["data"][0]
-    stop = start + array.nbytes
-
-    # madvise needs a page-aligned start
-    start = (start + _PAGE - 1) & ~(_PAGE - 1)
-    stop &= ~(_PAGE - 1)
-
-    if stop <= start:
-        return False
-
-    return advise(ctypes.c_void_p(start), ctypes.c_size_t(stop - start), _MADV_HUGEPAGE) == 0
-
-
 @dataclass(frozen=True)
 class Column:
     """One column of a record block, stored flat.
@@ -190,9 +139,6 @@ class PoolBuffer:
         ):
             capacity = ceil(rows * self._HEADROOM)
             buffer = self._values[name] = np.empty((capacity,) + template.shape[1:], dtype=template.dtype)
-
-            # the buffer outlives every refill, so this is asked once on init and every resize
-            _advise_huge_pages(buffer)
 
         return buffer[:rows]
 

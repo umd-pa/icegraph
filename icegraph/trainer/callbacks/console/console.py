@@ -16,6 +16,7 @@ from rich.layout import Layout
 from rich.align import Align
 
 from torch import Tensor
+import numpy as np
 
 from icegraph.common.data import Split
 from icegraph.ui import console
@@ -24,7 +25,7 @@ from ..callback import TrainerCallback
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
-    from icegraph.engine.services.metrics import ComputedMetric
+    from icegraph.engine.services.metrics import MetricValue
 
     from .. import context
 
@@ -65,7 +66,7 @@ class ConsoleCallback(TrainerCallback):
         self.progress:  Progress    | None = None
 
         # metrics snapshot
-        self._latest_metrics: list[ComputedMetric] = []
+        self._latest_metrics: list[MetricValue] = []
 
         # init progress bar and logs only if in terminal
         if self.is_terminal:
@@ -122,20 +123,27 @@ class ConsoleCallback(TrainerCallback):
         return layout
 
     @staticmethod
-    def _as_list(x: Tensor | None) -> list[float] | None:
-        if x is None:
-            return None
-        return x.reshape(-1).tolist()
+    def _as_array(values: tuple[Tensor | None, ...]) -> np.ndarray:
+        """Stack per-head values into [L, W]; missing entries are nan."""
+        width = max((0 if v is None else v.numel() for v in values), default=0)
+
+        out = np.full((len(values), width), np.nan)
+
+        for h, v in enumerate(values):
+            if v is not None:
+                out[h, :v.numel()] = v.reshape(-1).numpy()
+
+        return out
 
     @classmethod
-    def _cell(
-        cls,
-        value: float,
-        ema: float | None,
-        optimum: float | None
+    def _entry(
+            cls,
+            value: float,
+            ema: float | None,
+            optimum: float | None
     ) -> Text:
         """
-        One head's value plus a trend glyph.
+        One value plus a trend glyph.
 
         Arrow shows raw direction relative to the smoothed trend (value vs ema).
         Color shows desirability: green if this reading is closer to the
@@ -149,23 +157,49 @@ class ConsoleCallback(TrainerCallback):
             return val
 
         rising = value > ema
-        glyph  = "▲" if rising else "▼"  # dont feel like finding the ascii codes for these chars
+        glyph = "▲" if rising else "▼"  # dont feel like finding the ascii codes for these chars
 
         # desirability: did the gap to the optimum shrink vs the trend
         if optimum is not None and ema is not None:
-            gap_now = abs(value - optimum)
-            gap_ema = abs(ema   - optimum)
-            diff    = gap_ema - gap_now          # > 0 means moved closer to optimum
+            diff = abs(ema - optimum) - abs(value - optimum)  # > 0 means moved closer to optimum
         else:
             diff = 0
 
         if abs(diff) < cls._DEFAULT_EPS:
-            val.append(" –", style="dim")    # flat or jsut noise
+            val.append(" –", style="dim")  # flat or jsut noise
             return val
 
         style = "bold green" if diff > 0 else "bold red"
         val.append(f" {glyph}", style=style)
         return val
+
+    @classmethod
+    def _cell(
+            cls,
+            values: np.ndarray,
+            emas: np.ndarray | None,
+            optimum: float | None
+    ) -> Text:
+        """One head's values, each with its own trend glyph."""
+        cell = Text()
+
+        if emas is not None and emas.size != 0 and emas.shape != values.shape:
+            raise ValueError(
+                f"Both values and emas array must be of same shape, got values: {values.shape}, emas: {emas.shape}."
+            )
+
+        for i, value in enumerate(values):
+            if np.isnan(value):
+                continue
+
+            # add spacing between entries
+            if len(cell) != 0:
+                cell.append("  ")
+
+            ema = None if (emas is None or np.isnan(emas[i])) else float(emas[i])
+            cell.append_text(cls._entry(float(value), ema, optimum))
+
+        return cell
 
     def _render_metrics(self) -> Panel:
         title = "Metrics/Trends"
@@ -174,15 +208,14 @@ class ConsoleCallback(TrainerCallback):
             placeholder = Align(Text("-- no metrics yet --", style="dim"), align="center")
             return Panel(placeholder, title=title, padding=(1, 2))
 
-        # flatten every metric's per-head fields up front; heads may differ in count
-        prepared: list[tuple[ComputedMetric, list[float], list[float] | None, float | None]] = []
+        # flatten every metric per head up front
+        prepared: list[tuple[MetricValue, np.ndarray, np.ndarray, float | None]] = []
         max_heads = 0
         for metric in self._latest_metrics:
-            values  = self._as_list(metric.value) or []
-            emas    = self._as_list(metric.ema)
-            optimum = metric.optimum
-            max_heads = max(max_heads, len(values))
-            prepared.append((metric, values, emas, optimum))
+            values = self._as_array(metric.value)
+            emas = self._as_array(metric.ema)
+            max_heads = max(max_heads, values.shape[0])
+            prepared.append((metric, values, emas, metric.optimum))
 
         table = Table(expand=True, header_style="bold", pad_edge=False, show_edge=False, border_style="dim")
         table.add_column("Metric", style="cyan", no_wrap=True)
@@ -192,10 +225,10 @@ class ConsoleCallback(TrainerCallback):
         for metric, values, emas, optimum in prepared:
             cells: list[Any] = [f"{metric.repr}  (s={metric.span})"]
             for h in range(max_heads):
-                if h >= len(values):
-                    cells.append("")                 # this metric has fewer heads
+                if h >= values.shape[0]:
+                    cells.append("")
                     continue
-                ema_h = emas[h] if (emas is not None and h < len(emas)) else None
+                ema_h = emas[h] if h < emas.shape[0] else None
                 cells.append(self._cell(values[h], ema_h, optimum))
             table.add_row(*cells)
 
@@ -279,7 +312,7 @@ class ConsoleCallback(TrainerCallback):
         if self.layout is None:
             return
 
-        metrics = ctx.engine.metrics.compute()
+        metrics = ctx.engine.metrics.compute(Split.VAL)
 
         # cache validation metrics
         self._latest_metrics = metrics

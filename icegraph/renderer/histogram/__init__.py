@@ -6,7 +6,7 @@ from .plotter import HistogramPlotter, HistogramPlotter1D, HistogramPlotter2D
 
 # implementations
 from .variants import Histogram1D, Line2D, Histogram2D
-from .modules import OneToOne, MedianQuantileBand, Labels, Scatter
+from .modules import OneToOne, MedianQuantileBand, Labels, Scatter, HLine, VLine
 
 __all__ = [
     "HistogramPlotterModule",
@@ -19,5 +19,7 @@ __all__ = [
     "MedianQuantileBand",
     "Labels",
     "OneToOne",
-    "Scatter"
+    "Scatter",
+    "HLine",
+    "VLine"
 ]

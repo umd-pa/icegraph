@@ -10,7 +10,7 @@ from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
 
-from ...metric import Metric
+from ...metric import Metric, HeadValues
 
 from .config import TopKAccuracyConfig
 
@@ -96,10 +96,11 @@ class TopKAccuracy(Metric[TopKAccuracyConfig, TopKAccuracyState]):
         cb, nb = b
         return ca + cb, na + nb
 
-    def finalize(self, state: TopKAccuracyState) -> Tensor:
+    def finalize(self, state: TopKAccuracyState) -> HeadValues:
         if state is None:
             # no batches seen yet
-            return torch.empty(0)
+            return ()
 
         correct, cnt = state
-        return correct / cnt          # [L]
+        acc = correct / cnt  # [L]
+        return tuple(a.reshape(1) for a in acc.unbind(0))

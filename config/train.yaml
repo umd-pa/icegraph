@@ -11,16 +11,16 @@ services:
   data:
     # batch size controls how many samples are passed at a time in each
     # training batch (see torch DataLoader batch_size argument)
-    batch_size: 2048
+    batch_size: 4096
 
     # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
     buffer_size: 12
-    chunk_size: 4096
+    chunk_size: 8192
     max_chunks_per_epoch: 1000
     shuffle_chunks: true
 
-    num_workers: 8
+    num_workers: 4
     prefetch_factor: 8
     mp_context: spawn
     persistent_workers: true

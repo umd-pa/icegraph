@@ -12,6 +12,7 @@ from collections.abc import Mapping
 import torch
 from torch import Tensor
 
+from icegraph.common.transforms import TransformSpace
 from icegraph.trainer.callbacks import TrainerCallback
 from icegraph.common.data import Split, DataRole
 
@@ -39,7 +40,6 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
     (e.g. histograms).
     """
 
-    _save_dir:          Path
     _ctx:               context.InitContext
 
     def __init__(self, **kwargs) -> None:
@@ -58,10 +58,6 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
         # break out if not rank 0
         if not ctx.engine.state.is_main_process():
             return
-
-        # grab trainer output directory and build plot dir
-        self._save_dir = ctx.engine.outdir / "plots"
-        self._save_dir.mkdir(parents=True, exist_ok=True)
 
     @cached_property
     def _target_labels(self) -> list[str]:
@@ -157,9 +153,23 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
                 )
 
             # build all artifacts
-            artifacts = {i: self._build_artifact(a, label) for i, a in processed_acc_bundle.items() if not a.is_empty()}
+            artifacts: dict[int | str, T] = {}
+            space: tuple[TransformSpace, ...] | None = None
+            for i, a in processed_acc_bundle.items():
+                if a.is_empty():
+                    # skip over empty accumulators
+                    continue
 
-            self._dispatch(trainer, artifacts, label, self._save_dir)
+                artifacts[i], _space = self._build_artifact(a, label)
+
+                if space is None:
+                    space = _space
+
+                elif _space != space:
+                    raise ValueError(f"Space for artifact {i} ({_space}) is not equal to expected space ({space}).")
+
+            assert space is not None
+            self._dispatch(trainer, artifacts, space, label)
 
         # reset for the next split
         self.reset()
@@ -195,7 +205,7 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
         ...
 
     @abstractmethod
-    def _build_artifact(self, accumulator: A, label: str) -> T:
+    def _build_artifact(self, accumulator: A, label: str) -> tuple[T, tuple[TransformSpace, ...]]:
         ...
 
     @abstractmethod
@@ -207,5 +217,5 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
         ...
 
     @abstractmethod
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, T], label: str, save_dir: Path) -> None:
+    def _dispatch(self, trainer: Trainer, data: dict[int | str, T], space: tuple[TransformSpace, ...], label: str) -> None:
         ...

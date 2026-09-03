@@ -17,7 +17,7 @@ from .service import TensorBoardService
 
 if TYPE_CHECKING:
     from .. import context
-    from icegraph.engine.services.metrics import ComputedMetric
+    from icegraph.engine.services.metrics import MetricValue
 
 __all__ = ["TensorBoardCallback"]
 
@@ -48,33 +48,25 @@ class TensorBoardCallback(TrainerCallback):
 
         return service
 
-    def _log(self, metrics: list[ComputedMetric], split: Split, epoch: int) -> None:
-        for metric in metrics:
-            self.service.writer.add_scalar(f"{split.value.upper()}/{metric.repr.upper()}", metric.value, epoch + 1)
+    def _log(self, ctx: context.TrainEndContext | context.ValidationEndContext | context.TestEndContext) -> None:
+        step = ctx.engine.current_epoch + 1
+        split = ctx.engine.split
+        prefix = split.value.upper()
 
-    def on_train_end(self, ctx: context.TrainEndContext) -> None:
-        trainer = ctx.engine
+        for metric in ctx.engine.metrics.compute(split):
+            name = metric.repr.upper()
 
-        metrics = trainer.metrics.compute()
-        epoch = trainer.current_epoch
+            for head, values in enumerate(metric.value):
+                if values is None:
+                    continue
 
-        self._log(metrics, trainer.split, epoch)
+                if values.numel() == 1:
+                    self.service.writer.add_scalar(f"{prefix}/{name}/{head}", values.item(), step)
+                else:
+                    for i, v in enumerate(values):
+                        self.service.writer.add_scalar(f"{prefix}/{name}/{head}/{i}", v.item(), step)
 
-    def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
-        trainer = ctx.engine
-
-        metrics = trainer.metrics.compute()
-        epoch = trainer.current_epoch
-
-        self._log(metrics, trainer.split, epoch)
-
-    def on_test_end(self, ctx: context.TestEndContext) -> None:
-        trainer = ctx.engine
-
-        metrics = trainer.metrics.compute()
-        epoch = trainer.current_epoch
-
-        self._log(metrics, trainer.split, epoch)
+    on_train_end = on_validation_end = on_test_end = _log
 
     def on_teardown(self, ctx: context.TeardownContext) -> None:
         self.service.close()

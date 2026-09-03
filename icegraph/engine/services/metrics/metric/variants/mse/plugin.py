@@ -10,7 +10,7 @@ from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
 
-from ...metric import Metric
+from ...metric import Metric, HeadValues
 
 from .config import MSEConfig
 
@@ -75,10 +75,11 @@ class MSE(Metric[MSEConfig, MSEState]):
         sb, cb = b
         return sa + sb, ca + cb
 
-    def finalize(self, state: MSEState) -> Tensor:
+    def finalize(self, state: MSEState) -> HeadValues:
         if state is None:
             # no batches seen yet
-            return torch.empty(0)
+            return ()
 
         sse, cnt = state
-        return sse / cnt
+        mse = sse / cnt  # [L]
+        return tuple(m.reshape(1) for m in mse.unbind(0))

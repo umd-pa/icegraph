@@ -10,7 +10,7 @@ from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
 
-from ...metric import Metric
+from ...metric import Metric, HeadValues
 
 from .config import RMSEConfig
 
@@ -81,10 +81,11 @@ class RMSE(Metric[RMSEConfig, RMSEState]):
         sb, cb = b
         return sa + sb, ca + cb
 
-    def finalize(self, state: RMSEState) -> Tensor:
+    def finalize(self, state: RMSEState) -> HeadValues:
         if state is None:
             # no batches seen yet
-            return torch.empty(0)
+            return ()
 
         sse, cnt = state
-        return (sse / cnt).sqrt_()
+        rmse = (sse / cnt).sqrt_()  # [L]
+        return tuple(r.reshape(1) for r in rmse.unbind(0))

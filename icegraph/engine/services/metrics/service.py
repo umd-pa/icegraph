@@ -6,12 +6,13 @@ from __future__ import annotations
 from typing import Any, ClassVar
 from functools import cached_property
 
+from icegraph.common.data import Split
 from icegraph.common.tensors import SegmentedTensor
 
 from ..service import Service
 
 from .metric import Metric, MetricFactory, MetricContext
-from .types import ComputedMetric
+from .types import MetricValue
 from .config import MetricConfig
 
 __all__ = ["MetricService"]
@@ -51,19 +52,19 @@ class MetricService(Service[MetricConfig]):
 
         return metrics
 
-    def update(self, out: SegmentedTensor, target: SegmentedTensor) -> None:
+    def update(self, out: SegmentedTensor, target: SegmentedTensor, split: Split) -> None:
         """Update each metric."""
         for metric in self._metrics:
-            metric.update(out, target)
+            metric.update(out, target, split)
 
-    def compute(self) -> list[ComputedMetric]:
+    def compute(self, split: Split) -> list[MetricValue]:
         """Return list of computed metrics."""
-        return [metric.compute() for metric in self._metrics]
+        return [metric.compute(split) for metric in self._metrics]
 
-    def update_summaries(self) -> None:
+    def update_summaries(self, split: Split) -> None:
         for metric in self._metrics:
-            metric.update_summaries()
+            metric.update_summaries(split)
 
-    def reset(self) -> None:
+    def reset(self, split: Split) -> None:
         for metric in self._metrics:
-            metric.reset()
+            metric.reset(split)

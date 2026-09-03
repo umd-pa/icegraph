@@ -12,6 +12,7 @@ import torch
 from torch import Tensor
 
 # local package
+from icegraph.common.transforms import TransformSpace
 from icegraph.statistics import StatisticService
 from icegraph.renderer import Histogram2D, OneToOne, MedianQuantileBand
 from icegraph.common.histogram import Histogram
@@ -57,9 +58,9 @@ class ParityPlotter(BHistogramReducer):
         return {"Data": list(data.values())[0]}  # only one so this is fine
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
-        hist = list(data.values())[0]
-
+    def _dispatch(
+            self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str
+    ) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d histogram
@@ -73,13 +74,13 @@ class ParityPlotter(BHistogramReducer):
         plot.set_title(title)
 
         # update axis labels
-        xlabel = r"$\mathrm{Target}\;%s$" % hist.space[0].format_repr(r"\mathrm{%s}" % label)
-        ylabel = r"$\mathrm{Predicted}\;%s$" % hist.space[1].format_repr(r"\mathrm{%s}" % label)
+        xlabel = r"$\mathrm{Target}\;%s$" % space[0].format_repr(r"\mathrm{%s}" % label)
+        ylabel = r"$\mathrm{Predicted}\;%s$" % space[1].format_repr(r"\mathrm{%s}" % label)
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)
 
         # plot
-        path = save_dir / "parity" / f"{label}.parity.{epoch + 1}.html"
+        path = trainer.plotdir / "parity" / f"{label}.parity.{epoch + 1}.html"
         plot.plot(data, path)
         logger.info(f"new parity plot saved: %s", str(path))

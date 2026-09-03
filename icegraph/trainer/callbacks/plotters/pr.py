@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing_extensions import override
-from pathlib import Path
 from collections.abc import Mapping
 
 import torch
@@ -13,7 +12,8 @@ from torch import Tensor
 
 # local package
 from icegraph.statistics import StatisticService
-from icegraph.renderer import Line2D, OneToOne
+from icegraph.renderer import Line2D
+from icegraph.common.transforms import TransformSpace
 from icegraph.common.histogram import Histogram
 
 # local subpackage
@@ -122,7 +122,7 @@ class PrecisionRecallPlotter(BHistogramReducer):
         return processed
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
+    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d line plot
@@ -139,7 +139,6 @@ class PrecisionRecallPlotter(BHistogramReducer):
 
         plot.set_legend_location(x=0.02, y=0.02, xanchor="left", yanchor="bottom")
 
-        path = save_dir / "precision_recall" / f"{label}.PR.{epoch + 1}.html"
+        path = trainer.plotdir / "precision_recall" / f"{label}.PR.{epoch + 1}.html"
         plot.plot(data, path)
-
         logger.info("new precision-recall plot saved: %s", str(path))

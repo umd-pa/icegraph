@@ -10,7 +10,7 @@ from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
 
-from ...metric import Metric
+from ...metric import Metric, HeadValues
 
 from .config import MAEConfig
 
@@ -75,10 +75,11 @@ class MAE(Metric[MAEConfig, MAEState]):
         sb, cb = b
         return sa + sb, ca + cb
 
-    def finalize(self, state: MAEState) -> Tensor:
+    def finalize(self, state: MAEState) -> HeadValues:
         if state is None:
             # no batches seen yet
-            return torch.empty(0)
+            return ()
 
         sae, cnt = state
-        return sae / cnt
+        mae = sae / cnt                                   # [L]
+        return tuple(m.reshape(1) for m in mae.unbind(0))

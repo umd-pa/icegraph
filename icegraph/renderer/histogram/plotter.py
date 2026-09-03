@@ -16,7 +16,9 @@ from .module import HistogramPlotterModule
 __all__ = ["HistogramPlotter", "HistogramPlotter1D", "HistogramPlotter2D"]
 
 
-class HistogramPlotter(Plotter[dict[str | int, Histogram], HistogramPlotterModule], ABC):
+class HistogramPlotter(
+    Plotter[dict[str | int, Histogram] | dict[str, Histogram] | dict[int, Histogram], HistogramPlotterModule], ABC
+):
 
     def ensure_ndim(self, data: dict[str | int, Histogram], ndim: int) -> None:
         # ensure all histograms are correct dim
@@ -45,7 +47,12 @@ class HistogramPlotter(Plotter[dict[str | int, Histogram], HistogramPlotterModul
                     f"bins={expected_bins}."
                 )
 
-    def _plot(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:
+    def _plot(
+            self,
+            fig: go.Figure,
+            data: dict[str | int, Histogram] | dict[str, Histogram] | dict[int, Histogram],
+            **kwargs
+    ) -> None:
         for i, (key, item) in enumerate(data.items()):
             color = PLOT_STYLE.theme_sequence[i % len(PLOT_STYLE.theme_sequence)]
 

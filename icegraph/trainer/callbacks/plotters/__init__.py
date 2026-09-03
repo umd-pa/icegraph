@@ -8,6 +8,7 @@ from .p_true import PTruePlotter
 from .roc import ROCPlotter
 from .p_positive import BinaryPPositivePlotter
 from .pr import PrecisionRecallPlotter
+from .metrics import MetricsPlotter
 
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "PTruePlotter",
     "ROCPlotter",
     "BinaryPPositivePlotter",
-    "PrecisionRecallPlotter"
+    "PrecisionRecallPlotter",
+    "MetricsPlotter"
 ]

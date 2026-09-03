@@ -52,6 +52,7 @@ class Trainer(Engine[TrainerConfig]):
         # stash outdir and derive logdir
         self.outdir: Path = Path(self.config.outdir)
         self.logdir: Path = self.outdir / "logs"
+        self.plotdir: Path = self.outdir / "plots"
 
         # global access to current epoch
         self.current_epoch: int = 0
@@ -176,7 +177,7 @@ class Trainer(Engine[TrainerConfig]):
             self.optimizer.step()
 
         # update metrics
-        self.metrics.update(out.detach(), targets.detach())  # use out and targets which are normalized
+        self.metrics.update(out.detach(), targets.detach(), split)  # use out and targets which are normalized
 
         # denorm out if required by policy
         out = self.normalizer(out, DataRole.TARGETS, inverse=True)
@@ -204,7 +205,7 @@ class Trainer(Engine[TrainerConfig]):
         dataloader = self.get_dataloader(split)
 
         # reset metrics for new epoch
-        self.metrics.reset()
+        self.metrics.reset(split)
 
         # loss accumulator
         loss_accumulator = torch.tensor(0, dtype=torch.float32, device=self.state.device)
@@ -240,9 +241,8 @@ class Trainer(Engine[TrainerConfig]):
                 # process batch and accumulate loss
                 loss_accumulator += self._process_batch(graph_batch, split)
 
-            # update metric summaries on eval steps
-            if split in Split.eval():
-                self.metrics.update_summaries()
+            # update metric summaries
+            self.metrics.update_summaries(split)
 
         # accumulated epoch loss
         # one sync per epoch, not too bad
