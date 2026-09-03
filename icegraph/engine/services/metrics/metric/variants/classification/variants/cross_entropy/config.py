@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-__all__ = ["RMSEConfig"]
+__all__ = ["CrossEntropyConfig"]
 
 
-class RMSEConfig(BaseModel):
-    pass
+class CrossEntropyConfig(BaseModel):
+    from_logits: bool = True

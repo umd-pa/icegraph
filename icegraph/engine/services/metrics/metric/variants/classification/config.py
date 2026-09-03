@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-__all__ = ["MSEConfig"]
+__all__ = ["Config"]
 
 
-class MSEConfig(BaseModel):
+class Config(BaseModel):
     pass

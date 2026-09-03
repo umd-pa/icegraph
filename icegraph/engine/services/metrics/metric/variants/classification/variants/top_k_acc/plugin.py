@@ -9,8 +9,9 @@ import torch
 from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
+from icegraph.engine.services.metrics.types import HeadValues
 
-from ...metric import Metric, HeadValues
+from ...plugin import ClassificationMetric
 
 from .config import TopKAccuracyConfig
 
@@ -21,7 +22,7 @@ __all__ = ["TopKAccuracy"]
 TopKAccuracyState: TypeAlias = "tuple[Tensor, Tensor] | None"
 
 
-class TopKAccuracy(Metric[TopKAccuracyConfig, TopKAccuracyState]):
+class TopKAccuracy(ClassificationMetric[TopKAccuracyConfig, TopKAccuracyState]):
     """
     Per-head top-k classification accuracy over segmented predictions.
 
@@ -29,6 +30,9 @@ class TopKAccuracy(Metric[TopKAccuracyConfig, TopKAccuracyState]):
     strictly outscore the true class (true class ranks ≤ k). This sidesteps a real
     top-k / sort over ragged segments: it's a segmented count of
     "score > true-class score", computed as a scatter-add.
+
+    That count runs across the whole packed row at once, so unlike the rest of the
+    family this metric does not walk heads one at a time.
     """
     name: ClassVar[str] = "top-k-acc"
     version: ClassVar[int] = 1
@@ -59,6 +63,13 @@ class TopKAccuracy(Metric[TopKAccuracyConfig, TopKAccuracyState]):
         labels = target.data.detach()        # [B, L] local class index per head
         B      = o.shape[0]
         k      = self.config.k
+
+        # the family invariant, checked here since the packed path never walks heads
+        if labels.shape[1] != L:
+            raise ValueError(
+                f"Classification metrics expect a single target column per head; "
+                f"got {labels.shape[1]} columns for {L} heads. Is this a classification run?"
+            )
 
         # global column of each heads true class
         starts = widths.cumsum(0) - widths               # [L]

@@ -1,8 +1,8 @@
 Top-K Accuracy
 ==============
 
-:doc:`Metric <../../index>` computing the per-head top-``k`` accuracy for
-classification: the fraction of samples whose true class falls within the ``k``
+Classification :doc:`metric <../../index>` computing the per-head top-``k``
+accuracy: the fraction of samples whose true class falls within the ``k``
 highest-scoring predictions. With ``k = 1`` this is ordinary top-1 accuracy.
 
 Configuration
