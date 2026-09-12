@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Iterator
+from typing import Iterator, Iterable
 from pathlib import Path
 from collections.abc import Mapping
 import shutil
@@ -11,7 +11,7 @@ import shutil
 import numpy as np
 import polars as pl
 
-__all__ = ["QuiverIPC", "QuiverArrays"]
+__all__ = ["QuiverIPC", "QuiverSubset", "QuiverArrays"]
 
 
 class QuiverIPC(Mapping[str, pl.DataFrame]):
@@ -47,6 +47,10 @@ class QuiverIPC(Mapping[str, pl.DataFrame]):
         """Lazy column-dict view (tables as ``dict[str, np.ndarray]``)"""
         return QuiverArrays(self)
 
+    def subset(self, keys: Iterable[str]) -> QuiverSubset:
+        """Read-only view restricted to ``keys``, in the order given."""
+        return QuiverSubset(self, keys)
+
     @classmethod
     def from_data(cls, data: Mapping[str, pl.DataFrame], root: str | Path) -> QuiverIPC:
         root = Path(root)
@@ -63,13 +67,43 @@ class QuiverIPC(Mapping[str, pl.DataFrame]):
         shutil.rmtree(self.root, ignore_errors=True)
 
 
+class QuiverSubset(Mapping[str, pl.DataFrame]):
+    """Read-only view of a QuiverIPC restricted to a set of keys."""
+
+    def __init__(self, quiver: Mapping[str, pl.DataFrame], keys: Iterable[str]) -> None:
+        self._quiver = quiver
+
+        # preserve the caller's order, drop repeats
+        self._keys: tuple[str, ...] = tuple(dict.fromkeys(keys))
+
+        if missing := [key for key in self._keys if key not in quiver]:
+            raise KeyError(
+                f"Quiver holds no table(s) {missing}; available: {sorted(quiver)}."
+            )
+
+    def __getitem__(self, key: str) -> pl.DataFrame:
+        if key not in self._keys:
+            raise KeyError(key)
+        return self._quiver[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._keys)
+
+    def __len__(self) -> int:
+        return len(self._keys)
+
+    def arrays(self) -> QuiverArrays:
+        """Lazy column-dict view (tables as ``dict[str, np.ndarray]``)"""
+        return QuiverArrays(self)
+
+
 class QuiverArrays(Mapping[str, dict[str, np.ndarray]]):
     """
     Read-only view of a QuiverIPC exposing each table as a plain
     ``dict[str, np.ndarray]`` of columns. Tables load lazily on access.
     """
 
-    def __init__(self, quiver: QuiverIPC) -> None:
+    def __init__(self, quiver: Mapping[str, pl.DataFrame]) -> None:
         self._quiver = quiver
 
     def __getitem__(self, key: str) -> dict[str, np.ndarray]:

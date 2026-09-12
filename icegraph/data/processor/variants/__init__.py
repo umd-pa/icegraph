@@ -16,6 +16,7 @@ from .stats import Stats
 from .inspect import Inspector
 from .fill import Filler
 from .unique import Unique
+from .simweight import SimWeighter
 
 __all__ = [
     "Committer",
@@ -32,5 +33,6 @@ __all__ = [
     "Stats",
     "Inspector",
     "Filler",
-    "Unique"
+    "Unique",
+    "SimWeighter"
 ]

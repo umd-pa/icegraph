@@ -21,6 +21,9 @@ https://data.pyg.org/whl/torch-2.7.0+cu128/torch_spline_conv-1.2.2+pt27cu128-cp3
 --no-binary h5py
 h5py==3.14.0
 
+# simweights, used by the simweight processor to read generation surfaces
+simweights
+
 absl-py==2.3.1
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.13

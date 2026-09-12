@@ -75,6 +75,13 @@ processors:  # ordered list of processors, each can be used any number of times
           - t_at_charge_percentile_0.5
           - t_at_charge_percentile_0.71
           - t_at_charge_percentile_0.8
+        gen_cols: [ energy, cos_zen, pdgid, event_weight ]
+
+  - name: i3-simweight  # per event generation data, weights themselves are computed on load
+    kwargs:
+      weighter: corsika
+      tables: [ CorsikaWeightMap, PolyplopiaPrimary ]
+      ids: event_ids
 
   - name: pivot
     kwargs:
@@ -144,6 +151,18 @@ processors:  # ordered list of processors, each can be used any number of times
       cols: bundle
       out: targets
 
+  - name: select  # generation data was staged by the simweight processor
+    kwargs:
+      key: generation
+
+  - name: compress  # compress generation data to compressed frame
+    kwargs:
+      to: compressed
+      by: event_ids
+      cols: gen_cols
+      out: generation
+      dtype: float64
+
   - name: select  # move to compressed table
     kwargs:
       key: compressed
@@ -178,7 +197,7 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: commit
     kwargs:
       ids: event_ids
-      cols: [ features, edge_index, edge_weight, targets ]
+      cols: [ features, edge_index, edge_weight, targets, generation ]
 
 writer:
   name: zarr
