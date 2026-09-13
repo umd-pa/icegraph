@@ -167,13 +167,6 @@ processors:  # ordered list of processors, each can be used any number of times
     kwargs:
       key: compressed
 
-  - name: knn  # output is compressed by default
-    kwargs:
-      by: event_ids
-      col: dom_pos_tmp
-      out: [ edge_index, edge_weight ]
-      k: 10
-
   - name: splitmap
     kwargs:
       seed: 42
@@ -197,7 +190,7 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: commit
     kwargs:
       ids: event_ids
-      cols: [ features, edge_index, edge_weight, targets, generation ]
+      cols: [ features, targets, generation ]
 
 writer:
   name: zarr

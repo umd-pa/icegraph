@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
+from functools import cached_property, partial
 from typing import ClassVar, Any, Callable
 from collections.abc import Mapping
 
-import numpy as np
 import polars as pl
 import simweights
 from simweights import Weighter
@@ -14,11 +14,7 @@ from simweights import Weighter
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
-# internal shim
-from icegraph._internal import to_dict
-
 from .config import SimWeightConfig
-from .surface import describe
 
 __all__ = ["SimWeighter"]
 
@@ -31,8 +27,16 @@ logger = logging.getLogger(__name__)
 # an installation missing one of them only fails if that one is configured
 _WEIGHTERS: dict[str, str] = {
     "nugen":    "NuGenWeighter",
-    "corsika":  "CorsikaWeighter",
-    "genie":    "GenieWeighter"
+    "corsika":  "CorsikaWeighter"
+}
+
+# distributions we know how to serialize
+_DISTS: dict[str, tuple[str, ...]] = {
+    "Column":                    (),
+    "PowerLaw":                  ("g", "a", "b"),
+    "CircleInjector":            ("radius", "cos_zen_min", "cos_zen_max"),
+    "NaturalRateCylinder":       ("length", "radius", "cos_zen_min", "cos_zen_max"),
+    "UniformSolidAngleCylinder": ("length", "radius", "cos_zen_min", "cos_zen_max"),
 }
 
 
@@ -41,25 +45,22 @@ class SimWeighter(Processor[SimWeightConfig]):
     name: ClassVar[str] = "i3-simweight"
     version: ClassVar[int] = 1
 
-    _weighter_constructor: Callable[..., Weighter]
-
     def build(self) -> None:
-        weighter_constructor = getattr(simweights, _WEIGHTERS[self.config.weighter], None)
-
-        # make sure simweights actually provides weighter
-        if weighter_constructor is None:
-            raise RuntimeError(
-                f"The installed simweights does not provide {_WEIGHTERS[self.config.weighter]}, required by "
-                f"weighter {self.config.weighter}."
-            )
-
-        # should be a callable, assert just in case
-        assert callable(weighter_constructor)
-        self._weighter_constructor = weighter_constructor
+        pass
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> SimWeightConfig:
         return SimWeightConfig(**config)
+
+    @cached_property
+    def _weighter_constructor(self) -> Callable[[Any], Weighter]:
+        match self.config.weighter:
+            case "nugen":
+                return partial(simweights.NuGenWeighter, nfiles=1)
+            case "corsika":
+                return partial(simweights.CorsikaWeighter, nfiles=1)
+
+        raise KeyError(f"No supported weighter found for key '{self.config.weighter}', available: {set(_WEIGHTERS)}")
 
     def _resolve_ids(
             self, frames: Mapping[str, pl.DataFrame], ids: list[str], height: int
@@ -72,10 +73,12 @@ class SimWeighter(Processor[SimWeightConfig]):
         for key in frames:
             frame = frames[key]
 
-            if not set(ids) <= set(frame.columns):
+            # if more id cols were identified than cols in the table, then table cannot hold ids
+            if set(ids) > set(frame.columns):
                 rejected[key] = "missing id columns"
                 continue
 
+            # frame needs same number of entries
             if frame.height != height:
                 rejected[key] = f"{frame.height} rows"
                 continue
@@ -88,6 +91,7 @@ class SimWeighter(Processor[SimWeightConfig]):
                 rejected[key] = "ids are not unique"
                 continue
 
+            # verify all tables that hold id cols agree
             if reference is None:
                 reference, source = frame, key
                 continue
@@ -110,58 +114,68 @@ class SimWeighter(Processor[SimWeightConfig]):
 
         return reference
 
-    def _process(self, item: Envelope) -> Envelope | None:
-        kwargs: dict[str, Any] = {}
-        if self.config.nfiles is not None:
-            kwargs["nfiles"] = self.config.nfiles
+    def _serialize_dist(self, dist: Any) -> dict[str, Any]:
+        """Describe one distribution as the parameters needed to reconstruct it."""
+        kind = type(dist).__name__
+        names = _DISTS.get(kind)
 
+        # an unknown distribution would rebuild silently wrong, so refuse to write it
+        if names is None:
+            raise TypeError(
+                f"{type(self).__name__}: cannot serialize distribution {kind!r} ({dist!r}). "
+                f"Known: {sorted(_DISTS)}."
+            )
+
+        (colname,) = dist.columns
+        if colname is None:
+            raise ValueError(
+                f"{type(self).__name__}: distribution {kind!r} carries no column name, so the "
+                f"rebuilt surface could not be weighted."
+            )
+
+        params = {name: float(getattr(dist, name)) for name in names}
+        params["colname"] = colname
+
+        return {"kind": kind, "params": params}
+
+    def _serialize_surface(self, weighter: Weighter) -> dict[str, Any]:
+        """Describe the generation surface as the parameters needed to rebuild it on load."""
+        components: dict[str, Any] = {}
+
+        # spectra is keyed by pdgid, each key holding the components generated for it.
+        # flattened here since every component names its own pdgid
+        for spectra in weighter.surface.spectra.values():
+            for spec in spectra:
+                components[str(len(components))] = {
+                    "pdgid": int(spec.pdgid),
+                    "nevents": float(spec.nevents),
+
+                    # ordered, simweights compares dists sequence-wise when merging surfaces
+                    "dists": {str(i): self._serialize_dist(d) for i, d in enumerate(spec.dists)},
+                }
+
+        return {"__simweights_version__": simweights.__version__, "data": components}
+
+    def _process(self, item: Envelope) -> Envelope | None:
         # only the tables the weighter reads, so nothing unrelated is offered to it
         # or considered when the weight columns are keyed
         tables = item.resolve_cols(self.config.tables)
         quiver = item.quiver.subset(tables)
 
-        assert self._weighter_constructor is not None
-        weighter = self._weighter_constructor(quiver, **kwargs)
+        # build the weighter
+        weighter = self._weighter_constructor(quiver)
 
         # resolve all cols
+        columns = [pl.Series(name, weighter.get_weight_column(name)) for name in weighter.colnames]
+
+        # resolve ids and build id only DF
         ids = item.resolve_cols(self.config.ids)
-        cols = item.resolve_cols(self.config.cols)
+        frame = self._resolve_ids(quiver, ids, columns[0].len())
 
-        columns: list[pl.Series] = []
-        for name in cols:
-
-            # if weighter does not contain requested col, raise
-            try:
-                values = weighter.get_weight_column(name)
-            except KeyError:
-                raise KeyError(
-                    f"{type(self).__name__}: unknown weight column '{name}'. "
-                    f"Available: {weighter.colnames}"
-                )
-
-            # ensure one to one
-            if values.ndim != 1:
-                raise RuntimeError(
-                    f"{type(self).__name__}: weight column {name!r} has shape {values.shape}, "
-                    f"expected one value per event."
-                )
-
-            # convert to polars series and append as a new column
-            columns.append(pl.Series(name, values))
-
-        # ensure each column is of same size
-        heights = {series.len() for series in columns}
-        if len(heights) != 1:
-            widths = {series.name: series.len() for series in columns}
-            raise RuntimeError(
-                f"{type(self).__name__}: weight columns disagree on row count: {widths}."
-            )
-
-        frame = self._resolve_ids(quiver, ids, heights.pop())
-
+        # add data and register to envelope
         item.tmp[self.config.to] = frame.with_columns(columns)
 
         # one surface per file, summed across shards on load
-        item.set_local_attr(self.config.attr, to_dict(weighter.surface))
+        item.set_local_attr(self.config.attr, self._serialize_surface(weighter))
 
         return item

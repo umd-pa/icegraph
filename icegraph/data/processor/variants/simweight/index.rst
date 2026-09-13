@@ -24,7 +24,7 @@ Selected as ``name: i3-simweight``.
      - Type
      - Default
    * - ``weighter``
-     - Simulation type to weight: ``nugen``, ``corsika``, ``genie``.
+     - Simulation type to weight: ``nugen``, ``corsika``.
      - str
      - required
    * - ``tables``
@@ -37,17 +37,7 @@ Selected as ``name: i3-simweight``.
        resolved internally.
      - str | int | list
      - required
-   * - ``nfiles``
-     - Files the surface is normalized to. Leave at ``1``. Surfaces are summed on
-       load. Set to null for simulation carrying S-frames, where simweights derives
-       the surface from the file itself.
-     - int | null
-     - ``1``
-   * - ``cols``
-     - Weight columns to extract.
-     - list[str]
-     - ``[energy, cos_zen, pdgid, event_weight]``
-   * - ``out``
+   * - ``to``
      - Working frame the extracted columns are written to.
      - str
      - ``generation``

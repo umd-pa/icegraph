@@ -61,6 +61,14 @@ services:
     select:
       - name: top-k-acc
         kwargs: { }
+      - name: balanced-acc
+        kwargs: { }
+      - name: cohen-kappa
+        kwargs: { }
+      - name: auprc
+        kwargs: { }
+      - name: ece
+        kwargs: { }
 
 policy:
   name: multiclass
