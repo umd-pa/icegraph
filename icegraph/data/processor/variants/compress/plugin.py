@@ -17,6 +17,14 @@ from .config import CompressorConfig
 __all__ = ["Compressor"]
 
 
+def _dtype_name(dtype: pl.DataType | np.dtype) -> str:
+    """Numpy name of a source dtype, which may be polars or numpy."""
+    if isinstance(dtype, np.dtype):
+        return dtype.name
+
+    return pl.Series(dtype=dtype).to_numpy().dtype.name
+
+
 class Compressor(Processor[CompressorConfig]):
     """Concatenate columns and stack rows into per-group 2D arrays.
 
@@ -44,8 +52,13 @@ class Compressor(Processor[CompressorConfig]):
         by = item.resolve_cols(self.config.by)
         to = self.config.to
         out = str(self.config.out)
-        cols = item.resolve_cols(self.config.cols)
         dtype = self.config.dtype
+
+        match self.config.cols:
+            case "__all__":
+                cols = [c for c in main.columns if c not in set(by)]
+            case _:
+                cols = item.resolve_cols(self.config.cols)
 
         # ensure to is not the active frame
         if to == item.active:
@@ -58,11 +71,15 @@ class Compressor(Processor[CompressorConfig]):
         # hstack phase: materialize each col as [R, N_i], concat to [R, sum N_i]
         parts = []
         widths = []
+        sources = []
         for c in cols:
             series = main.get_column(c)
 
             # convert series to numpy
             if isinstance(series.dtype, (pl.List, pl.Array)):
+                # the cast below erases the inner type, so take it from the schema
+                sources.append(_dtype_name(series.dtype.inner))
+
                 # raise if column is ragged
                 try:
                     arr = np.asarray(series.to_list(), dtype=dtype)
@@ -77,6 +94,10 @@ class Compressor(Processor[CompressorConfig]):
                     )
             else:
                 arr = series.to_numpy()
+
+                # captured before the cast, so the reader can put the column back
+                sources.append(_dtype_name(arr.dtype))
+
                 if dtype is not None:
                     arr = arr.astype(dtype, copy=False)
                 arr = arr.reshape(-1, 1)
@@ -87,6 +108,10 @@ class Compressor(Processor[CompressorConfig]):
 
         # hstack
         values = np.hstack(parts)
+
+        # one dtype per source column. the pack holds a single type, so overriding
+        # reports what the values now are rather than what they were
+        dtypes = [_dtype_name(values.dtype)] * len(cols) if self.config.override_dtypes else sources
 
         # build offset
         offset = np.concatenate(([0], np.cumsum(widths)))
@@ -113,6 +138,10 @@ class Compressor(Processor[CompressorConfig]):
         # record the compression
         if self.config.record_names:
             item.set_column_attr(out, "names", cols, domain=AttributeDomain.GLOBAL)
+
+            # a dtype means nothing without the column it belongs to, so it rides
+            # with the names
+            item.set_column_attr(out, "dtypes", dtypes, domain=AttributeDomain.GLOBAL)
         if self.config.record_offset:
             item.set_column_attr(out, "offset", offset, domain=AttributeDomain.GLOBAL)
 

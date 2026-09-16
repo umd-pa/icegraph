@@ -65,7 +65,7 @@ def restore(d: Any) -> Any:
         dtype = np.dtype(spec["dtype"])
         data = spec["data"]
 
-        # only float arrays carry sentinels; gating protects genuine string data
+        # only float arrays carry sentinels
         if dtype.kind == "f":
             data = _from_json(data)
 

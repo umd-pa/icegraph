@@ -65,6 +65,57 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
         ...
 
     @final
+    def extract_dtypes(self, role: str) -> list[str]:
+        """Dtype each column of a role was written with, empty if unrecorded."""
+        start = time.perf_counter()
+        dtypes = self._extract_dtypes(
+            role,
+            attrs=self._ctx.attrs,
+            global_attrs=self._ctx.global_attrs
+        )
+
+        if dtypes is None:
+            return []
+
+        cls = type(self).__name__
+
+        if not isinstance(dtypes, list):
+            raise TypeError(
+                f"{cls}._extract_dtypes() must return a list[str], "
+                f"got {type(dtypes).__name__}."
+            )
+        for i, item in enumerate(dtypes):
+            if not isinstance(item, str):
+                raise TypeError(
+                    f"{cls}._extract_dtypes() must return a list[str]; "
+                    f"element [{i}] is {type(item).__name__}."
+                )
+            try:
+                np.dtype(item)
+            except TypeError as e:
+                raise ValueError(
+                    f"{cls}._extract_dtypes() element [{i}] is not a dtype: {item!r}."
+                ) from e
+
+        # ensure one dtype per column
+        num_columns = len(self.extract_columns(role))
+        if len(dtypes) != num_columns:
+            raise ValueError(
+                f"{cls}._extract_dtypes() must return one dtype per column; role {role} "
+                f"has {num_columns} column(s), got {len(dtypes)} dtype(s)."
+            )
+
+        logger.info(f"[DecodeService] Extracted dtypes for role '{role}' in {time.perf_counter() - start} s.")
+        return dtypes
+
+    @abstractmethod
+    def _extract_dtypes(
+            self, role: str, *,
+            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
+    ) -> list[str] | None:
+        ...
+
+    @final
     def extract_offsets(self, role: str) -> ArrayI:
         start = time.perf_counter()
         offsets = self._extract_offsets(

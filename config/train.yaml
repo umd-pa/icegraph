@@ -43,7 +43,19 @@ services:
 
     records:
       name: standard
-      kwargs: { }
+      kwargs:
+        # weights are computed on load from the generation data, one flux per
+        # simulation type present in the source
+        flux:
+          corsika:
+            source: simweights
+            name: GaisserH4a
+            kwargs: { }
+
+          nugen:
+            source: nuflux
+            name: honda2006
+            kwargs: { }
 
   record:
     source:

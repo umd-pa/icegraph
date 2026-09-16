@@ -150,7 +150,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
             features=features,
             targets=decode.load_targets(block, excluded=DataRole.TARGETS in exclude_roles),
             auxiliary=decode.load_auxiliary(block, excluded=DataRole.AUXILIARY in exclude_roles),
-            simweights=decode.load_simweights(block, excluded=DataRole.SIMWEIGHT in exclude_roles),
+            weights=decode.load_weights(block, excluded=DataRole.WEIGHTS in exclude_roles),
             batch=torch.from_numpy(batch),
             ptr=torch.from_numpy(ptr)
         )

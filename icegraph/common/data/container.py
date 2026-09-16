@@ -31,7 +31,7 @@ class RawGraphBatch(Batch):
         auxiliary:      Float[Tensor, "B A"] | Int[Tensor, "B A"]
 
         # weights
-        simweights:     Float[Tensor, "0"] | Float[Tensor, "B"]
+        weights:        Float[Tensor, "0"] | Float[Tensor, "B"]
 
         # batch vector and per-graph node offsets
         batch:          Int[Tensor, "M"]
@@ -55,7 +55,7 @@ class GraphBatch(Batch):
     auxiliary:      SegmentedTensor
 
     # weights
-    simweights:     Float[Tensor, "0"] | Float[Tensor, "B"]
+    weights:        Float[Tensor, "0"] | Float[Tensor, "B"]
 
     # batch vector
     batch:          Int[Tensor, "M"]

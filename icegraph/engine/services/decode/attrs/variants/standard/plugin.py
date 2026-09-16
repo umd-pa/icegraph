@@ -7,18 +7,18 @@ from typing import Any, ClassVar, Iterator, Callable
 import itertools
 from operator import add
 from functools import reduce
-from collections import defaultdict
 
 import numpy as np
 
 from icegraph.statistics import StatisticService
 from icegraph.common.data import AttributeDomain
 from icegraph.typing.common import ArrayI
-from icegraph.common.record import GlobalAttributes, Attributes
+from icegraph.common.record import GlobalAttributes, Attributes, validate_attrs
 
 from ...decoder import AttributeDecoder
 
 from .config import StandardAttributeDecoderConfig
+from .schema import ColumnMetadata, GlobalColumns, SplitMap, Stats
 
 __all__ = ["StandardAttributeDecoder"]
 
@@ -35,117 +35,49 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
         return StandardAttributeDecoderConfig(**config)
 
     @staticmethod
-    def _column_metadata(global_attrs: GlobalAttributes) -> dict[str, Any]:
-        columns = global_attrs.get("columns")
+    def _metadata(role: str, global_attrs: GlobalAttributes) -> ColumnMetadata | None:
+        """Column metadata for a stored key, None if not found."""
+        columns = validate_attrs(
+            GlobalColumns, dict(global_attrs), source="the dataset global attributes"
+        ).columns
 
-        if columns is None:
-            raise KeyError(
-                "Missing key 'columns' in dataset global attributes."
-            )
-
-        if not isinstance(columns, dict):
-            raise TypeError(
-                f"Global attribute 'columns' must be a dict, "
-                f"got {type(columns).__name__}."
-            )
-
-        return columns
+        return columns.get(role)
 
     def _extract_columns(
             self, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
     ) -> list[str] | None:
-        columns = self._column_metadata(global_attrs)
-        metadata = columns.get(role)
+        metadata = self._metadata(role, global_attrs)
 
-        if metadata is None:
-            # if no metadata is found for this role
-            return None
+        return None if metadata is None else metadata.names
 
-        if not isinstance(metadata, dict):
-            raise TypeError(
-                f"Global attribute 'columns.{role}' must be a dict, "
-                f"got {type(metadata).__name__}."
-            )
+    def _extract_dtypes(
+            self, role: str, *,
+            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
+    ) -> list[str] | None:
+        metadata = self._metadata(role, global_attrs)
 
-        names = metadata.get("names")
-
-        if names is None:
-            # if the role is present, names need to be specified even if empty
-            raise KeyError(
-                f"Missing key 'columns.{role}.names' in dataset global attributes."
-            )
-
-        # the writer normalizes metadata through np.asarray, so a list of str
-        # round-trips as an object-dtype (or fixed-width unicode) ndarray
-        if isinstance(names, np.ndarray):
-            if names.ndim != 1:
-                raise TypeError(
-                    f"Global attribute 'columns.{role}.names' must be 1-dimensional, "
-                    f"got {names.ndim} dims."
-                )
-
-            names = names.tolist()
-
-        if not isinstance(names, list):
-            raise TypeError(
-                f"Global attribute 'columns.{role}.names' must be a list or ndarray, "
-                f"got {type(names).__name__}."
-            )
-
-        for i, item in enumerate(names):
-            if not isinstance(item, str):
-                raise TypeError(
-                    f"Global attribute 'columns.{role}.names[{i}]' must be a str, "
-                    f"got {type(item).__name__}."
-                )
-
-        return names
+        return None if metadata is None else metadata.dtypes
 
     def _extract_offsets(
             self, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
     ) -> ArrayI | None:
-        columns = self._column_metadata(global_attrs)
-        metadata = columns.get(role)
+        metadata = self._metadata(role, global_attrs)
 
-        if metadata is None:
-            # if no metadata is found for this role
-            return None
-
-        if not isinstance(metadata, dict):
-            raise TypeError(
-                f"Global attribute 'columns.{role}' must be a dict, "
-                f"got {type(metadata).__name__}."
-            )
-
-        offsets = metadata.get("offset")
-
-        if offsets is None:
-            raise KeyError(
-                f"Missing key 'columns.{role}.offset' in dataset global attributes."
-            )
-
-        if not isinstance(offsets, np.ndarray):
-            raise TypeError(
-                f"Global attribute 'columns.{role}.offset' must be an ndarray, "
-                f"got {type(offsets).__name__}."
-            )
-
-        if not np.issubdtype(offsets.dtype, np.integer):
-            raise TypeError(
-                f"Global attribute 'columns.{role}.offset' must have an integer dtype, "
-                f"got {offsets.dtype}."
-            )
-
-        return offsets.astype(np.int64)
+        return None if metadata is None else metadata.offset.astype(np.int64)
 
     def _extract_keys(
             self, split: int, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
     ) -> ArrayI:
         # load the splitmap from dataset attrs, these are ordered so this is correct
-        splitmaps = (attr[AttributeDomain.LOCAL]["splitmap"] for attr in attrs())
+        splitmaps = (
+            validate_attrs(
+                SplitMap, attr[AttributeDomain.LOCAL], source=f"shard ID={attr.shard_id}"
+            ).splitmap
+            for attr in attrs()
+        )
 
         # built full dataset splitmap
         splitmap = np.fromiter(itertools.chain.from_iterable(splitmaps), dtype=np.uint8)
@@ -155,41 +87,26 @@ class StandardAttributeDecoder(AttributeDecoder[StandardAttributeDecoderConfig])
 
     @staticmethod
     def _build_stat_service(attr: Attributes, split: int, role: str) -> StatisticService | None:
-        structs = attr[AttributeDomain.LOCAL].get("stats")
+        stats = validate_attrs(
+            Stats, attr[AttributeDomain.LOCAL], source=f"shard ID={attr.shard_id}"
+        ).stats
 
-        if structs is None:
-            raise RuntimeError(
-                f"Local attribute 'stats' not found in shard ID={attr.shard_id}."
-            )
+        role_stats = stats.get(role)
 
-        if not isinstance(structs, dict):
-            raise TypeError(
-                f"Local attribute 'stats' must be a dict, "
-                f"got {type(structs).__name__} in shard ID={attr.shard_id}."
-            )
-
-        role_structs = structs.get(role)
-
-        if role_structs is None:
-            raise RuntimeError(
+        if role_stats is None:
+            raise KeyError(
                 f"Local attribute 'stats.{role}' not found in shard ID={attr.shard_id}."
             )
 
-        if not isinstance(role_structs, dict):
-            raise TypeError(
-                f"Local attribute 'stats.{role}' must be a dict, "
-                f"got {type(role_structs).__name__} in shard ID={attr.shard_id}."
-            )
+        struct = role_stats.get(str(split))
 
-        stat_struct = role_structs.get(str(split))
-
-        if stat_struct is None:
+        if struct is None:
             # this indicates that stats are present, there are just no samples in the file
             # for this specific split, so thus no stats
             return None
 
-        # the type of stat_struct is responsibility of stat service to check
-        return StatisticService.from_struct(stat_struct)  # type: ignore
+        # the type of struct is responsibility of stat service to check
+        return StatisticService.from_struct(struct)
 
     def _extract_stats(
             self, split: int, role: str, *,

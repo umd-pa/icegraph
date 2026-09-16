@@ -13,7 +13,7 @@ __all__ = ["SimWeightConfig"]
 
 
 class SimWeightConfig(BaseModel):
-    weighter:   Literal["nugen", "corsika", "genie"]
+    simulation: Literal["nugen", "corsika", "genie"]
     tables:     Columns
     ids:        Columns
     to:         str         = "generation"

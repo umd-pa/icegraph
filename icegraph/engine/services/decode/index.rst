@@ -73,7 +73,10 @@ Configuration
      - required
 
 The ``keymap`` accepts the keys ``truth`` (the source of both targets and
-auxiliary), ``features``, and ``simweights``; each defaults to its own name.
+auxiliary), ``features``, and ``weights``. ``truth`` and ``features`` default to
+their own names, while ``weights`` defaults to ``generation``, since the weights role
+reads whatever its decoder needs, and for simulation by default that is the per-event
+generation data.
 
 Sub-slots
 ---------

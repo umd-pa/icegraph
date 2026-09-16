@@ -3,10 +3,25 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Any, Literal
 
-__all__ = ["StandardRecordDecoderConfig"]
+from pydantic import BaseModel, Field
+
+__all__ = ["StandardI3DecoderConfig", "FluxConfig"]
 
 
-class StandardRecordDecoderConfig(BaseModel):
-    pass
+class FluxConfig(BaseModel):
+    # which package the model comes from
+    source: Literal["simweights", "nuflux"]
+
+    # model name
+    name:   str
+
+    # constructor arguments for a simweights model, property assignments for a
+    # nuflux one
+    kwargs: dict[str, Any] = Field(default_factory=dict)
+
+
+class StandardI3DecoderConfig(BaseModel):
+    flux:           dict[str, FluxConfig] = Field(default_factory=dict)
+    surface_attr:   str = "surface"

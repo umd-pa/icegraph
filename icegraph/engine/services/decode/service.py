@@ -121,11 +121,18 @@ class DecodeService(Service[DecodeConfig]):
 
     @cached_property
     def _record_decoder(self) -> RecordDecoder[Any]:
+        record = self._ctx.services.require("record", required_by=type(self))
+
         # build the decoder
         decoder = RecordDecoderFactory.create(self.config.records.name, **self.config.records.kwargs)
 
         # attach the decoder
-        ctx = RecordDecoderContext()
+        ctx = RecordDecoderContext(
+            attrs=record.attrs,
+            global_attrs=record.global_attrs,
+            columns=self._attr_decoder.extract_columns,
+            dtypes=self._attr_decoder.extract_dtypes
+        )
         decoder.attach(ctx)
 
         return decoder
@@ -203,8 +210,8 @@ class DecodeService(Service[DecodeConfig]):
         if not {DataRole.TARGETS, DataRole.AUXILIARY} <= excluded:
             keys.add(self.config.keymap.truth)
 
-        if DataRole.SIMWEIGHT not in excluded:
-            keys.add(self.config.keymap.simweights)
+        if DataRole.WEIGHTS not in excluded:
+            keys.add(self.config.keymap.weights)
 
         return frozenset(keys)
 
@@ -267,12 +274,12 @@ class DecodeService(Service[DecodeConfig]):
 
         return self._select(raw, DataRole.AUXILIARY)  # [B, A]
 
-    def load_simweights(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B"] | Float[Tensor, "0"]:
+    def load_weights(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B"] | Float[Tensor, "0"]:
         if excluded:
             return self._empty_tensor((0,), dtype=torch.float32)
 
-        key = self.config.keymap.simweights
-        raw = self._record_decoder.extract_simweights(block, key)
+        key = self.config.keymap.weights
+        raw = self._record_decoder.extract_weights(block, key)
 
         if raw is None:
             return self._empty_tensor((0,), dtype=torch.float32)

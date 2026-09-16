@@ -2,6 +2,10 @@
 # Developed by Taylor St Jean
 
 from .block import RecordBlock, Column, PoolBuffer
-from .attributes import Attributes, GlobalAttributes
+from .attributes import Attributes, GlobalAttributes, Scalar, ScalarList, Array, validate_attrs
 
-__all__ = ["RecordBlock", "Column", "PoolBuffer", "Attributes", "GlobalAttributes"]
+__all__ = [
+    "RecordBlock", "Column", "PoolBuffer",
+    "Attributes", "GlobalAttributes",
+    "Scalar", "ScalarList", "Array", "validate_attrs"
+]

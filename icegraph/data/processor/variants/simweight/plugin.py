@@ -13,6 +13,7 @@ from simweights import Weighter
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
+from icegraph.utils.hashutils import CBORBlake2B
 
 from .config import SimWeightConfig
 
@@ -22,13 +23,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# simweights exposes one weighter per simulation type, each reading the generation
-# parameters out of that type's weighting tables. resolved by name at build time so
-# an installation missing one of them only fails if that one is configured
-_WEIGHTERS: dict[str, str] = {
-    "nugen":    "NuGenWeighter",
-    "corsika":  "CorsikaWeighter"
-}
+# bytes of the simulation name digest kept as the source code
+# this fits into a float64, and is long enough to avoid collisions
+_CODE_BYTES: int = 6
 
 # distributions we know how to serialize
 _DISTS: dict[str, tuple[str, ...]] = {
@@ -54,13 +51,21 @@ class SimWeighter(Processor[SimWeightConfig]):
 
     @cached_property
     def _weighter_constructor(self) -> Callable[[Any], Weighter]:
-        match self.config.weighter:
+        match self.config.simulation:
             case "nugen":
                 return partial(simweights.NuGenWeighter, nfiles=1)
             case "corsika":
                 return partial(simweights.CorsikaWeighter, nfiles=1)
 
-        raise KeyError(f"No supported weighter found for key '{self.config.weighter}', available: {set(_WEIGHTERS)}")
+        raise KeyError(f"No supported weighter found for key {self.config.simulation!r}.")
+
+    @cached_property
+    def _sim_code(self) -> int:
+        digest = CBORBlake2B()(self.config.simulation)
+
+        # truncate to fit as float64
+        # this should be plenty such that no sim codes will overlap
+        return int(digest[:2 * _CODE_BYTES], 16)
 
     def _resolve_ids(
             self, frames: Mapping[str, pl.DataFrame], ids: list[str], height: int
@@ -151,10 +156,19 @@ class SimWeighter(Processor[SimWeightConfig]):
                     "nevents": float(spec.nevents),
 
                     # ordered, simweights compares dists sequence-wise when merging surfaces
-                    "dists": {str(i): self._serialize_dist(d) for i, d in enumerate(spec.dists)},
+                    "dists": {str(i): self._serialize_dist(d) for i, d in enumerate(spec.dists)}
                 }
 
-        return {"__simweights_version__": simweights.__version__, "data": components}
+        return {
+            "__simweights_version__": simweights.__version__,
+            "simulation": self.config.simulation,
+
+            # what the source column holds and where
+            "code": self._sim_code,
+            "column": "sim_code",
+
+            "data": components
+        }
 
     def _process(self, item: Envelope) -> Envelope | None:
         # only the tables the weighter reads, so nothing unrelated is offered to it
@@ -171,6 +185,9 @@ class SimWeighter(Processor[SimWeightConfig]):
         # resolve ids and build id only DF
         ids = item.resolve_cols(self.config.ids)
         frame = self._resolve_ids(quiver, ids, columns[0].len())
+
+        # build sim code column
+        columns += [pl.lit(self._sim_code, dtype=pl.Int64).alias("sim_code")]
 
         # add data and register to envelope
         item.tmp[self.config.to] = frame.with_columns(columns)

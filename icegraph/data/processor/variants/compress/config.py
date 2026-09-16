@@ -18,3 +18,7 @@ class CompressorConfig(BaseModel):
     dtype:  str | None = None
     record_names: bool = True
     record_offset: bool = True
+
+    # record the packed dtype for every column instead of the one it came in with,
+    # for a pack whose stored type is the one that matters
+    override_dtypes: bool = False

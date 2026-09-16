@@ -41,6 +41,8 @@ dataset-wide attributes) as keyword arguments. Register it with
    The column names for a role.
 ``_extract_offsets(self, role, *, attrs, global_attrs) -> ArrayI | None``
    The per-column offsets for a role.
+``_extract_dtypes(self, role, *, attrs, global_attrs) -> list[str] | None``
+   The per-column dtype for a role.
 ``_extract_keys(self, split, *, attrs, global_attrs) -> ArrayI | None``
    The record keys belonging to a split.
 ``_extract_stats(self, split, role, *, attrs, global_attrs) -> StatisticService``
@@ -74,6 +76,9 @@ dataset-wide attributes) as keyword arguments. Register it with
            ...
 
        def _extract_columns(self, role: str, *, attrs: Attrs, global_attrs: GlobalAttributes) -> list[str] | None:
+           ...
+
+       def _extract_dtypes(self, role: str, *, attrs: Attrs, global_attrs: GlobalAttributes) -> list[str] | None:
            ...
 
        def _extract_offsets(self, role: str, *, attrs: Attrs, global_attrs: GlobalAttributes) -> ArrayI | None:

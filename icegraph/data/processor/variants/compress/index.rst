@@ -4,6 +4,11 @@ Compress
 :doc:`Processor <../../index>` that concatenates columns and stacks the rows of
 each group into per-group 2D arrays.
 
+Packing many columns into one array gives them all a single dtype, so alongside the
+column names it records the dtype each one had, letting a reader put a column back
+the way it was written. ``override_dtypes`` records the packed dtype instead, for a
+pack where the stored type is the one that matters.
+
 Configuration
 -------------
 
@@ -26,7 +31,7 @@ Selected as ``name: compress``.
      - column(s)
      - required
    * - ``cols``
-     - Columns concatenated and stacked into the per-group array.
+     - Columns concatenated and stacked into the per-group array. Use '__all__' to compress all non-``by`` cols.
      - column(s)
      - required
    * - ``out``
@@ -45,6 +50,11 @@ Selected as ``name: compress``.
      - Store the per-column offsets in the attributes.
      - bool
      - ``true``
+   * - ``override_dtypes``
+     - Record every column as the dtype it was packed into, rather than the one it
+       came in with. For a pack whose stored type is the one consumers should see.
+     - bool
+     - ``false``
 
 .. code-block:: yaml
 

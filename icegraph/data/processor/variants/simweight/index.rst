@@ -10,6 +10,11 @@ generation quantities as columns and the file's generation surface as a local
 attribute, and the surfaces are summed over the shards actually read when the
 dataset is loaded.
 
+A dataset may be loaded from files of more than one simulation type, which are
+weighted against different fluxes. Since a block read on load spans files, each
+event also carries a source code naming the simulation it came from, derived from
+the simulation so that files processed independently agree on it.
+
 Configuration
 -------------
 
@@ -23,7 +28,7 @@ Selected as ``name: i3-simweight``.
      - Description
      - Type
      - Default
-   * - ``weighter``
+   * - ``simulation``
      - Simulation type to weight: ``nugen``, ``corsika``.
      - str
      - required
@@ -50,7 +55,7 @@ Selected as ``name: i3-simweight``.
 
    - name: i3-simweight
      kwargs:
-       weighter: nugen
+       simulation: nugen
        tables: [ I3MCWeightDict ]
        ids: event_ids
 

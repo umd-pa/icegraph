@@ -121,22 +121,22 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
         return torch.from_numpy(self._fold_rows(column, block.height, key))
 
     @final
-    def extract_simweights(self, block: RecordBlock, key: str) -> Float[Tensor, "B"] | None:
-        simweights = self._extract_simweights(block, key)
+    def extract_weights(self, block: RecordBlock, key: str) -> Float[Tensor, "B"] | None:
+        weights = self._extract_weights(block, key)
 
         # not present in the block
-        if simweights is None or simweights.numel() == 0:
+        if weights is None or weights.numel() == 0:
             return None
 
         # validate: one weight per record
-        if simweights.ndim != 1 or simweights.shape[0] != block.height:
+        if weights.ndim != 1 or weights.shape[0] != block.height:
             raise ValueError(
-                f"Expected 'simweights' with shape [B={block.height}], got shape {tuple(simweights.shape)}."
+                f"Expected 'weights' with shape [B={block.height}], got shape {tuple(weights.shape)}."
             )
 
-        return simweights
+        return weights
 
-    def _extract_simweights(self, block: RecordBlock, key: str) -> Tensor | None:
+    def _extract_weights(self, block: RecordBlock, key: str) -> Tensor | None:
         column = self.extract(block, key)
 
         if column is None:
@@ -145,8 +145,9 @@ class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
         values = column.values.reshape(-1)
         if values.shape[0] != block.height:
             raise ValueError(
-                f"Column {key!r} must hold one value per record, "
-                f"got {values.shape[0]} for {block.height} records."
+                f"{type(self).__name__}: column {key!r} holds {values.shape[0]} values for "
+                f"{block.height} records, so it cannot represent a per-record weight. A decoder that "
+                f"derives weights from this column must override _extract_weights()."
             )
 
         return torch.from_numpy(values)

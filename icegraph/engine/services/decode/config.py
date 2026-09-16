@@ -13,7 +13,10 @@ __all__ = ["DecodeConfig", "KeyMapConfig"]
 class KeyMapConfig(BaseModel):
     truth:      str = "truth"  # both targets and auxiliary are derived from truth
     features:   str = "features"
-    simweights: str = "simweights"
+
+    # the weights role reads whatever the weight decoder needs, which for simulation
+    # is the per-event generation data rather than a weight, hence the default
+    weights:    str = "generation"
 
 
 class DecodeConfig(BaseModel):

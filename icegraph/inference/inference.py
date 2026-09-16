@@ -157,7 +157,7 @@ class BatchInference(Engine[InferenceConfig]):
         keys = np.arange(len(self.record), dtype=np.int64)
 
         # no need for targets in inference
-        # technically simweights, auxiliary not needed as well, but allow them if user wants
+        # technically weights, auxiliary not needed as well, but allow them if user wants
         # to include for plotting, inference with edges, etc
         exclude_roles = [DataRole.TARGETS]
 

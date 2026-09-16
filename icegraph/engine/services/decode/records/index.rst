@@ -3,7 +3,8 @@ Record Decoder
 
 The **record decoder** reads columnar blocks of dataset records for the
 :doc:`decode service <../index>` and decodes their columns: the node features,
-the targets, the graph connectivity, and any auxiliary columns.
+the targets, the graph connectivity, any auxiliary columns, and the per-record
+weights.
 
 Usage
 -----
@@ -22,7 +23,7 @@ Variants
 --------
 
 * :doc:`Standard <variants/standard/index>`: decodes blocks written in the
-  standard columnar schema.
+  standard columnar schema, and weights IceCube simulation.
 
 Registering a new record decoder
 --------------------------------
@@ -41,7 +42,18 @@ flat values together with per-record row counts:
 
 ``_extract_auxiliary(self, block, key) -> Tensor | None``
 
-``_extract_simweights(self, block, key) -> Tensor | None``
+``_extract_weights(self, block, key) -> Tensor | None``
+
+The weights hook returns *final* weights, one per record: a decoder whose data
+stores the inputs to a weight calculation rather than a weight computes them here.
+
+Decoding that needs more than the block itself is served by the attach context:
+``self._ctx.attrs`` walks every shard and ``self._ctx.global_attrs`` holds the
+dataset globals, while ``self._ctx.columns(key)`` and ``self._ctx.dtypes(key)``
+give the names and the written dtype of each column packed into a stored key, as
+the attribute decoder resolved them, so a packed column can be put back the way it
+was. Attributes a decoder reads itself are validated against a schema it declares;
+see ``validate_attrs``.
 
 .. code-block:: python
 
