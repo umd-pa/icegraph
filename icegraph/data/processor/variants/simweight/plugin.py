@@ -27,6 +27,17 @@ logger = logging.getLogger(__name__)
 # this fits into a float64, and is long enough to avoid collisions
 _CODE_BYTES: int = 6
 
+# the generation columns are pinned to these dtypes rather than kept as the tables
+# happen to type them. the compress stage records the source dtype of every packed
+# column, the set id hashes it, and the read side casts each column back with it, so a
+# table that types a column differently gives its shards a set id that cannot be loaded
+# alongside the rest. corsika carries pdgid as a double and no per event weight, nugen
+# carries an int32 pdgid and a float weight, but they must have the same dtype
+_GEN_DTYPE_DEFAULT: type[pl.DataType] = pl.Float64
+_GEN_DTYPES: dict[str, type[pl.DataType]] = {
+    "pdgid": pl.Int32,
+}
+
 # distributions we know how to serialize
 _DISTS: dict[str, tuple[str, ...]] = {
     "Column":                    (),
@@ -177,10 +188,14 @@ class SimWeighter(Processor[SimWeightConfig]):
         quiver = item.quiver.subset(tables)
 
         # build the weighter
-        weighter = self._weighter_constructor(quiver)
+        weighter = self._weighter_constructor(quiver.arrays())
 
-        # resolve all cols
-        columns = [pl.Series(name, weighter.get_weight_column(name)) for name in weighter.colnames]
+        # resolve all cols, each pinned to the dtype every simulation type must agree on
+        columns = [
+            pl.Series(name, weighter.get_weight_column(name))
+            .cast(_GEN_DTYPES.get(name, _GEN_DTYPE_DEFAULT))
+            for name in weighter.colnames
+        ]
 
         # resolve ids and build id only DF
         ids = item.resolve_cols(self.config.ids)

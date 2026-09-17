@@ -11,7 +11,7 @@ from typing import Any, Callable, Iterator
 from icegraph.common.data import AttributeDomain
 from icegraph.common.record import Attributes, validate_attrs
 
-from .schema import Dist, SurfaceAttrs, SurfaceComponent, dist_args, in_order
+from .schema import Dist, SurfaceAttrs, SurfaceComponent
 
 __all__ = ["SurfaceSet", "build_surfaces"]
 
