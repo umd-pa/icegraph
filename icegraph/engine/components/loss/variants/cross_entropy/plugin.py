@@ -30,7 +30,7 @@ class CrossEntropyLoss(LossFunction[CrossEntropyConfig]):
     def validate_config(cls, config: dict[str, Any]) -> CrossEntropyConfig:
         return CrossEntropyConfig(**config)
 
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         # load weights from config
         weight = torch.tensor(
             self.config.weight, device=self.device, dtype=torch.float32

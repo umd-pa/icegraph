@@ -20,9 +20,9 @@ C = TypeVar("C")
 class LossFunction(Component[C], ABC):
 
     @final
-    def forward(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def forward(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         """Forward pass through the loss function."""
-        loss = self.loss(out, target)
+        loss = self.loss(out, target, weights)
 
         # internal validation
         if loss.ndim != 0:
@@ -36,5 +36,5 @@ class LossFunction(Component[C], ABC):
         return loss
 
     @abstractmethod
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor | None) -> Tensor:
         ...

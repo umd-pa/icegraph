@@ -145,6 +145,7 @@ class Trainer(Engine[TrainerConfig]):
         features    = batch.features
         targets     = batch.targets
         index       = batch.batch
+        weights     = batch.weights
 
         # build connectivity while the feature block still holds raw values:
         # the transformer and normalizer rescale columns independently, which
@@ -163,7 +164,7 @@ class Trainer(Engine[TrainerConfig]):
         out: SegmentedTensor = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index)
 
         # compute batch loss
-        loss = self.loss(out, targets)
+        loss = self.loss(out, targets, weights)
 
         # run backward pass if in training
         if split == Split.TRAIN:

@@ -30,7 +30,7 @@ class L1Loss(LossFunction[L1Config]):
     def validate_config(cls, config: dict[str, Any]) -> L1Config:
         return L1Config(**config)
 
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         # compute loss for each head and reduce
         losses = [
             F.l1_loss(o, t, reduction=self.config.reduction)

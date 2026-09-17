@@ -30,7 +30,7 @@ class MSELoss(LossFunction[MSEConfig]):
     def validate_config(cls, config: dict[str, Any]) -> MSEConfig:
         return MSEConfig(**config)
 
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         # compute loss for each head and reduce
         losses = [
             F.mse_loss(o, t, reduction=self.config.reduction)
