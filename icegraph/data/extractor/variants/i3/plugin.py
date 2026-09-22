@@ -19,10 +19,6 @@ from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
 
-with suppress_output():
-    from icecube.icetray import I3Tray          # pyright: ignore[reportMissingImports]
-    from icecube import hdfwriter, ml_suite     # pyright: ignore[reportMissingImports]
-
 __all__ = ["I3Extractor"]
 
 import logging
@@ -41,17 +37,24 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         return I3ExtractorConfig(**config)
 
     def build(self) -> None:
-        return
+        # only want to import if executing the extractor
+        with suppress_output():
+            from icecube.icetray import I3Tray  # pyright: ignore[reportMissingImports]
+            from icecube import hdfwriter, ml_suite  # pyright: ignore[reportMissingImports]
+
+        self.I3Tray = I3Tray
+        self.hdfwriter = hdfwriter
+        self.ml_suite = ml_suite
 
     def _process(self, item: Path) -> Envelope | None:
         files = [str(self.config.gcd_path), str(item)]
 
         with tempfile.NamedTemporaryFile(dir=self._ctx.scratch) as out:
-            tray = I3Tray()
+            tray = self.I3Tray()
 
             tray.Add("I3Reader", Filenamelist=files)
             tray.Add(
-                ml_suite.EventFeatureExtractorModule,
+                self.ml_suite.EventFeatureExtractorModule,
                 cfg_file=self.config.ml_suite,
                 output_key="features",
                 # want to only process InIceSplit frames
@@ -59,7 +62,7 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             )
 
             tray.AddSegment(
-                hdfwriter.I3HDFWriter,
+                self.hdfwriter.I3HDFWriter,
                 Output=out.name,
                 Keys=self.config.include,
                 SubEventStreams=["InIceSplit"],

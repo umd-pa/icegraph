@@ -3,20 +3,19 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Any
+from typing import ClassVar, Any, TYPE_CHECKING
 from functools import cached_property
 
 import numpy as np
 import polars as pl
 
-from icecube import dataio                  # pyright: ignore[reportMissingImports]
-from icecube.icetray import OMKey           # pyright: ignore[reportMissingImports]
-from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
-
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
 from .config import DOMConfig
+
+if TYPE_CHECKING:
+    from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
 
 __all__ = ["DOMProcessor"]
 
@@ -34,6 +33,15 @@ class DOMProcessor(Processor[DOMConfig]):
 
     def build(self) -> None:
         self._geometry = None
+
+        # only want to import on execute
+        from icecube import dataio  # pyright: ignore[reportMissingImports]
+        from icecube.icetray import OMKey  # pyright: ignore[reportMissingImports]
+        from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
+
+        self.dataio = dataio
+        self.OMKey = OMKey
+        self.I3Geometry = I3Geometry
 
     def _process(self, item: Envelope) -> Envelope | None:
         active = self._require_active(item)
@@ -84,12 +92,12 @@ class DOMProcessor(Processor[DOMConfig]):
 
     def _id_to_position(self, string: int, om: int, pmt: int) -> tuple[float, float, float]:
         # get position and return as tuple
-        p = self.geometry.omgeo[OMKey(string, om, pmt)].position
+        p = self.geometry.omgeo[self.OMKey(string, om, pmt)].position
         return p.x, p.y, p.z
 
-    @staticmethod
-    def _get_geometry(path: str) -> I3Geometry:
-        for frame in dataio.I3File(path):
+
+    def _get_geometry(self, path: str) -> I3Geometry:
+        for frame in self.dataio.I3File(path):
             if "I3Geometry" in frame:
                 return frame["I3Geometry"]
 
