@@ -35,6 +35,11 @@ Selected as ``name: i3``.
        ``ml_suite`` itself).
      - mapping
      - required
+   * - ``mclabeler``
+     - Options forwarded to the IceTray ``MCLabeler`` (validated by ``MCLabeler``
+       itself). The labeler only runs if set, see `MC labels`_.
+     - mapping
+     - ``null``
    * - ``skip_missing``
      - Skip files that contain no usable frames instead of failing.
      - bool
@@ -53,3 +58,54 @@ Selected as ``name: i3``.
        include: [ charge, time ]
        ml_suite: {}
        skip_missing: true
+
+
+MC labels
+---------
+
+When ``mclabeler`` is set, ``sim_services.label_events.MCLabeler`` is added to the
+tray. It writes ``classification``, ``coincident_muons``, ``bg_muon_mcpe`` and
+``bg_muon_mcpe_charge`` (plus any ``key_postfix``) to each DAQ frame.
+
+Exactly one of ``event_properties_name``, ``weight_dict_name`` and
+``corsika_weight_map_name`` must be set for ``MCLabeler``.
+
+Brief example on using the MCLabeler during processing:
+
+.. code-block:: yaml
+
+   extractor:
+     name: i3
+     kwargs:
+       # ...
+       mclabeler:
+         mctree_name: I3MCTree_preMuonProp
+         corsika_weight_map_name: CorsikaWeightMap
+       # ...
+       include: [ features, classification ]  # 'classification' comes from MCLabeler
+
+   processors:
+     # ... other processing as usual ...
+
+     # move to the table with MCLabeler 'classification' output
+     - name: select
+       kwargs:
+         key: classification
+
+     # rename the 'value' column to 'classification'
+     - name: rename
+       kwargs:
+         map:
+           value: classification
+
+     # copy to the main truth table under construction
+     - name: copy  # left joined, so only events that kept features are labeled
+       kwargs:
+         to: my_truth_table  # whatever table truth is being constructed in
+         by: event_ids
+         cols: classification
+
+     # ... further processing as usual ...
+
+   writer:
+     ...

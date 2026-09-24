@@ -15,5 +15,6 @@ class I3ExtractorConfig(BaseModel):
     gcd_path:       FilePath
     include:        list[str]
     ml_suite:       dict[str, Any]  # validation is up to ml_suite
+    mclabeler:      dict[str, Any] | None = None  # validation is up to MCLabeler, only run if set
     skip_missing:   bool            = False  # skip any files with no frames
     suppress_icetray_output: bool   = True

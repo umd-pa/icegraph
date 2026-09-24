@@ -7,8 +7,10 @@ extractor:
     # mclabeler configurations, see mclabeler docs
     mclabeler:
       event_properties_name: ~
-      mctree_name: I3MCTree_preMuonProp
+      weight_dict_name: ~
       corsika_weight_map_name: CorsikaWeightMap
+      mctree_name: I3MCTree_preMuonProp
+      bg_mctree_name: I3MCTree_preMuonProp
       mcpe_pid_map_name: ~
 
     # ml_suite configurations, see ml_suite docs
@@ -47,7 +49,7 @@ extractor:
             kwargs:
               percentiles: [ 0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8 ]
 
-    include: [ features, I3CorsikaInfo, PolyplopiaPrimary ]
+    include: [ features, I3CorsikaInfo, PolyplopiaPrimary, coincident_muons ]
 
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active
@@ -120,6 +122,21 @@ processors:  # ordered list of processors, each can be used any number of times
       by: event_ids
       cols: event_ids
 
+  - name: select  # coincident muon count written by the mclabeler
+    kwargs:
+      key: coincident_muons
+
+  - name: rename  # the table writer stores the label as 'value', so rename
+    kwargs:
+      map:
+        value: coincident_muons
+
+  - name: copy
+    kwargs:
+      to: tmp_label
+      by: event_ids
+      cols: coincident_muons
+
   - name: select
     kwargs:
       key: tmp_label
@@ -138,7 +155,7 @@ processors:  # ordered list of processors, each can be used any number of times
     kwargs:
       to: compressed
       by: event_ids
-      cols: bundle
+      cols: [ bundle, coincident_muons ]
       out: targets
 
   - name: select  # generation data was staged by the simulation processor

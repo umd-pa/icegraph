@@ -65,7 +65,7 @@ class DataService(Service[DataConfig]):
         dl_spec = self._new_dataloader()
 
         # construct dataset from assembly spec
-        dataset = ds_spec(keys=spec.keys, exclude_roles=spec.exclude_roles)
+        dataset = ds_spec(keys=spec.keys, exclude_roles=spec.exclude_roles, exhaustive=spec.exhaustive)
 
         # build dataloader from dataset
         dataloader = dl_spec(dataset=dataset)

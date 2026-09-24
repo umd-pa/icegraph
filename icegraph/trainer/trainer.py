@@ -264,7 +264,10 @@ class Trainer(Engine[TrainerConfig]):
         keys = self.decode.get_keys(split)
         exclude_roles = [DataRole.AUXILIARY] if split not in Split.eval() else None
 
-        return self.data.loader_spec.make(keys, exclude_roles=exclude_roles)
+        # eval splits should score the same complete set every epoch
+        exhaustive = split in Split.eval()
+
+        return self.data.loader_spec.make(keys, exclude_roles=exclude_roles, exhaustive=exhaustive)
 
     def get_dataloader(self, split: Split):  # allow to infer type
         return self.data.dataloader(self._get_loader_spec(split))

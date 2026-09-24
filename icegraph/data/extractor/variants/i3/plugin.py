@@ -44,12 +44,24 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             from icecube.icetray import I3Tray  # pyright: ignore[reportMissingImports]
             from icecube import hdfwriter, ml_suite  # pyright: ignore[reportMissingImports]
 
+            # required for I3CorsikaInfo
+            from icecube import simclasses  # noqa: F401  # pyright: ignore[reportMissingImports]
+
         files = [str(self.config.gcd_path), str(item)]
 
         with tempfile.NamedTemporaryFile(dir=self._ctx.scratch) as out:
             tray = I3Tray()
 
             tray.Add("I3Reader", Filenamelist=files)
+
+            # mc labeler
+            if self.config.mclabeler is not None:
+                with suppress_output():
+                    from icecube.sim_services.label_events import MCLabeler  # pyright: ignore[reportMissingImports]
+
+                tray.Add(MCLabeler, **self.config.mclabeler)
+
+            # ml suite
             tray.Add(
                 ml_suite.EventFeatureExtractorModule,
                 cfg_file=self.config.ml_suite,

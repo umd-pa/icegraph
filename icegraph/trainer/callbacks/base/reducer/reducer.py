@@ -122,35 +122,39 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
     def finalize(self, trainer: Trainer) -> None:
         # iterate over artifacts and dispatch
         for label, acc_bundle in self._accumulators.items():
-            # perform any postprocessing
-            processed_acc_bundle = self._postprocess_accumulator(acc_bundle, label)
-
-            # get any empty accumulators
-            empty = [a.is_empty() for a in processed_acc_bundle.values()]
+            # postprocessing reads the data, so it should only get the accumulators that have some
+            empty_indices = [idx for idx, acc in acc_bundle.items() if acc.is_empty()]
 
             # if all are empty, warn and skip
-            if all(empty):
+            if len(empty_indices) == len(acc_bundle):
                 logger.warning(
                     "%s has no data for label %r; all accumulators are empty. Skipping dispatch.",
                     type(self).__name__,
-                    label
                 )
                 continue
 
             # if some are empty, warn but dispatch
-            if any(empty):
-                empty_indices = [
-                    idx for idx, acc in processed_acc_bundle.items()
-                    if acc.is_empty()
-                ]
-
+            if empty_indices:
                 logger.warning(
                     "%s has empty accumulator(s) for label %r: %s. "
                     "Dispatching remaining non-empty accumulators.",
-                    type(self).__name__,
-                    label,
                     empty_indices
                 )
+
+            # perform any postprocessing
+            processed_acc_bundle = self._postprocess_accumulator(
+                {idx: acc for idx, acc in acc_bundle.items() if not acc.is_empty()}, label
+            )
+
+            # postprocessing can return nothing even when some accumulators have data
+            # for example, ROC needs both the positive and negative accumulator of a class to draw its curve
+            if all(a.is_empty() for a in processed_acc_bundle.values()):
+                logger.warning(
+                    "%s has nothing to dispatch for label %r after postprocessing. Skipping dispatch.",
+                    type(self).__name__,
+                    label
+                )
+                continue
 
             # build all artifacts
             artifacts: dict[int | str, T] = {}

@@ -36,8 +36,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
     def __init__(
         self,
-        keys: ArrayI,
-        *,
+        keys: ArrayI, *,
         services: ServiceManager,
         chunk_size: int,
         buffer_size: int,
@@ -46,6 +45,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
         buffer_refill_threshold: float,
         max_chunks_per_epoch: int,
         exclude_roles: list[DataRole] | None = None,
+        exhaustive: bool = False
     ) -> None:
         # keys stay in ascending order
         self.keys = keys
@@ -57,6 +57,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
         self._buffer_refill_threshold = buffer_refill_threshold
         self._max_chunks_per_epoch = max_chunks_per_epoch
         self._exclude_roles = frozenset(exclude_roles) if exclude_roles is not None else frozenset()
+        self._exhaustive = exhaustive
 
         # epoch needs to be updated for each worker
         # so epoch has to be a scalar tensor with shared memory
@@ -71,6 +72,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
     @staticmethod
     def _seed(*parts: int) -> int:
         # merge parts into a single int. FNV-1a is deterministic across processes.
+        # see https://en.wikipedia.org/wiki/Fowler-Noll-Vo_hash_function
         h = 0xCBF29CE484222325
         for p in parts:
             h = ((h ^ (int(p) & 0xFFFFFFFFFFFFFFFF)) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
@@ -79,6 +81,13 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
     ### SHARDING
 
     def _chunks(self) -> list[tuple[int, int]]:
+        if self._exhaustive:
+            # every key is read, so the final chunk may be short
+            return [
+                (start, min(start + self._chunk_size, len(self.keys)))
+                for start in range(0, len(self.keys), self._chunk_size)
+            ]
+
         count = len(self.keys) // self._chunk_size  # number of whole chunks
 
         # quick check, rare but very shitty to debug if not caught
@@ -104,19 +113,25 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
         chunks = self._chunks()
 
-        # disjoint chunk partitions
-        if self._shuffle_chunks:
-            random.Random(self._seed(state.seed, int(self._epoch[0]))).shuffle(chunks)
+        rank_chunks: list[tuple[int, int]]
+        if self._exhaustive:
+            # one process reads every chunk in key order
+            rank_chunks = chunks
 
-        # apply max chunks if set
-        if self._max_chunks_per_epoch != -1:
-            chunks = chunks[:self._max_chunks_per_epoch]
+        else:
+            # disjoint chunk partitions
+            if self._shuffle_chunks:
+                random.Random(self._seed(state.seed, int(self._epoch[0]))).shuffle(chunks)
 
-        # equal chunks per rank for DDP
-        # Drop the remainder so counts match across ranks
-        # unequal per-rank counts cause deadlocks
-        usable      = (len(chunks) // world) * world
-        rank_chunks = chunks[:usable][rank::world]
+            # apply max chunks if set
+            if self._max_chunks_per_epoch != -1:
+                chunks = chunks[:self._max_chunks_per_epoch]
+
+            # equal chunks per rank for DDP
+            # Drop the remainder so counts match across ranks
+            # unequal per-rank counts cause deadlocks
+            usable      = (len(chunks) // world) * world
+            rank_chunks = chunks[:usable][rank::world]
 
         # whole chunks per worker
         # within-rank unevenness is fine, only per rank totals must match
@@ -243,6 +258,10 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
     @cached_property
     def _batch_count(self) -> int:
+        if self._exhaustive:
+            # every key on this process, the last batch may be short
+            return math.ceil(len(self.keys) / self._batch_size)
+
         state = self._services.require("state", required_by=type(self))
 
         # chunks available

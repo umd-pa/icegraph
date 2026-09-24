@@ -55,7 +55,7 @@ class Zarr(Writer[ZarrWriterConfig]):
                 np.cumsum(lengths, out=off[1:])
 
                 # flatten list to array
-                arr = col.explode().to_numpy()
+                arr = col.explode(empty_as_null=True).to_numpy()
 
                 # ensure sizes match expected
                 if arr.shape[0] != off[-1]:

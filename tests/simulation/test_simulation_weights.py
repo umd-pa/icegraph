@@ -317,7 +317,7 @@ def _simweights(files: list[Tables], simulation: str) -> Any:
 
 def _simweights_weights(datasets: list[list[Tables]], simulation: str, flux: Any) -> pl.DataFrame:
     """simweights over datasets of one simulation, combined as simweights combines them."""
-    weights = sum(_simweights(files, simulation) for files in datasets).get_weights(flux)
+    weights = sum(_simweights(files, simulation) for files in datasets).get_weights(flux)  # pyright: ignore[reportAttributeAccessIssue]
 
     # an event outside the surface weighs 0 on both sides, which would compare equal
     assert (weights > 0).all()
