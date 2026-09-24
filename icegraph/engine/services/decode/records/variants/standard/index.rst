@@ -9,20 +9,22 @@ standard attribute decoder and the default choice for datasets produced by
 IceGraph.
 
 It is also the decoder for IceCube simulation, and is the only part of the engine
-that knows about ``simweights``: the weights role is decoded by rebuilding the
+that knows about ``simweights``: the weights role is decoded by building the
 generation surface and weighting each record against a flux.
 
 Weighting
 ---------
 
-The :doc:`i3-simweight <../../../../../../data/processor/variants/simweight/index>`
+The :doc:`i3-simulation <../../../../../../data/processor/variants/simulation/index>`
 processor does not store a weight. It stores the per-event generation quantities
-as a column and the generating file's surface as a local attribute, so the
+as a column and the generating file's simulation metadata as a local attribute, so the
 mixture is chosen when the data is read rather than when it is written.
 
-On load this decoder sums the surfaces of every shard in the dataset,
-rebuilds the weighter over the generation columns of each block,
-and returns the final weights, one per record.
+On load this decoder builds the surface of each simulation set with simweights,
+over the set's loaded files as one with ``nfiles`` counting them, sums the sets
+of each type, weights the generation columns of each block against them, and
+returns the final weights, one per record. Shards without a simulation are inferred to be real
+data and have no weights.
 
 The weights role reads the generation column through the decode service's
 ``keymap.weights``, which defaults to ``generation``.
@@ -31,20 +33,19 @@ Mixed simulation
 ~~~~~~~~~~~~~~~~
 
 A source may mix simulation types, for instance CORSIKA files alongside NuGen
-ones. The shards of each type are summed into their own surface,
+ones. The sets of each type are summed into their own surface,
 each surface is weighted against its own flux, and each record is routed to one of
 them. Configure one flux per type.
 
-Routing is per record because a block spans shards. The ``i3-simweight`` processor
-writes a source code into the generation columns of every event and declares, in
-the same shard's attributes, what that code stands for and which column carries it,
-so the decoder learns the mapping from the data rather than from a convention
-shared with the writer. A single type needs no routing and reads either way; a
-mixture whose shards carry no source code is refused, and has to be reprocessed.
+Routing is per record because a block spans shards. The ``i3-simulation`` processor
+writes a sim code naming the set into the generation columns of every event and
+declares, in the same shard's attributes, what type that code stands for and which
+column carries it, so the decoder learns the mapping from the data rather than from
+a convention shared with the writer.
 
 .. note::
 
-   All shards are expected to carry a surface.
+   Real data and simulation cannot be loaded together.
 
 Configuration
 -------------
@@ -65,11 +66,6 @@ Selected as ``name: standard``.
        present in the data.
      - mapping
      - ``{}``
-   * - ``surface_attr``
-     - Local attribute key the generation surface was written under. Matches the
-       ``attr`` option of the ``i3-simweight`` processor.
-     - str
-     - ``surface``
 
 Each entry selects a model from one of the two packages that ship them:
 
@@ -130,11 +126,3 @@ against its own model:
 
    ``nuflux`` is not a pip dependency; it comes from the IceTray environment on
    CVMFS, and is imported only when a ``nuflux`` model is configured.
-
-.. note::
-
-   Rebuilding a surface reaches for one distribution the package root does not
-   export, and relies on how a surface is scaled by its event count, neither of which
-   is public API. The decoder therefore pins the release it was written against
-   (``0.1.3``) and refuses any other. This goes away once the surface serializes
-   itself upstream.

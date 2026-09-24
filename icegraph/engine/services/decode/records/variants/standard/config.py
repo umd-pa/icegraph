@@ -24,4 +24,3 @@ class FluxConfig(BaseModel):
 
 class StandardI3DecoderConfig(BaseModel):
     flux:           dict[str, FluxConfig] = Field(default_factory=dict)
-    surface_attr:   str = "surface"

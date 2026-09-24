@@ -32,7 +32,7 @@ class _SimGroup:
     surface:    Any
     flux:       Any
 
-    # source codes standing for this type, which is what routes a record to it
+    # sim codes standing for this type, which is what routes a record to it
     codes:      tuple[int, ...]
 
 
@@ -40,7 +40,7 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
     """Record decoder for IceCube data written by the IceGraph pipeline.
 
     Decodes features, targets and auxiliary columns straight out of the block, and
-    turns the per-event generation columns the ``i3-simweight`` processor wrote into
+    turns the per-event generation columns the ``i3-simulation`` processor wrote into
     final weights against a configured flux.
 
     A dataset may mix simulation types.
@@ -48,8 +48,10 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
     name: ClassVar[str] = "standard"
     version: ClassVar[int] = 1
 
+    _warned_no_weights: bool
+
     def build(self) -> None:
-        return
+        self._warned_no_weights = False
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> StandardI3DecoderConfig:
@@ -61,13 +63,15 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
     ### WEIGHTS
 
     @cached_property
-    def _surfaces(self) -> SurfaceSet:
-        """The dataset's generation surfaces, and how a record is routed to one."""
-        return build_surfaces(self._ctx.attrs, key=self.config.surface_attr)
+    def _surfaces(self) -> SurfaceSet | None:
+        """The dataset's generation surfaces, and how a record is routed to one. None for real data."""
+        return build_surfaces(self._ctx.attrs)
 
     @cached_property
     def _groups(self) -> tuple[_SimGroup, ...]:
         """One weighting group per simulation type the dataset carries."""
+        assert self._surfaces is not None  # only weighted when the shards carry simulation
+
         # dict of simulation keyed to its aggregate surface
         surfaces = self._surfaces.surfaces
 
@@ -190,28 +194,38 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
 
         if not routed.all():
             raise ValueError(
-                f"{type(self).__name__}: {int((~routed).sum())} record(s) carry source code(s) "
-                f"{sorted(np.unique(source[~routed]).tolist())} that no generation surface in the "
-                f"dataset declares, so they cannot be weighted."
+                f"{type(self).__name__}: {int((~routed).sum())} record(s) carry sim code(s) "
+                f"{sorted(np.unique(source[~routed]).tolist())} that no shard in the dataset "
+                f"declares, so they cannot be weighted."
             )
 
         return weights
 
     def _extract_weights(self, block: RecordBlock, key: str) -> Tensor | None:
+        # real data has no weights
+        if self._surfaces is None:
+            return None
+
         column = self.extract(block, key)
 
         if column is None:
+            if not self._warned_no_weights:
+                logger.warning(
+                    f"shards carry simulation, but no {key!r} column to "
+                    f"weight it from, so no weights will be computed"
+                )
+                self._warned_no_weights = True
             return None
 
         groups = self._groups
         values, names, dtypes = self._weight_columns(column, key, block.height)
 
-        # the source code labels the record
+        # the sim code labels the record
         routing = self._surfaces.column
 
         if routing not in names:
             raise KeyError(
-                f"{type(self).__name__}: the shards declare their source code in column "
+                f"{type(self).__name__}: the shards declare their sim code in column "
                 f"{routing!r} of {key!r}, but it could not be found."
             )
 

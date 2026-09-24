@@ -1,6 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .plugin import SimWeighter
+from .plugin import I3Simulation
 
-__all__ = ["SimWeighter"]
+__all__ = ["I3Simulation"]

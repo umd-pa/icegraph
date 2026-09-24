@@ -49,8 +49,8 @@ Columns and values:
 * :doc:`fill <variants/fill/index>`: add or overwrite a column with a constant.
 * :doc:`unique <variants/unique/index>`: record the distinct values of columns.
 * :doc:`stats <variants/stats/index>`: compute per-column statistics.
-* :doc:`i3-simweight <variants/simweight/index>`: extract simulation generation
-  quantities and the generation surface.
+* :doc:`i3-simulation <variants/simulation/index>`: store the simulation a file
+  was generated with and the per-event quantities to weight it.
 
 Graph construction:
 
@@ -110,7 +110,7 @@ and implements the transformation:
    variants/fill/index
    variants/unique/index
    variants/stats/index
-   variants/simweight/index
+   variants/simulation/index
    variants/dom/index
    variants/knn/index
    variants/compress/index

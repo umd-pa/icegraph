@@ -47,7 +47,7 @@ extractor:
             kwargs:
               percentiles: [ 0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8 ]
 
-    include: [ features, CorsikaWeightMap, PolyplopiaPrimary ]
+    include: [ features, I3CorsikaInfo, PolyplopiaPrimary ]
 
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active
@@ -76,10 +76,9 @@ processors:  # ordered list of processors, each can be used any number of times
           - t_at_charge_percentile_0.71
           - t_at_charge_percentile_0.8
 
-  - name: i3-simweight  # per event generation data, weights themselves are computed on load
+  - name: i3-simulation  # generation data, weights themselves are computed on load
     kwargs:
-      simulation: corsika
-      tables: [ CorsikaWeightMap, PolyplopiaPrimary ]
+      type: corsika
       ids: event_ids
 
   - name: pivot
@@ -142,7 +141,7 @@ processors:  # ordered list of processors, each can be used any number of times
       cols: bundle
       out: targets
 
-  - name: select  # generation data was staged by the simweight processor
+  - name: select  # generation data was staged by the simulation processor
     kwargs:
       key: generation
 

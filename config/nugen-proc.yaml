@@ -76,10 +76,9 @@ processors:  # ordered list of processors, each can be used any number of times
           - t_at_charge_percentile_0.71
           - t_at_charge_percentile_0.8
 
-  - name: i3-simweight  # per event generation data, weights themselves are computed on load
+  - name: i3-simulation  # generation data, weights themselves are computed on load
     kwargs:
-      simulation: nugen
-      tables: [ I3MCWeightDict ]
+      type: nugen
       ids: event_ids
 
   - name: pivot
