@@ -34,15 +34,6 @@ class DOMProcessor(Processor[DOMConfig]):
     def build(self) -> None:
         self._geometry = None
 
-        # only want to import on execute
-        from icecube import dataio  # pyright: ignore[reportMissingImports]
-        from icecube.icetray import OMKey  # pyright: ignore[reportMissingImports]
-        from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
-
-        self.dataio = dataio
-        self.OMKey = OMKey
-        self.I3Geometry = I3Geometry
-
     def _process(self, item: Envelope) -> Envelope | None:
         active = self._require_active(item)
         main = item.tmp[active]
@@ -91,13 +82,17 @@ class DOMProcessor(Processor[DOMConfig]):
         return self._geometry
 
     def _id_to_position(self, string: int, om: int, pmt: int) -> tuple[float, float, float]:
+        from icecube.icetray import OMKey  # pyright: ignore[reportMissingImports]
+
         # get position and return as tuple
-        p = self.geometry.omgeo[self.OMKey(string, om, pmt)].position
+        p = self.geometry.omgeo[OMKey(string, om, pmt)].position
         return p.x, p.y, p.z
 
+    @staticmethod
+    def _get_geometry(path: str) -> I3Geometry:
+        from icecube import dataio  # pyright: ignore[reportMissingImports]
 
-    def _get_geometry(self, path: str) -> I3Geometry:
-        for frame in self.dataio.I3File(path):
+        for frame in dataio.I3File(path):
             if "I3Geometry" in frame:
                 return frame["I3Geometry"]
 
