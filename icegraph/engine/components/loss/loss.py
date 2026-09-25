@@ -36,5 +36,5 @@ class LossFunction(Component[C], ABC):
         return loss
 
     @abstractmethod
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor | None) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         ...
