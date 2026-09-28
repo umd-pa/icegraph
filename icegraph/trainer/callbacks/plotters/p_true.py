@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing_extensions import override
-from pathlib import Path
 from collections.abc import Mapping
 
 import torch
@@ -18,10 +17,9 @@ from icegraph.renderer import Histogram1D
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer, HistogramAccumulator
+from ..base import BHistogramReducer
 
 if TYPE_CHECKING:
-    from .. import context
     from icegraph.trainer import Trainer
 
 __all__ = ["PTruePlotter"]
@@ -46,39 +44,24 @@ class PTruePlotter(BHistogramReducer):
         return torch.tensor([100])
 
     @override
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> tuple[Tensor, Tensor]:
+    def project(self, out: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
         # get probability assigned to the correct class
         probs = out.softmax(dim=-1).gather(dim=1, index=target)
 
-        # return with mapping defined by target
+        # group by target class
         return probs, target.squeeze(1)
 
     @override
-    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
-        processed: dict[str, HistogramAccumulator] = {}
-
-        # load class name map
-        class_name_map: dict[int, str] = self._kwargs.get("class_name_map", {}).get(label, {})
-
-        # process each accumulator
-        for c, acc in data.items():
-            # log counts if required
-            if self._kwargs.get("log_count", False):
-                acc.data = torch.log10(acc.data)
-
-            # rename
-            name = class_name_map.get(c, f"Class {c}")
-            processed[name] = acc
-
-        return processed
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        # one series per class, log counts if required
+        log = self._kwargs.get("log_count", False)
+        return {name: t.log10() if log else t for name, t in super().reduce(counts, label).items()}
 
     @override
-    def _dispatch(
-            self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str
-    ) -> None:
+    def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
         epoch = trainer.current_epoch
 
-        # building a 2d histogram
+        # building a 1d histogram
         plot = Histogram1D()
 
         # update title
@@ -97,5 +80,5 @@ class PTruePlotter(BHistogramReducer):
 
         # plot
         path = trainer.plotdir / "p_true" / f"{label}.p_true.{epoch + 1}.html"
-        plot.plot(data, path)
+        plot.plot(artifacts, path)
         logger.info(f"new PPC plot saved: %s", str(path))

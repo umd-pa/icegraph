@@ -13,14 +13,13 @@ from torch import Tensor
 # local package
 from icegraph.statistics import StatisticService
 from icegraph.renderer import Line2D
-from icegraph.common.transforms import TransformSpace
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer, HistogramAccumulator
+from ..base import BHistogramReducer
+from ._ovr import project_ovr, iter_ovr, bin_curve
 
 if TYPE_CHECKING:
-    from .. import context
     from icegraph.trainer import Trainer
 
 __all__ = ["PrecisionRecallPlotter"]
@@ -43,86 +42,32 @@ class PrecisionRecallPlotter(BHistogramReducer):
         return torch.tensor([5000])
 
     @override
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> tuple[Tensor, Tensor]:
-        # one-vs-rest precision-recall for all N classes
-        probs = out.softmax(dim=-1)  # [B, C]
-
-        # build list of classes from probs shape
-        classes = torch.arange(probs.shape[1], device=out.device).unsqueeze(0)  # [1, C]
-
-        # for each sample, emit one score per class
-        # key = 2*c     -> negatives for class c
-        # key = 2*c + 1 -> positives for class c
-        is_pos = target.eq(classes)  # broadcasting [B, 1] x [1, C] = [B, C]
-        keys = 2 * classes + is_pos.long()
-
-        return probs.flatten().unsqueeze(1), keys.flatten()
+    def project(self, out: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
+        # one-vs-rest precision-recall for all classes
+        return project_ovr(out, target)
 
     @override
-    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
-        processed: dict[str, HistogramAccumulator] = {}
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        curves: dict[str, Tensor] = {}
 
-        # load class count
-        n_classes = (max(data.keys()) // 2) + 1
-
-        # load class name map
-        class_name_map: dict[int, str] = self._kwargs.get("class_name_map", {}).get(label, {})
-
-        for c in range(n_classes):
-            neg_key = 2 * c
-            pos_key = 2 * c + 1
-
-            if neg_key not in data or pos_key not in data:
-                # skip if either is missing
-                continue
-
-            # load negative and positive accumulators for this class
-            neg_acc = data[neg_key]
-            pos_acc = data[pos_key]
-
-            # flatten and convert to float
-            neg = neg_acc.data.float().flatten()
-            pos = pos_acc.data.float().flatten()
-
-            # compute true positives and false positives for each threshold
-            # threshold direction is high score -> positive prediction
+        for c, neg, pos in iter_ovr(counts):
+            # true/false positives at each threshold, high score -> positive prediction
             tp = pos.flip(0).cumsum(0).flip(0)
             fp = neg.flip(0).cumsum(0).flip(0)
 
-            # compute precision and recall
             precision = tp / (tp + fp).clamp_min(1.0)
             recall = tp / pos.sum().clamp_min(1.0)
 
-            # convert precision/recall curve to histogram-like line data
-            # x-axis is recall, y-axis is precision
-            pr = torch.zeros_like(pos)
+            # resample precision over recall
+            # precision should be non-increasing
+            # in recall, so a right-to-left running max gives the upper envelope
+            pr = bin_curve(recall, precision, pos.numel())
+            curves[self.group_name(c, label)] = torch.cummax(pr.flip(0), dim=0).values.flip(0)
 
-            recall_bin = torch.clamp(
-                (recall * pr.numel()).long(),
-                0,
-                pr.numel() - 1,
-            )
-
-            for b, y in zip(recall_bin, precision):
-                # take the largest precision for each recall bin
-                pr[b] = torch.maximum(pr[b], y)
-
-            # precision should be monotonically non-increasing with recall.
-            # Filling from right to left gives the upper envelope.
-            pr = torch.flip(torch.cummax(torch.flip(pr, dims=(0,)), dim=0).values, dims=(0,))
-
-            # reassign to accumulator
-            acc = pos_acc
-            acc.data = pr
-
-            # rename
-            name = class_name_map.get(c, f"Class {c}")
-            processed[name] = acc
-
-        return processed
+        return curves
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str) -> None:
+    def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d line plot
@@ -140,5 +85,5 @@ class PrecisionRecallPlotter(BHistogramReducer):
         plot.set_legend_location(x=0.02, y=0.02, xanchor="left", yanchor="bottom")
 
         path = trainer.plotdir / "precision_recall" / f"{label}.PR.{epoch + 1}.html"
-        plot.plot(data, path)
+        plot.plot(artifacts, path)
         logger.info("new precision-recall plot saved: %s", str(path))

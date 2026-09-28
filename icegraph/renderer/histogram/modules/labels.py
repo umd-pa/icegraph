@@ -37,7 +37,7 @@ class Labels(HistogramPlotterModule):
         else:
             dx, dy = 0.45 * data.widths
 
-        for (iy, ix), cell_value in np.ndenumerate(data.histogram):
+        for (ix, iy), cell_value in np.ndenumerate(data.histogram):
             text_x.append(centers[0][ix] - dx)
             text_y.append(centers[1][iy] - dy)
             text.append(f"{cell_value:.3g}")

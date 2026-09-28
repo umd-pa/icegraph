@@ -14,13 +14,11 @@ from torch import Tensor
 from icegraph.statistics import StatisticService
 from icegraph.renderer import Histogram2D, MedianQuantileBand
 from icegraph.common.histogram import Histogram
-from icegraph.common.transforms import TransformSpace
 
 # local subpackage
-from ..base import BHistogramReducer, HistogramAccumulator
+from ..base import BHistogramReducer
 
 if TYPE_CHECKING:
-    from .. import context
     from icegraph.trainer import Trainer
 
 __all__ = ["BiasPlotter"]
@@ -48,7 +46,7 @@ class BiasPlotter(BHistogramReducer):
         return torch.tensor([150, 150])
 
     @override
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor:
+    def project(self, out: Tensor, target: Tensor) -> Tensor:
         # compute bias
         bias = torch.where(target != 0, (out - target) / target, torch.zeros_like(target))
 
@@ -56,13 +54,11 @@ class BiasPlotter(BHistogramReducer):
         return torch.cat((target, bias), dim=1)
 
     @override
-    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
-        return {"Data": list(data.values())[0]}  # only one so this is fine
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        return {"Data": counts[0]}  # single group
 
     @override
-    def _dispatch(
-            self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str
-    ) -> None:
+    def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
         # building a 2d histogram
         plot = Histogram2D()
 
@@ -74,13 +70,13 @@ class BiasPlotter(BHistogramReducer):
         plot.set_title(title)
 
         # update axis labels
-        xlabel = r"$\mathrm{Target}\;%s$" % space[0].format_repr(r"\mathrm{%s}" % label)
-        ylabel = r"$\mathrm{(Predicted - Target)/Target}\;%s$" % space[1].format_repr(r"\mathrm{%s}" % label)
+        xlabel = r"$\mathrm{Target}\;%s$" % self.scale[0].format_repr(r"\mathrm{%s}" % label)
+        ylabel = r"$\mathrm{(Predicted - Target)/Target}\;%s$" % self.scale[1].format_repr(r"\mathrm{%s}" % label)
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)
 
         # plot
         path = trainer.plotdir / "bias" / f"{label}.bias.{trainer.current_epoch + 1}.html"
-        plot.plot(data, path)
+        plot.plot(artifacts, path)
         logger.info(f"new bias plot saved: %s", str(path))

@@ -27,7 +27,7 @@ class Histogram2D(HistogramPlotter2D):
             go.Heatmap(  # histogram
                 x=centers[0],
                 y=centers[1],
-                z=data.histogram,
+                z=data.histogram.T,  # histogram is [x, y], plotly wants z rows as y
                 zauto=False,
                 zmin=0,
                 coloraxis="coloraxis",

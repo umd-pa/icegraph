@@ -13,13 +13,11 @@ from torch import Tensor
 # local package
 from icegraph.renderer import Histogram2D, Labels
 from icegraph.common.histogram import Histogram
-from icegraph.common.transforms import TransformSpace
 
 # local subpackage
-from ..base import CHistogramReducer, HistogramAccumulator
+from ..base import CHistogramReducer
 
 if TYPE_CHECKING:
-    from .. import context
     from icegraph.trainer import Trainer
 
 __all__ = ["CMPlotter"]
@@ -36,18 +34,16 @@ class CMPlotter(CHistogramReducer):
         return torch.tensor([2, 2])
 
     @override
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor:
+    def project(self, out: Tensor, target: Tensor) -> Tensor:
         # stack data by axis
         return torch.cat((target, out.argmax(dim=-1, keepdim=True)), dim=1)
 
     @override
-    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
-        return {"Data": list(data.values())[0]}  # only one so this is fine
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        return {"Data": counts[0]}  # single group
 
     @override
-    def _dispatch(
-            self, trainer: Trainer, data: dict[int | str, Histogram], space: tuple[TransformSpace, ...], label: str
-    ) -> None:
+    def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d histogram
@@ -69,5 +65,5 @@ class CMPlotter(CHistogramReducer):
 
         # plot
         path = trainer.plotdir / "confusion_matrix" / f"{label}.CM.{epoch + 1}.html"
-        plot.plot(data, path)
+        plot.plot(artifacts, path)
         logger.info(f"new CM plot saved: %s", str(path))

@@ -25,6 +25,7 @@ def require_bounds(func: Callable[..., Any]) -> Callable[..., Any]:
 
 @dataclass(frozen=True, slots=True)
 class Histogram:
+    """Dense histogram whose axis order matches ``bounds``: ``histogram[ix, iy, ...]``."""
     histogram:  ArrayF32
 
     # optional fields

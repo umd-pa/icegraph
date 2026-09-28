@@ -28,13 +28,13 @@ class MedianQuantileBand(HistogramPlotterModule):
             self._overlay_trace(fig, item, str(key))
 
     def _overlay_trace(self, fig: go.Figure, data: Histogram, label: str) -> None:
-        # get binned median and containment along axis 0
+        # get binned median and containment of y (axis 1) for each x bin
         edges = data.edges[0]
         centers = data.centers[1]
 
-        median = self._indices_to_centers(data.count_quantile(0.50, axis=0), centers)
-        low_q = self._indices_to_centers(data.count_quantile(0.32, axis=0), centers)
-        high_q = self._indices_to_centers(data.count_quantile(0.68, axis=0), centers)
+        median = self._indices_to_centers(data.count_quantile(0.50, axis=1), centers)
+        low_q = self._indices_to_centers(data.count_quantile(0.32, axis=1), centers)
+        high_q = self._indices_to_centers(data.count_quantile(0.68, axis=1), centers)
 
         # duplicate last entry to match edges
         median = np.r_[median, median[-1]]
