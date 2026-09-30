@@ -15,7 +15,7 @@ from torch.utils.data import IterableDataset, get_worker_info
 import torch
 import numpy as np
 
-from icegraph.common.data import DataRole, RawGraphBatch
+from icegraph.common.data import DataRole, GraphBatch
 from icegraph.common.record import RecordBlock, PoolBuffer
 from icegraph.typing.common import ArrayI
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 __all__ = ["GraphDataset"]
 
 
-class GraphDataset(IterableDataset[RawGraphBatch]):
+class GraphDataset(IterableDataset[GraphBatch]):
     """Iterable, DDP-safe dataset with two-level shuffling.
 
     Reads are kept chunk-granular for large files: the order of contiguous
@@ -147,7 +147,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
             self,
             block: RecordBlock,
             exclude_roles: frozenset[DataRole] = frozenset(),
-    ) -> RawGraphBatch:
+    ) -> GraphBatch:
         """Assemble one batch from a columnar block of records."""
         decode = self._services.require("decode", required_by=type(self))
 
@@ -161,7 +161,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
 
         batch = np.repeat(np.arange(height, dtype=np.int64), node_counts)
 
-        return RawGraphBatch(
+        return GraphBatch(
             features=features,
             targets=decode.load_targets(block, excluded=DataRole.TARGETS in exclude_roles),
             auxiliary=decode.load_auxiliary(block, excluded=DataRole.AUXILIARY in exclude_roles),
@@ -170,7 +170,7 @@ class GraphDataset(IterableDataset[RawGraphBatch]):
             ptr=torch.from_numpy(ptr)
         )
 
-    def __iter__(self) -> Iterator[RawGraphBatch]:
+    def __iter__(self) -> Iterator[GraphBatch]:
         records = self._services.require("record", required_by=type(self))
         decode = self._services.require("decode", required_by=type(self))
         state = self._services.require("state", required_by=type(self))

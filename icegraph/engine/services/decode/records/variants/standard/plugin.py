@@ -123,7 +123,7 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
 
     def _weight_columns(
             self, column: Column, key: str, height: int
-    ) -> tuple[np.ndarray, list[str], list[str | None]]:
+    ) -> tuple[np.ndarray, list[str], list[str] | list[None]]:
         """Validate a generation column and name the columns packed into it."""
         values = column.values
 

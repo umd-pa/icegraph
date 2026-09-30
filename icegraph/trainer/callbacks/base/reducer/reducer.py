@@ -77,10 +77,10 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
         groups: Tensor
         if isinstance(projected, tuple):
             # groups explicitly provided
-            if any(~torch.is_tensor(t) for t in projected):
+            if any(not torch.is_tensor(t) for t in projected):
                 raise TypeError(
                     f"{cls}.project must return a Tensor or a tuple of Tensors, "
-                    f"got {tuple(type(t).__name__ for t in projected)}."
+                    f"got {tuple(type(t).__qualname__ for t in projected)}."
                 )
 
             rows, groups = projected
@@ -90,8 +90,9 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
             if not torch.is_tensor(projected):
                 raise TypeError(
                     f"{cls}.project must return a Tensor or a tuple of Tensors, "
-                    f"got {type(projected).__name__!r}."
+                    f"got {type(projected).__qualname__}."
                 )
+
             rows = projected
             groups = torch.zeros(rows.size(0), dtype=torch.long, device=rows.device)
 
@@ -162,7 +163,7 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
         if not trainer.state.is_main_process() or trainer.split not in Split.eval():
             return
 
-        for out, target, label in zip(ctx.batch.out, ctx.batch.targets, ctx.batch.out.names, strict=True):
+        for out, target, label in zip(ctx.out, ctx.batch.targets, ctx.out.names, strict=True):
             self.update(out, target, label)
 
     def on_validation_end(self, ctx: context.ValidationEndContext) -> None:

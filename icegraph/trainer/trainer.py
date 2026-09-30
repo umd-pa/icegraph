@@ -16,7 +16,7 @@ from torch import Tensor
 from torch_geometric.seed import seed_everything
 
 # data container
-from icegraph.common.data import GraphBatch, ProcessedGraphBatch
+from icegraph.common.data import GraphBatch
 
 from icegraph.common.data import Split, DataRole
 from icegraph.common.tensors import SegmentedTensor
@@ -184,12 +184,12 @@ class Trainer(Engine[TrainerConfig]):
         out = self.normalizer(out, DataRole.TARGETS, inverse=True)
         out = self.transformer(out, DataRole.TARGETS, inverse=True)
 
-        # attach out to the batch, then detach each tensor from autograd
-        processed_batch = ProcessedGraphBatch.from_graph_batch(batch, out=out)
-        processed_batch = processed_batch.detach()
+        # detach each tensor from autograd
+        out = out.detach()
+        batch = batch.detach()
 
         # call on batch end hook
-        ctx = context.BatchEndContext(engine=self, batch=processed_batch, loss=loss.detach())
+        ctx = context.BatchEndContext(engine=self, batch=batch, out=out, loss=loss.detach())
         self.callbacks.fire("on_batch_end", ctx)
 
         return loss.detach()
@@ -228,25 +228,20 @@ class Trainer(Engine[TrainerConfig]):
 
         with ctx:
             # iterate over each batch
-            for b in dataloader:
-                # move to device
-                raw_batch = b.to_device(self.state.device, non_blocking=True)
-
-                # convert to graph batch
-                graph_batch = GraphBatch.from_raw_batch(raw_batch, self.decode.get_segment_layout)
-
-                # trainer responsible for batch dtype cast
+            for batch in dataloader:
+                # engine responsible for batch dtype cast and move
+                batch = batch.to(self.state.device, non_blocking=True)
                 if dtype_map:
-                    graph_batch = graph_batch.to_dtype(dtype_map)
+                    batch = batch.to_dtype(dtype_map)
 
                 # process batch and accumulate loss
-                loss_accumulator += self._process_batch(graph_batch, split)
+                loss_accumulator += self._process_batch(batch, split)
 
             # update metric summaries
             self.metrics.update_summaries(split)
 
         # accumulated epoch loss
-        # one sync per epoch, not too bad
+        # only one sync per epoch
         epoch_loss = (loss_accumulator / batch_count if batch_count > 0 else torch.tensor(float("nan"))).cpu()
 
         # time the execution

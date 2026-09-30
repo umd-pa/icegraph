@@ -9,13 +9,12 @@ from typing import Any, ClassVar
 import torch
 from torch import Tensor
 import numpy as np
-from jaxtyping import Int, Float
 
 from icegraph.statistics import StatisticService
 from icegraph.common.data import DataRole, Split, ColumnarRole
 from icegraph.common.record import RecordBlock
 from icegraph.typing.common import ArrayI
-from icegraph.common.tensors import SegmentLayout
+from icegraph.common.tensors import SegmentLayout, SegmentedTensor
 
 from ..service import Service
 
@@ -234,47 +233,54 @@ class DecodeService(Service[DecodeConfig]):
 
         return tensor.index_select(-1, self._indices(role))
 
-    def load_features(self, block: RecordBlock, excluded: bool = False) -> tuple[Float[Tensor, "M F"], ArrayI]:
-        """Node feature rows [M, F] plus per-record node counts."""
-        empty = self._empty_tensor((0,), torch.float32), np.zeros(block.height, dtype=np.int64)
+    def _segmented(self, data: Tensor, role: ColumnarRole) -> SegmentedTensor:
+        return SegmentedTensor(data, self.get_segment_layout(role, torch.device("cpu")))
 
+    def _empty_segmented(self, rows: int) -> SegmentedTensor:
+        return SegmentedTensor(self._empty_tensor((rows, 0), dtype=torch.float32), SegmentLayout.empty())
+
+    def load_features(self, block: RecordBlock, excluded: bool = False) -> tuple[SegmentedTensor, ArrayI]:
+        """Node feature rows [M, F] plus per-record node counts."""
         if excluded:
-            return empty
+            return self._empty_segmented(block.height), np.zeros(block.height, dtype=np.int64)
 
         key = self.config.keymap.features
         out = self._record_decoder.extract_features(block, key)  # [M, F_pre], counts
 
         if out is None:
-            return empty
+            return self._empty_segmented(block.height), np.zeros(block.height, dtype=np.int64)
 
         features, counts = out
-        return self._select(features, DataRole.FEATURES), counts  # [M, F]
+        return self._segmented(
+            self._select(features, DataRole.FEATURES),
+            DataRole.FEATURES
+        ), counts  # [M, F]
 
-    def load_targets(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B T"] | Int[Tensor, "B T"]:
+    def load_targets(self, block: RecordBlock, excluded: bool = False) -> SegmentedTensor:
         if excluded:
-            return self._empty_tensor((block.height, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
         key = self.config.keymap.truth
         raw = self._record_decoder.extract_targets(block, key)  # [B, T_pre]
 
         if raw is None:
-            return self._empty_tensor((block.height, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
-        return self._select(raw, DataRole.TARGETS)  # [B, T]
+        return self._segmented(self._select(raw, DataRole.TARGETS), DataRole.TARGETS)  # [B, T]
 
-    def load_auxiliary(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B A"] | Int[Tensor, "B A"]:
+    def load_auxiliary(self, block: RecordBlock, excluded: bool = False) -> SegmentedTensor:
         if excluded:
-            return self._empty_tensor((block.height, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
         key = self.config.keymap.truth
         raw = self._record_decoder.extract_auxiliary(block, key)  # [B, A_pre]
 
         if raw is None:
-            return self._empty_tensor((block.height, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
-        return self._select(raw, DataRole.AUXILIARY)  # [B, A]
+        return self._segmented(self._select(raw, DataRole.AUXILIARY), DataRole.AUXILIARY)  # [B, A]
 
-    def load_weights(self, block: RecordBlock, excluded: bool = False) -> Float[Tensor, "B"] | Float[Tensor, "0"]:
+    def load_weights(self, block: RecordBlock, excluded: bool = False) -> Tensor:
         if excluded:
             return self._empty_tensor((0,), dtype=torch.float32)
 

@@ -7,19 +7,19 @@ from typing import Any, TYPE_CHECKING, Iterator
 
 from torch.utils.data import DataLoader
 
-from icegraph.common.data import RawGraphBatch
+from icegraph.common.data import GraphBatch
 
 from .dataset import GraphDataset
 
 __all__ = ["GraphDataLoader"]
 
 
-def _identity_collate(batch: RawGraphBatch) -> RawGraphBatch:
+def _identity_collate(batch: GraphBatch) -> GraphBatch:
     # the dataset already yields fully assembled batches, module-level so spawn workers can pickle it
     return batch
 
 
-class GraphDataLoader(DataLoader):
+class GraphDataLoader(DataLoader[GraphBatch]):
     def __init__(self, dataset: GraphDataset, **kwargs: Any) -> None:
         # batching happens in the dataset
         kwargs["batch_size"] = None
@@ -35,4 +35,4 @@ class GraphDataLoader(DataLoader):
     if TYPE_CHECKING:
         # the idiots who made pytorch dont know how to use generics
         # so now I have to do it myself
-        def __iter__(self) -> Iterator[RawGraphBatch]: ...  # pyright: ignore[reportIncompatibleMethodOverride]
+        def __iter__(self) -> Iterator[GraphBatch]: ...  # pyright: ignore[reportIncompatibleMethodOverride]

@@ -16,7 +16,7 @@ services:
     # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
     buffer_size: 12
-    chunk_size: 8192
+    chunk_size: 16384
     max_chunks_per_epoch: 1000
     shuffle_chunks: true
 
@@ -32,7 +32,7 @@ services:
     # auxiliary is for any non-target labels to include (not used in training), useful for plotting,
     # these labels are served to callbacks by the trainer during validation and test steps,
     # but are NOT used for loss computation
-    auxiliary:  [ ]
+    auxiliary:  [ coincident_muons ]
 
     keymap:
       truth: targets

@@ -44,11 +44,11 @@ class ExportCallback(TrainerCallback):
 
         states: dict[str, Any] = {}
         for kind in kinds:
-            component = trainer.components.require(kind, required_by=type(self))
+            component: Component[Any] = trainer.components.require(kind, required_by=type(self))
 
             if kind is ComponentKind.MODEL:
                 # @TODO: model is not a Component[Any] (actually BoundModel or DistributedDataParallel), this works at runtime but needs to be fixed
-                component = component.module  # pyright: ignore[reportAttributeAccessIssue]
+                component = component.module  # pyright: ignore[reportAttributeAccessIssue, reportAssignmentType]
 
             states[kind.value] = component.state_dict()
 

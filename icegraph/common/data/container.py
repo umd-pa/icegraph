@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Self, Callable, Mapping
 
 from torch_geometric.data import Batch
@@ -16,134 +17,71 @@ from ..tensors import SegmentedTensor, SegmentLayout
 if TYPE_CHECKING:
     from torch import Tensor
 
-__all__ = ["RawGraphBatch", "GraphBatch", "ProcessedGraphBatch"]
+__all__ = ["GraphBatch"]
 
 
-class RawGraphBatch(Batch):
-    """Batched graphs in plain-tensor form, assembled columnar by the decode service."""
-
-    if TYPE_CHECKING:
-        # features
-        features:       Float[Tensor, "M F"]  # M = sum(N_i)
-
-        # truth
-        targets:        Float[Tensor, "B T"] | Int[Tensor, "B T"]
-        auxiliary:      Float[Tensor, "B A"] | Int[Tensor, "B A"]
-
-        # weights
-        weights:        Float[Tensor, "0"] | Float[Tensor, "B"]
-
-        # batch vector and per-graph node offsets
-        batch:          Int[Tensor, "M"]
-        ptr:            Int[Tensor, "B+1"]
-
-    def to_device(
-        self,
-        device: torch.device | str | int | None = None, *,
-        non_blocking: bool = False,
-    ) -> Self:
-        # .to exists, just not stubbed
-        return super().to(device=device, non_blocking=non_blocking)  # pyright: ignore[reportAttributeAccessIssue]
-
-
-class GraphBatch(Batch):
+@dataclass(frozen=True, eq=False)
+class GraphBatch:
+    """Batched graphs, assembled columnar by the decode service."""
     # features (jagged, store flattened, in the vast majority of cases each segment is unity)
-    features:       SegmentedTensor  # M = sum(N_i)
+    features:       SegmentedTensor
 
     # truth (both jagged, but stored flattened)
     targets:        SegmentedTensor
     auxiliary:      SegmentedTensor
 
     # weights
-    weights:        Float[Tensor, "0"] | Float[Tensor, "B"]
+    weights:        Tensor
 
-    # batch vector
-    batch:          Int[Tensor, "M"]
+    # batch vector and per-graph node offsets
+    batch:          Tensor
+    ptr:            Tensor
 
-    def to_device(
+    def apply(self, fn: Callable[[Tensor | SegmentedTensor], Tensor | SegmentedTensor], /) -> Self:
+        """Apply a function to all tensors and segmented tensors in the batch"""
+        for f in fields(self):
+            tensor: Tensor | SegmentedTensor = getattr(self, f.name)
+
+            # apply fn to tensor
+            mutated = fn(tensor)
+
+            # ensure mutation does not modify type
+            if type(tensor) is not type(mutated):
+                raise TypeError(
+                    f"{type(self).__name__}.apply: fn must not modify type, expected {type(tensor)}, got {type(mutated)}."
+                )
+
+            # skip frozen check, reassign each
+            object.__setattr__(self, f.name, mutated)
+
+        return self
+
+    def detach(self) -> Self:
+        """Detach all tensors in the batch."""
+        return self.apply(lambda t: t.detach())
+
+    def pin_memory(self) -> Self:
+        """Run pin_memory() on all tensors in the batch."""
+        return self.apply(lambda t: t.pin_memory())
+
+    def to(
         self,
-        device: torch.device | str | int,
+        device: torch.device | str | int | None = None, *,
         non_blocking: bool = False,
     ) -> Self:
-        cls = type(self)
+        """Move all tensors in the batch to device. Use to_dtype() for data type casts."""
+        return self.apply(lambda t: t.to(device, non_blocking=non_blocking))
 
-        # get each attr and apply
-        kwargs: dict[str, Tensor | SegmentedTensor] = {}
-        for role in DataRole.all():
-            kwargs[role.value] = getattr(self, role.value).to(device=device, non_blocking=non_blocking)
-
-        return cls(**kwargs)
-
-    def to_dtype(self, mapping: Mapping[DataRole, torch.dtype]) -> Self:
-        cls = type(self)
-
-        # get each attr and apply
-        kwargs: dict[str, Tensor | SegmentedTensor] = {
-            role.value: getattr(self, role.value) for role in DataRole.all()
-        }
+    def to_dtype(
+        self,
+        mapping: Mapping[DataRole, torch.dtype]
+    ) -> Self:
+        """Cast any role to a new data type via a mapping."""
+        # only need to remap what was passed
         for role, dtype in mapping.items():
-            kwargs[role.value] = kwargs[role.value].to(dtype=dtype)
+            tensor: Tensor | SegmentedTensor = getattr(self, role.value)
 
-        return cls(**kwargs)
+            # skip frozen check, cast each tensor
+            object.__setattr__(self, role.value, tensor.to(dtype=dtype))
 
-    def detach(self) -> Self:
-        cls = type(self)
-
-        kwargs: dict[str, Tensor | SegmentedTensor] = {}
-        for role in DataRole.all():
-            kwargs[role.value] = getattr(self, role.value).detach()
-
-        return cls(**kwargs)
-
-    @classmethod
-    def from_raw_batch(
-            cls,
-            batch: RawGraphBatch,
-            get_layout: Callable[[ColumnarRole, torch.device], SegmentLayout],
-    ) -> Self:
-        kwargs: dict[str, Tensor | SegmentedTensor] = {
-            role.value: getattr(batch, role.value) for role in DataRole.all()
-        }
-
-        # pack to segmented tensor for specified roles
-        for role in DataRole.columnar():
-            tensor = kwargs[role.value]
-            assert not isinstance(tensor, SegmentedTensor)
-
-            layout = get_layout(role, tensor.device)
-            kwargs[role.value] = SegmentedTensor(tensor, layout)
-
-        return cls(**kwargs)
-
-
-class ProcessedGraphBatch(GraphBatch):
-    # output (jagged, but stored flattened)
-    out: SegmentedTensor
-
-    def detach(self) -> Self:
-        cls = type(self)
-
-        kwargs: dict[str, Tensor | SegmentedTensor] = {}
-        for role in DataRole.all():
-            kwargs[role.value] = getattr(self, role.value).detach()
-
-        # out is not a DataRole enum member (intentionally), so handle explicitly
-        kwargs["out"] = self.out.detach()
-
-        return cls(**kwargs)
-
-    @classmethod
-    def from_graph_batch(
-            cls,
-            batch: GraphBatch,
-            *,
-            out: SegmentedTensor
-    ) -> Self:
-        kwargs: dict[str, Tensor | SegmentedTensor] = {}
-        for role in DataRole.all():
-            kwargs[role.value] = getattr(batch, role.value).detach()
-
-        # out is not a DataRole enum member (intentionally), so handle explicitly
-        kwargs["out"] = out
-
-        return cls(**kwargs)
+        return self

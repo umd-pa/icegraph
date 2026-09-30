@@ -4,7 +4,7 @@
 from .split import Split
 from .role import DataRole, ColumnarRole, TruthRole
 from .attribute import AttributeDomain
-from .container import RawGraphBatch, GraphBatch, ProcessedGraphBatch
+from .container import GraphBatch
 from .encoding import flatten, restore
 
 __all__ = [
@@ -13,9 +13,7 @@ __all__ = [
     "AttributeDomain",
     "ColumnarRole",
     "TruthRole",
-    "RawGraphBatch",
     "GraphBatch",
-    "ProcessedGraphBatch",
     "flatten",
     "restore"
 ]

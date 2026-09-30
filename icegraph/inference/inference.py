@@ -132,17 +132,14 @@ class BatchInference(Engine[InferenceConfig]):
         dataloader = self.get_dataloader()
 
         # iterate over each batch
-        for b in dataloader:
+        for batch in dataloader:
             # move to device
-            raw_batch = b.to_device(self.state.device, non_blocking=True)
-
-            # convert to graph batch
-            graph_batch = GraphBatch.from_raw_batch(raw_batch, self.decode.get_segment_layout)
+            batch = batch.to(self.state.device, non_blocking=True)
 
             # process batch
             start_time = time.perf_counter()
 
-            _ = self._process_batch(graph_batch)
+            _ = self._process_batch(batch)
 
             # time the execution
             elapsed = time.perf_counter() - start_time

@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING
 
 from torch import Tensor
 
-from icegraph.engine.callbacks import Context, InitContext  # import without usage is intentional
-from icegraph.common.data import GraphBatch, ProcessedGraphBatch
+from icegraph.common.tensors import SegmentedTensor
+from icegraph.engine.callbacks import Context, InitContext  # noqa: F401
+from icegraph.common.data import GraphBatch
 
 if TYPE_CHECKING:
     from ..trainer import Trainer
@@ -55,7 +56,8 @@ class BatchBeginContext(TrainerContext):
 
 @dataclass(frozen=True, slots=True)
 class BatchEndContext(TrainerContext):
-    batch: ProcessedGraphBatch
+    batch: GraphBatch
+    out: SegmentedTensor
     loss: Tensor
 
 
