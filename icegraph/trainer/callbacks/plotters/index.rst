@@ -51,7 +51,10 @@ for each head. A new plotter subclasses ``BHistogramReducer`` (continuous axes) 
   ``batch.auxiliary``. Returns rows ``[B, D]``, one column per histogram axis,
   optionally with a group key per row ``[B]``; each group becomes its own series.
 * ``_build_bins()``: the bin count per axis.
-* ``_build_bounds(stats, label)``: the axis ranges (``BHistogramReducer`` only).
+* ``_build_bounds(ctx, label)``: the axis ranges in linear space
+  (``BHistogramReducer`` only). ``ctx`` is a ``BoundsConstructorContext`` giving the
+  training statistics for a role (``ctx.get_stats(role)``) and a column's index
+  within them (``ctx.physical_index(column, role)``).
 * ``emit(trainer, artifacts, label)``: render the named histograms for ``label``.
 
 .. code-block:: python

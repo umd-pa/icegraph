@@ -17,10 +17,10 @@ services:
     # chunks are shuffled as blocks
     buffer_size: 12
     chunk_size: 16384
-    max_chunks_per_epoch: 1000
+    max_chunks_per_epoch: 500
     shuffle_chunks: true
 
-    num_workers: 4
+    num_workers: 6
     prefetch_factor: 8
     mp_context: spawn
     persistent_workers: true

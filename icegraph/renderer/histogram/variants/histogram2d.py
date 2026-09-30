@@ -54,6 +54,12 @@ class Histogram2D(HistogramPlotter2D):
         if exclusive:
             self._post_scripts.append(_EXCLUSIVE_LEGEND_JS)
 
+        # colorbar title, applied with the layout
+        self._zlabel = "Count"
+
+    def set_zlabel(self, label: str) -> None:
+        self._zlabel = label
+
     @override
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:
         # get centers
@@ -115,6 +121,6 @@ class Histogram2D(HistogramPlotter2D):
                 cmin=0,
                 cmax=max_value,
                 colorscale=PLOT_STYLE.colorbar,
-                colorbar=dict(title="Count", len=1, y=0.5)
+                colorbar=dict(title=self._zlabel, len=1, y=0.5)
             )
         )

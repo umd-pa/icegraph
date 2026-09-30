@@ -11,12 +11,11 @@ import torch
 from torch import Tensor
 
 # local package
-from icegraph.statistics import StatisticService
 from icegraph.renderer import Line2D
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer
+from ..base import BHistogramReducer, BoundsConstructorContext
 from ._ovr import project_ovr, iter_ovr, bin_curve
 
 if TYPE_CHECKING:
@@ -33,7 +32,7 @@ logger = logging.getLogger(__name__)
 class PrecisionRecallPlotter(BHistogramReducer):
 
     @override
-    def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
+    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         mins = torch.as_tensor([0], dtype=torch.float32)
         maxs = torch.as_tensor([1], dtype=torch.float32)
         return mins, maxs

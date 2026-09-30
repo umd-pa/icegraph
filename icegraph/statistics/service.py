@@ -163,7 +163,7 @@ class StatisticService:
         return self
 
     def copy(self) -> Self:
-        """Return a copy of this instance."""
+        """Return a deepcopy of this instance."""
         return copy.deepcopy(self)
 
     ### RAW AND DERIVED STATISTIC ACCESS

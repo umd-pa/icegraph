@@ -4,5 +4,6 @@
 from .base import HistogramReducer
 from .binned import BHistogramReducer
 from .categorical import CHistogramReducer
+from .context import BoundsConstructorContext
 
-__all__ = ["HistogramReducer", "BHistogramReducer", "CHistogramReducer"]
+__all__ = ["HistogramReducer", "BHistogramReducer", "CHistogramReducer", "BoundsConstructorContext"]

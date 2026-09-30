@@ -5,18 +5,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing_extensions import override
+from collections.abc import Mapping
 
 import torch
 from torch import Tensor
 
 # local package
-from icegraph.statistics import StatisticService
-from icegraph.common.data import Split, DataRole
+from icegraph.common.data import DataRole
+from icegraph.common.transforms import TransformSpace
 from icegraph.renderer import Histogram2D
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer
+from ..base import BHistogramReducer, BoundsConstructorContext
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -37,17 +38,19 @@ class PPositiveAuxPlotter(BHistogramReducer):
         return self._kwargs["column"]
 
     @override
-    def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
-        # stats handed in are for targets, take the auxiliary range from its own train stats
-        decode = self._ctx.engine.decode
-        aux_stats = decode.get_stats(Split.TRAIN, DataRole.AUXILIARY)
+    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
+        # auxiliary stats, and the column within them
+        aux_stats = ctx.get_stats(DataRole.AUXILIARY)
+        physical = ctx.physical_index(self.column, DataRole.AUXILIARY)
 
-        # stats are per physical column, locate the columns start
-        index = decode.get_columns(DataRole.AUXILIARY).index(self.column)
-        physical = int(decode.get_offsets(DataRole.AUXILIARY)[index])
+        # a log axis starts at the smallest positive value, the linear min may be <= 0 and send the bound to -inf
+        if self.scale[1] == TransformSpace.LOG:
+            lo = 10 ** aux_stats.get("min", space=TransformSpace.LOG)[physical]
+        else:
+            lo = aux_stats.get("min")[physical]
 
         # mins/maxs
-        mins = torch.as_tensor([0, aux_stats.get("min")[physical]], dtype=torch.float32)
+        mins = torch.as_tensor([0, lo], dtype=torch.float32)
         maxs = torch.as_tensor([1, aux_stats.get("max")[physical]], dtype=torch.float32)
 
         return mins, maxs
@@ -66,6 +69,15 @@ class PPositiveAuxPlotter(BHistogramReducer):
         groups = torch.arange(probs.size(1), device=out.device).repeat(probs.size(0))  # [B * C]
 
         return rows, groups
+
+    @override
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        # one series per class, log counts if required, empty bins become nan so they render as gaps
+        log = self._kwargs.get("log_count", False)
+        return {
+            name: t.log10().masked_fill(t == 0, torch.nan) if log else t
+            for name, t in super().reduce(counts, label).items()
+        }
 
     @override
     def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
@@ -87,6 +99,10 @@ class PPositiveAuxPlotter(BHistogramReducer):
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)
+
+        # plotly rotates latex colorbar titles, so use html to keep the title horizontal on top
+        if self._kwargs.get("log_count", False):
+            plot.set_zlabel("log<sub>10</sub>(Count)")
 
         # plot
         path = trainer.plotdir / "p_positive_aux" / f"{label}.p_positive_aux.{self.column}.{epoch + 1}.html"

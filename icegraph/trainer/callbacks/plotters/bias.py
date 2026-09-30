@@ -11,12 +11,12 @@ import torch
 from torch import Tensor
 
 # local package
-from icegraph.statistics import StatisticService
+from icegraph.common.data import DataRole
 from icegraph.renderer import Histogram2D, MedianQuantileBand
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer
+from ..base import BHistogramReducer, BoundsConstructorContext
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -32,9 +32,10 @@ logger = logging.getLogger(__name__)
 class BiasPlotter(BHistogramReducer):
 
     @override
-    def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
-        # get label index in stat array
-        index = stats.index_of(label)
+    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
+        # target stats, and the label's column within them
+        stats = ctx.get_stats(DataRole.TARGETS)
+        index = ctx.physical_index(label, DataRole.TARGETS)
 
         # mins/maxs
         mins = torch.as_tensor([stats.get("min")[index], -5], dtype=torch.float32)

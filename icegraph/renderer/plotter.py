@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Generic, TypeVar, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from pathlib import Path
+import re
 
 import plotly.graph_objects as go
 
@@ -19,6 +20,40 @@ __all__ = ["Plotter"]
 
 T = TypeVar("T")
 M = TypeVar("M", bound="PlotterModule")
+
+
+# title font size, and its approximate per-character width and line height in px
+_TITLE_SIZE = 20
+_TITLE_CHAR_PX = 0.625 * _TITLE_SIZE
+_TITLE_LINE_PX = round(1.3 * _TITLE_SIZE)
+
+_BREAK = re.compile(r"<br\s*/?>")
+_TAG = re.compile(r"<[^>]*>")
+_SPACE = re.compile(r" (?![^<]*>)(?![^\[]*\])")  # spaces outside of tags and [brackets]
+
+
+def _wrap_title(text: str, width: int) -> str:
+    """Word wrap to ``width`` visible characters, ignoring html tags and keeping existing breaks."""
+    # latex titles must stay a single mathjax string
+    if text.startswith("$"):
+        return text
+
+    lines: list[str] = []
+    for paragraph in _BREAK.split(text):
+        line, length = "", 0
+
+        for word in _SPACE.split(paragraph):
+            n = len(_TAG.sub("", word))
+
+            if line and length + 1 + n > width:
+                lines.append(line)
+                line, length = word, n
+            else:
+                line, length = (f"{line} {word}", length + 1 + n) if line else (word, n)
+
+        lines.append(line)
+
+    return "<br>".join(lines)
 
 
 class Plotter(ABC, Generic[T, M]):
@@ -40,9 +75,12 @@ class Plotter(ABC, Generic[T, M]):
         }
 
     def set_title(self, title: str) -> None:
+        # plotly never wraps titles, so break long ones to fit the title's share of the figure (title.x = 0.05 each side)
+        width = int(0.9 * (PLOT_STYLE.inner_px + 2 * PLOT_STYLE.pad_px) / _TITLE_CHAR_PX)
+
         self._fig.update_layout(
-            title_text=title,
-            title_font=dict(size=20)
+            title_text=_wrap_title(title, width),
+            title_font=dict(size=_TITLE_SIZE)
         )
 
     def set_xlabel(self, label: str) -> None:
@@ -93,13 +131,16 @@ class Plotter(ABC, Generic[T, M]):
             )
         )
 
-        # set plot size and margins
+        # set plot size and margins, growing the top for each extra title line so the plot area is unchanged
         padding = PLOT_STYLE.pad_px
+
+        title = fig.layout.title.text or ""
+        extra = len(_BREAK.findall(title)) * _TITLE_LINE_PX * 1.1  # add a little extra room
 
         fig.update_layout(
             width=PLOT_STYLE.inner_px + 2 * padding,
-            height=PLOT_STYLE.inner_px + 2 * padding,
-            margin=dict(l=padding, r=padding, t=padding, b=padding),
+            height=PLOT_STYLE.inner_px + 2 * padding + extra,
+            margin=dict(l=padding, r=padding, t=padding + extra, b=padding),
         )
 
         # format the axes (same for both x and y)

@@ -14,13 +14,12 @@ from torch import Tensor
 # local package
 from icegraph.common.histogram import Histogram
 from icegraph.common.tensors import DualResidentTensor
-from icegraph.common.data import Split, DataRole
-from icegraph.statistics import StatisticService
 from icegraph.common.transforms import TransformSpace
 
 # local subpackage
 from .base import HistogramReducer
 from .types import Binning
+from .context import BoundsConstructorContext
 
 __all__ = ["BHistogramReducer"]
 
@@ -67,10 +66,9 @@ class BHistogramReducer(HistogramReducer):
         return binning
 
     def _build_binning(self, label: str) -> Binning:
-        # pass a copy of the train stats downstream
-        stats = self._ctx.engine.decode.get_stats(Split.TRAIN, DataRole.TARGETS).copy()
+        ctx = BoundsConstructorContext(self._ctx.engine.decode)
 
-        mins, maxs = self._build_bounds(stats, label)
+        mins, maxs = self._build_bounds(ctx, label)
 
         # transform into bin space, keeping min <= max (e.g. for decreasing transforms)
         mins, maxs = self.transform(mins), self.transform(maxs)
@@ -119,5 +117,5 @@ class BHistogramReducer(HistogramReducer):
         return Histogram(histogram=t.cpu().numpy(), bounds=torch.stack((mins, maxs)).numpy())
 
     @abstractmethod
-    def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
+    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         ...
