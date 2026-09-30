@@ -21,6 +21,7 @@ from ..base import BHistogramReducer
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["BinaryPPositivePlotter"]
 
@@ -44,7 +45,9 @@ class BinaryPPositivePlotter(BHistogramReducer):
         return torch.tensor([100])
 
     @override
-    def project(self, out: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> tuple[Tensor, Tensor]:
+        target = batch.targets.block([label])  # this head's target
+
         if out.ndim != 2 or out.size(-1) != 2:
             raise ValueError(
                 f"{type(self).__name__} expects out with shape [N, 2], "

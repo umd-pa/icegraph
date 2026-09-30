@@ -15,6 +15,7 @@ from icegraph.common.data import Split
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
     from icegraph.trainer.callbacks import context
 
 __all__ = ["Reducer"]
@@ -34,7 +35,7 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
     A reducer is expressed as a monoid over a reducer-chosen accumulator
     state ``S``, kept per ``(label, group)``:
 
-        project(out, target)        -> rows | (rows, groups)   map one head's batch to rows [B, D] and group keys [B]
+        project(batch, out, lbl)    -> rows | (rows, groups)   map one head's batch to rows [B, D] and group keys [B]
         initial()                   -> S                       identity / empty accumulator
         update_state(s, rows, lbl)  -> S                       fold one group's rows into the accumulator
         combine(a, b)               -> S                       merge two accumulators (DDP / parallel)
@@ -67,9 +68,9 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
         self._ctx = ctx
 
     @final
-    def update(self, out: Tensor, target: Tensor, label: str) -> None:
+    def update(self, batch: GraphBatch, out: Tensor, label: str) -> None:
         """Project one head's batch and fold it into the per-group accumulators."""
-        projected = self.project(out, target)
+        projected = self.project(batch, out, label)
 
         cls = type(self).__name__
 
@@ -163,8 +164,8 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
         if not trainer.state.is_main_process() or trainer.split not in Split.eval():
             return
 
-        for out, target, label in zip(ctx.out, ctx.batch.targets, ctx.out.names, strict=True):
-            self.update(out, target, label)
+        for out, label in zip(ctx.out, ctx.out.names, strict=True):
+            self.update(ctx.batch, out, label)
 
     def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
         if ctx.engine.state.is_main_process():
@@ -177,8 +178,12 @@ class Reducer(TrainerCallback, ABC, Generic[S, T]):
     ### Abstract methods for subclassing ###
 
     @abstractmethod
-    def project(self, out: Tensor, target: Tensor) -> Tensor | tuple[Tensor, Tensor]:
-        """Map one head's batch to rows ``[B, D]``, optionally with group keys ``[B]``."""
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor | tuple[Tensor, Tensor]:
+        """
+        Map one head's batch to rows ``[B, D]``, optionally with group keys ``[B]``.
+
+        ``out`` is the output of head ``label``, its target is ``batch.targets.block([label])``.
+        """
         ...
 
     @abstractmethod

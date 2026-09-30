@@ -20,6 +20,7 @@ from ..base import BHistogramReducer
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["ParityPlotter"]
 
@@ -46,7 +47,9 @@ class ParityPlotter(BHistogramReducer):
         return torch.tensor([150, 150])
 
     @override
-    def project(self, out: Tensor, target: Tensor) -> Tensor:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor:
+        target = batch.targets.block([label])  # this head's target
+
         # cat data by axis
         return torch.cat((target, out), dim=1)   # shape [B, 2]
 
