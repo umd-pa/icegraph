@@ -21,6 +21,7 @@ from ._ovr import project_ovr, iter_ovr, bin_curve
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["ROCPlotter"]
 
@@ -42,7 +43,9 @@ class ROCPlotter(BHistogramReducer):
         return torch.tensor([5000])
 
     @override
-    def project(self, out: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> tuple[Tensor, Tensor]:
+        target = batch.targets.block([label])  # this head's target
+
         # one-vs-rest ROC for all classes
         return project_ovr(out, target)
 

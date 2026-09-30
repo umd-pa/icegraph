@@ -31,6 +31,9 @@ class Plotter(ABC, Generic[T, M]):
         # cache modules
         self._modules: list[M] = []
 
+        # js run after the figure renders, "{plot_id}" is replaced with the plot div id
+        self._post_scripts: list[str] = []
+
         # default legend location
         self._legend_location = {
             "x": 0.02, "y": 0.98, "xanchor": "left", "yanchor": "top"
@@ -145,7 +148,8 @@ class Plotter(ABC, Generic[T, M]):
             },
             full_html=True,
             include_plotlyjs="cdn",
-            include_mathjax="cdn"
+            include_mathjax="cdn",
+            post_script=self._post_scripts or None
         )
 
     @abstractmethod

@@ -16,12 +16,52 @@ from ..plotter import HistogramPlotter2D
 __all__ = ["Histogram2D"]
 
 
+# legend acts as a radio group over heatmaps
+_EXCLUSIVE_LEGEND_JS = """
+var gd = document.getElementById('{plot_id}');
+
+gd.on('plotly_legendclick', function(ev) {
+    if (ev.data[ev.curveNumber].type !== 'heatmap') return true;
+
+    var indices = [], visible = [];
+    ev.data.forEach(function(trace, i) {
+        if (trace.type !== 'heatmap') return;
+        indices.push(i);
+        visible.push(i === ev.curveNumber ? true : 'legendonly');
+    });
+
+    Plotly.update(gd, {visible: visible}, {'coloraxis.cmax': ev.data[ev.curveNumber].meta}, indices);
+    return false;
+});
+
+gd.on('plotly_legenddoubleclick', function(ev) {
+    return ev.data[ev.curveNumber].type !== 'heatmap';
+});
+"""
+
+
 class Histogram2D(HistogramPlotter2D):
+    """
+    2D heatmap plotter. With ``exclusive``, only one series is shown at a time (the first
+    by default).
+    """
+
+    def __init__(self, exclusive: bool = False) -> None:
+        super().__init__()
+
+        self._exclusive = exclusive
+
+        if exclusive:
+            self._post_scripts.append(_EXCLUSIVE_LEGEND_JS)
 
     @override
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:
         # get centers
         centers = (np.arange(data.bins[0]), np.arange(data.bins[1])) if data.bounds is None else data.centers
+
+        # in exclusive mode, only the first heatmap starts visible
+        first = not any(trace.type == "heatmap" for trace in fig.data)
+        visible = True if first or not self._exclusive else "legendonly"
 
         fig.add_trace(
             go.Heatmap(  # histogram
@@ -34,7 +74,9 @@ class Histogram2D(HistogramPlotter2D):
                 showlegend=True,
                 name=label,
                 hoverongaps=False,
-                legendgroup=label
+                legendgroup=label,
+                visible=visible,
+                meta=float(data.peak_value) if self._exclusive else None
             )
         )
 
@@ -63,8 +105,9 @@ class Histogram2D(HistogramPlotter2D):
         fig.update_xaxes(scaleanchor=None, constrain=None)
         fig.update_yaxes(scaleanchor=None, constrain=None)
 
-        # get max value across all histograms
-        max_value = max(float(h.peak_value) for h in data.values())
+        # get max value across all histograms, or just the initially visible one if exclusive
+        peaks = [float(h.peak_value) for h in data.values()]
+        max_value = peaks[0] if self._exclusive else max(peaks)
 
         # colorbar
         fig.update_layout(

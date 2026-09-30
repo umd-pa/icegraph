@@ -20,6 +20,7 @@ from ..base import BHistogramReducer
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["BiasPlotter"]
 
@@ -46,7 +47,9 @@ class BiasPlotter(BHistogramReducer):
         return torch.tensor([150, 150])
 
     @override
-    def project(self, out: Tensor, target: Tensor) -> Tensor:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor:
+        target = batch.targets.block([label])  # this head's target
+
         # compute bias
         bias = torch.where(target != 0, (out - target) / target, torch.zeros_like(target))
 

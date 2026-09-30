@@ -19,6 +19,7 @@ from ..base import CHistogramReducer
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["CMPlotter"]
 
@@ -34,7 +35,9 @@ class CMPlotter(CHistogramReducer):
         return torch.tensor([2, 2])
 
     @override
-    def project(self, out: Tensor, target: Tensor) -> Tensor:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor:
+        target = batch.targets.block([label])  # this head's target
+
         # stack data by axis
         return torch.cat((target, out.argmax(dim=-1, keepdim=True)), dim=1)
 

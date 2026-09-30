@@ -21,6 +21,7 @@ from ..base import BHistogramReducer
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["PTruePlotter"]
 
@@ -44,7 +45,9 @@ class PTruePlotter(BHistogramReducer):
         return torch.tensor([100])
 
     @override
-    def project(self, out: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> tuple[Tensor, Tensor]:
+        target = batch.targets.block([label])  # this head's target
+
         # get probability assigned to the correct class
         probs = out.softmax(dim=-1).gather(dim=1, index=target)
 
