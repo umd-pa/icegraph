@@ -37,7 +37,17 @@ Selected as ``name: i3``.
      - required
    * - ``mclabeler``
      - Options forwarded to the IceTray ``MCLabeler`` (validated by ``MCLabeler``
-       itself). The labeler only runs if set, see `MC labels`_.
+       itself), see `MC labels`_. Only runs if set.
+     - mapping
+     - ``null``
+   * - ``selection``
+     - Drop simulated events that cannot be given a single truth, see `Selection`_.
+       Only runs if set.
+     - mapping
+     - ``null``
+   * - ``multiplicity``
+     - Count the muons entering the detector, see `Bundle multiplicity`_. Only runs if
+       set.
      - mapping
      - ``null``
    * - ``skip_missing``
@@ -109,3 +119,97 @@ Brief example on using the MCLabeler during processing:
 
    writer:
      ...
+
+
+Selection
+---------
+
+``selection`` provides basic tools to drop undesired frames from the stream.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 60 10 8
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``drop_coincident``
+     - Drop Q frames holding more than one primary (coincident events).
+     - bool
+     - ``false``
+   * - ``drop_oversplit``
+     - Drop Q frames holding one primary that was split into more than one
+       ``InIceSplit`` event.
+     - bool
+     - ``false``
+   * - ``mctree``
+     - The tree the primaries are counted in.
+     - str
+     - ``I3MCTree``
+
+At least one rule must be set.
+
+The number dropped by each enabled rule is recorded per file under ``attrs.LOCAL.dropped``,
+as Q frames (``daq``) and the ``InIceSplit`` events split from them (``physics``):
+
+.. code-block:: yaml
+
+   dropped:
+     coincident: { daq: 3, physics: 4 }
+     oversplit:  { daq: 7, physics: 15 }
+
+The settings are stored under ``attrs.GLOBAL.selection``.
+
+
+Bundle multiplicity
+-------------------
+
+When ``multiplicity`` is set, the number of muons entering the detector is counted with
+MuonGun's ``muons_at_surface`` and written to each Q frame.
+
+The surface is the convex hull of the strings in the GCD's geometry, padded by ``padding``
+meters. A muon counts only if it reaches the surface from outside with energy left, so a
+muon starting inside the detector does not count.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 60 10 8
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``key``
+     - Frame key the count is written to.
+     - str
+     - ``bundle_multiplicity``
+   * - ``padding``
+     - Meters added around the detector hull.
+     - float
+     - ``0.0``
+
+``muons_at_surface`` reads the propagated ``I3MCTree`` and the ``MMCTrackList``, so both
+must be present in the files. The count is that of every muon in the Q frame, so ``multiplicity``
+requires ``selection`` with both ``drop_coincident`` and ``drop_oversplit`` set to true.
+
+The settings are stored under ``attrs.GLOBAL.multiplicity``.
+
+.. code-block:: yaml
+
+   extractor:
+     name: i3
+     kwargs:
+       # ...
+       selection:
+         drop_coincident: true
+         drop_oversplit: true
+       multiplicity:
+         key: bundle_multiplicity
+         padding: 0.0
+       # ...
+       include: [ features, bundle_multiplicity ]
+
+   processors:
+     # select the table, rename 'value' to 'bundle_multiplicity' if desired and copy it to the truth
+     # table under construction, same as the MC labels above

@@ -4,6 +4,16 @@ extractor:
     gcd_path: /cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz
     suppress_icetray_output: true
 
+    # drop simulated events that have no single truth before anything downstream sees them
+    selection:
+      drop_coincident: true  # Q frames holding more than one primary
+      drop_oversplit: true  # Q frames holding one primary split into more than one event
+
+    # bundle multiplicity, the number of muons entering the detector hull, counted with MuonGun
+    multiplicity:
+      key: bundle_multiplicity
+      padding: 0.0
+
     # mclabeler configurations, see mclabeler docs
     mclabeler:
       event_properties_name: ~
@@ -49,7 +59,7 @@ extractor:
             kwargs:
               percentiles: [ 0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8 ]
 
-    include: [ features, I3CorsikaInfo, PolyplopiaPrimary, coincident_muons ]
+    include: [ features, I3CorsikaInfo, PolyplopiaPrimary, coincident_muons, bundle_multiplicity ]
 
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active
@@ -137,25 +147,40 @@ processors:  # ordered list of processors, each can be used any number of times
       by: event_ids
       cols: coincident_muons
 
+  - name: select  # bundle multiplicity counted with MuonGun by the extractor
+    kwargs:
+      key: bundle_multiplicity
+
+  - name: rename
+    kwargs:
+      map:
+        value: bundle_multiplicity
+
+  - name: copy
+    kwargs:
+      to: tmp_label
+      by: event_ids
+      cols: bundle_multiplicity
+
   - name: select
     kwargs:
       key: tmp_label
 
   - name: fill
     kwargs:
-      col: bundle
+      col: sim  # simulation the event originates from
       value: 1
       dtype: long
 
   - name: unique
     kwargs:
-      cols: bundle
+      cols: sim
 
   - name: compress  # compress labels to compressed frame
     kwargs:
       to: compressed
       by: event_ids
-      cols: [ bundle, coincident_muons ]
+      cols: [ sim, bundle_multiplicity, coincident_muons ]
       out: targets
 
   - name: select  # generation data was staged by the simulation processor

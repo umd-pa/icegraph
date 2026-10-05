@@ -15,7 +15,7 @@ themselves selectable plugins.
    services:
      decode:
        features: []
-       targets:  [ bundle ]
+       targets:  [ sim ]
        auxiliary: []
        keymap:
          truth: targets

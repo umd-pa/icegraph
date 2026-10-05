@@ -27,7 +27,7 @@ services:
 
   decode:
     features:   [ ]
-    targets:    [ bundle ]
+    targets:    [ sim ]
 
     # auxiliary is for any non-target labels to include (not used in training), useful for plotting,
     # these labels are served to callbacks by the trainer during validation and test steps,

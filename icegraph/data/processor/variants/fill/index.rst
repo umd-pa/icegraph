@@ -34,6 +34,6 @@ Selected as ``name: fill``.
 
    - name: fill
      kwargs:
-       col: bundle
+       col: sim
        value: 1
        dtype: int64

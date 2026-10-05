@@ -176,7 +176,7 @@ The configuration assembles the run from :doc:`services <engine/services/index>`
      state:   { seed: 2747 }
      data:    { batch_size: 2048, chunk_size: 4096, buffer_size: 16384, num_workers: 8,
                 prefetch_factor: 8, mp_context: fork, persistent_workers: true }
-     decode:  { targets: [ bundle ], attrs: { name: standard, kwargs: {} },
+     decode:  { targets: [ sim ], attrs: { name: standard, kwargs: {} },
                 records: { name: standard, kwargs: {} } }
      record:  { source: [ /path/to/dataset ], reader: { name: lmdb, kwargs: {} },
                 store: { name: lru-shard, kwargs: { cache_size: 32 } } }

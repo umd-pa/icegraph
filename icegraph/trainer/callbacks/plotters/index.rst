@@ -33,7 +33,7 @@ Classification plots:
 
    trainer.register_callback(CallbackSpec(callback=ParityPlotter, kwargs={}))
    trainer.register_callback(CallbackSpec(callback=ROCPlotter, kwargs={}))
-   trainer.register_callback(CallbackSpec(callback=PPositiveAuxPlotter, kwargs={"column": "coincident_muons"}))
+   trainer.register_callback(CallbackSpec(callback=PPositiveAuxPlotter, kwargs={"column": "bundle_multiplicity"}))
 
 Writing a plotter
 -----------------

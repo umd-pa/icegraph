@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import ClassVar, Any
 import tempfile
 from pathlib import Path
@@ -18,6 +19,7 @@ from icegraph.data.extractor import Extractor
 from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
+from .modules import is_sub_event_stream, DropCounter, event_selector, bundle_multiplicity
 
 __all__ = ["I3Extractor"]
 
@@ -54,6 +56,16 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
 
             tray.Add("I3Reader", Filenamelist=files)
 
+            # selection, add first so nothing downstream ever processes a dropped event
+            drop_counter: DropCounter | None = None
+            if self.config.selection is not None:
+                drop_counter = DropCounter.from_config(self.config.selection)
+                tray.Add(event_selector(self.config.selection, drop_counter, self.config.sub_event_stream))
+
+            # bundle multiplicity
+            if self.config.multiplicity is not None:
+                tray.Add(bundle_multiplicity(self.config.multiplicity))
+
             # mc labeler
             if self.config.mclabeler is not None:
                 with suppress_output():
@@ -67,14 +79,14 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 cfg_file=self.config.ml_suite,
                 output_key="features",
                 # want to only process InIceSplit frames
-                If=lambda f: f.Has("I3EventHeader") and f["I3EventHeader"].sub_event_stream == "InIceSplit"
+                If=partial(is_sub_event_stream, sub_event_stream=self.config.sub_event_stream)
             )
 
             tray.AddSegment(
                 hdfwriter.I3HDFWriter,
                 Output=out.name,
                 Keys=self.config.include,
-                SubEventStreams=["InIceSplit"],
+                SubEventStreams=[self.config.sub_event_stream],
                 CompressionLevel=0
             )
 
@@ -82,6 +94,11 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             ctx = suppress_output if self.config.suppress_icetray_output else nullcontext
             with ctx():
                 tray.Execute()
+
+            # nothing is left to extract if the selection dropped every event, so break out with warning
+            if drop_counter is not None and drop_counter.kept == 0 and drop_counter.dropped_events > 0:
+                logger.warning(f"skipping file {item}, selection dropped all of its events: {drop_counter.dropped}")
+                return None
 
             # load each key into a dict to save to an arrow IPC
             tables: dict[str, pl.DataFrame] = {}
@@ -119,6 +136,15 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         # register metadata
         env.set_local_attr("origin", str(item))
         env.set_global_attr("gcd", str(self.config.gcd_path))
+
+        # settings are global so shards selected differently never load together
+        # counts are per file
+        if self.config.selection is not None and drop_counter is not None:
+            env.set_local_attr("dropped", drop_counter.dropped)
+            env.set_global_attr("selection", self.config.selection.model_dump())
+
+        if self.config.multiplicity is not None:
+            env.set_global_attr("multiplicity", self.config.multiplicity.model_dump())
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext
