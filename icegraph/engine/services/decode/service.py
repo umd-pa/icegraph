@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from functools import cached_property, lru_cache
+from functools import lru_cache
 from typing import Any, ClassVar
 
 import torch
@@ -31,9 +31,41 @@ __all__ = ["DecodeService"]
 class DecodeService(Service[DecodeConfig]):
     name: ClassVar[str] = "decode"
     version: ClassVar[int] = 1
+    deps: ClassVar[tuple[str, ...]] = ("record",)
+
+    # built by setup()
+    _attr_decoder:      AttributeDecoder[Any]
+    _record_decoder:    RecordDecoder[Any]
 
     def build(self) -> None:
         return
+
+    def setup(self) -> None:
+        record = self._ctx.services.require("record", required_by=type(self))
+
+        # build and attach each decoder subsystem
+        self._attr_decoder = AttributeDecoderFactory.create(self.config.attrs.name, **self.config.attrs.kwargs)
+        self._attr_decoder.attach(
+            AttributeDecoderContext(
+                attrs=record.attrs,
+                global_attrs=record.global_attrs
+            )
+        )
+
+        self._record_decoder = RecordDecoderFactory.create(self.config.records.name, **self.config.records.kwargs)
+        self._record_decoder.attach(
+            RecordDecoderContext(
+                attrs=record.attrs,
+                global_attrs=record.global_attrs,
+                columns=self._attr_decoder.extract_columns,
+                dtypes=self._attr_decoder.extract_dtypes,
+                status=self._ctx.status
+            )
+        )
+
+    def setup_decoders(self, excluded: frozenset[DataRole] = frozenset()) -> None:
+        """Setup the decoder subsystems."""
+        self._record_decoder.setup(excluded)
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> DecodeConfig:
@@ -102,39 +134,6 @@ class DecodeService(Service[DecodeConfig]):
         ]) if len(logical) else np.empty(0, dtype=np.int64)
 
         return torch.tensor(physical)
-
-    ### DECODERS
-
-    @cached_property
-    def _attr_decoder(self) -> AttributeDecoder[Any]:
-        record = self._ctx.services.require("record", required_by=type(self))
-
-        # build the decoder
-        decoder = AttributeDecoderFactory.create(self.config.attrs.name, **self.config.attrs.kwargs)
-
-        # attach the decoder
-        ctx = AttributeDecoderContext(attrs=record.attrs, global_attrs=record.global_attrs)
-        decoder.attach(ctx)
-
-        return decoder
-
-    @cached_property
-    def _record_decoder(self) -> RecordDecoder[Any]:
-        record = self._ctx.services.require("record", required_by=type(self))
-
-        # build the decoder
-        decoder = RecordDecoderFactory.create(self.config.records.name, **self.config.records.kwargs)
-
-        # attach the decoder
-        ctx = RecordDecoderContext(
-            attrs=record.attrs,
-            global_attrs=record.global_attrs,
-            columns=self._attr_decoder.extract_columns,
-            dtypes=self._attr_decoder.extract_dtypes
-        )
-        decoder.attach(ctx)
-
-        return decoder
 
     ### ATTRIBUTE DECODER HOOKS
 

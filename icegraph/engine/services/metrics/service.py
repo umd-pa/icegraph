@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from typing import Any, ClassVar
-from functools import cached_property
 
 from icegraph.common.data import Split
 from icegraph.common.tensors import SegmentedTensor
@@ -22,6 +21,9 @@ class MetricService(Service[MetricConfig]):
     name: ClassVar[str] = "metrics"
     version: ClassVar[int] = 1
 
+    # built by setup()
+    _metrics: list[Metric]
+
     def build(self) -> None:
         return
 
@@ -36,10 +38,9 @@ class MetricService(Service[MetricConfig]):
         state.pop("_metrics", None)
         return state
 
-    @cached_property
-    def _metrics(self) -> list[Metric]:
+    def setup(self) -> None:
         # load user metric selections
-        metrics: list[Metric] = []
+        self._metrics = []
         for selection in self.config.select:
             # build metric, structure of config is enforced by pydantic
             metric = MetricFactory.create(selection.name, **selection.kwargs)
@@ -48,9 +49,7 @@ class MetricService(Service[MetricConfig]):
             ctx = MetricContext()
             metric.attach(ctx)
 
-            metrics.append(metric)
-
-        return metrics
+            self._metrics.append(metric)
 
     def update(self, out: SegmentedTensor, target: SegmentedTensor, split: Split) -> None:
         """Update each metric."""

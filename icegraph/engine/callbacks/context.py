@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, TypeVar, Generic, Any
 
 if TYPE_CHECKING:
     from icegraph.engine import Engine
+    from icegraph.engine.status import StatusEvent
 
-__all__ = ["Context", "InitContext"]
+__all__ = ["Context", "InitContext", "StatusContext"]
 
 
 E = TypeVar("E", bound="Engine[Any]")
@@ -23,3 +24,7 @@ class Context(Generic[E]):
 @dataclass(frozen=True, slots=True)
 class InitContext(Context[E]):
     ...
+
+@dataclass(frozen=True, slots=True)
+class StatusContext(Context[E]):
+    event: StatusEvent

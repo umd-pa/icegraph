@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .console import console
+from .status import StatusView, LogView
 
-__all__ = ["console"]
+__all__ = ["console", "StatusView", "LogView"]

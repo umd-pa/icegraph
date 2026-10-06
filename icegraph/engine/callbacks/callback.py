@@ -6,7 +6,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import TYPE_CHECKING, TypeVar, Generic, Any
 
-from .context import InitContext
+from .context import InitContext, StatusContext
 
 __all__ = ["Callback"]
 
@@ -25,5 +25,19 @@ class Callback(ABC, Generic[E]):
 
         Args:
             ctx (context.InitContext): Initialization context.
+        """
+        pass
+
+    def on_status(self, ctx: StatusContext[E]) -> None:
+        """
+        Called for every event the engine's status reports: a ``TaskEvent`` when a task
+        starts, progresses, finishes or fails, and a ``LogEvent`` for each record logged.
+        The task on an event is live, and the full picture (running tasks, recent logs,
+        throughputs) is on ``ctx.engine.status``.
+
+        Fires during setup, before services and components exist. May fire from any thread.
+
+        Args:
+            ctx (context.StatusContext): Status context.
         """
         pass

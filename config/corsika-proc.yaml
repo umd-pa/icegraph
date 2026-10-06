@@ -6,6 +6,7 @@ extractor:
 
     # drop simulated events that have no single truth before anything downstream sees them
     selection:
+      ids: [ Run, Event, SubEvent, SubEventStream ]  # columns identifying an event, used to strip carriers
       drop_coincident: true  # Q frames holding more than one primary
       drop_oversplit: true  # Q frames holding one primary split into more than one event
 

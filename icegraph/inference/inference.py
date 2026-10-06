@@ -6,7 +6,6 @@ from __future__ import annotations
 from typing import Any
 from typing_extensions import override
 from pathlib import Path
-from functools import cached_property
 import time
 
 import torch
@@ -70,42 +69,6 @@ class BatchInference(Engine[InferenceConfig]):
 
         return cls(InferenceConfig(**config), state_dicts=state["states"])
 
-    # services
-
-    @cached_property
-    def state(self):
-        return self.services.require("state", required_by=type(self))
-
-    @cached_property
-    def decode(self):
-        return self.services.require("decode", required_by=type(self))
-
-    @cached_property
-    def record(self):
-        return self.services.require("record", required_by=type(self))
-
-    @cached_property
-    def data(self):
-        return self.services.require("data", required_by=type(self))
-
-    # components
-
-    @cached_property
-    def model(self):
-        return self.components.require(ComponentKind.MODEL, required_by=type(self))
-
-    @cached_property
-    def normalizer(self):
-        return self.components.require(ComponentKind.NORMALIZER, required_by=type(self))
-
-    @cached_property
-    def transformer(self):
-        return self.components.require(ComponentKind.TRANSFORMER, required_by=type(self))
-
-    @cached_property
-    def edges(self):
-        return self.components.require(ComponentKind.EDGES, required_by=type(self))
-
     @torch.no_grad()
     def _process_batch(self, batch: GraphBatch) -> Tensor:
         # pull from batch
@@ -131,15 +94,19 @@ class BatchInference(Engine[InferenceConfig]):
         # get dataloader
         dataloader = self.get_dataloader()
 
+        # measures batch throughput
+        throughput = self.status.throughput("predict")
+
         # iterate over each batch
-        for batch in dataloader:
+        for batch in throughput.iterate(dataloader):
             # move to device
             batch = batch.to(self.state.device, non_blocking=True)
 
             # process batch
             start_time = time.perf_counter()
 
-            _ = self._process_batch(batch)
+            with throughput.step(batch):
+                _ = self._process_batch(batch)
 
             # time the execution
             elapsed = time.perf_counter() - start_time
@@ -163,8 +130,28 @@ class BatchInference(Engine[InferenceConfig]):
         return self.data.dataloader(spec)
 
     @override
+    def _setup(self) -> None:
+        super()._setup()
+
+        self.state          = self.services.require("state",    required_by=type(self))
+        self.decode         = self.services.require("decode",   required_by=type(self))
+        self.record         = self.services.require("record",   required_by=type(self))
+        self.data           = self.services.require("data",     required_by=type(self))
+
+        self.model          = self.components.require(ComponentKind.MODEL,          required_by=type(self))
+        self.normalizer     = self.components.require(ComponentKind.NORMALIZER,     required_by=type(self))
+        self.transformer    = self.components.require(ComponentKind.TRANSFORMER,    required_by=type(self))
+        self.edges          = self.components.require(ComponentKind.EDGES,          required_by=type(self))
+
+        # build the loader now, which also sets up the decoders it reads with
+        with self.status.task("Building dataloader"):
+            self.get_dataloader()
+
+    @override
     def execute(self) -> None:
         """Execute inference."""
+        self.setup()
+
         logger.info("executing inference")
 
         # fire on_execute callback hook
@@ -181,4 +168,4 @@ class BatchInference(Engine[InferenceConfig]):
             ctx = context.TeardownContext(self)
             self.callbacks.fire("on_teardown", ctx)
         finally:
-            self.services.close()
+            super().close()

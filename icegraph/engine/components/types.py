@@ -12,6 +12,7 @@ from icegraph.common.plugins import PluginContext
 
 if TYPE_CHECKING:
     from ..services import ServiceManager
+    from ..status import Status
 
     from .component import Component
     from .manager import ComponentManager
@@ -32,6 +33,7 @@ class ComponentContract(Generic[_CMPT]):
 @dataclass(frozen=True)
 class ComponentContext(PluginContext):
     services: ServiceManager
+    status: Status
     components: ComponentManager
     contract: ComponentContract | None
     debug: bool

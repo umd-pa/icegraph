@@ -7,20 +7,22 @@ The **engine** is the subsystem that executes a run. The two currently implement
 structure described here.
 
 An engine is constructed from a configuration file (YAML, JSON, or TOML). From its
-configuration it lazily assembles four subsystems:
+configuration it assembles five subsystems:
 
+* **Status** records tasks and their progress, throughput, and handles logs.
 * **Services** supply shared, run-scoped capabilities and data.
 * **Policy** defines the task and the contracts each component must satisfy.
 * **Components** are the configurable building blocks of the model.
 * **Callbacks** observe and extend the run through lifecycle hooks.
 
-A run is started by calling ``execute``. Engines can be wrapped for distributed,
-multi-rank execution without changing their configuration.
+A run is started by calling ``execute``. Engines can be
+wrapped for distributed, multi-rank execution without changing their configuration.
 
 .. toctree::
    :maxdepth: 2
    :caption: Engine Subsystems
 
+   status/index
    services/index
    policy/index
    components/index

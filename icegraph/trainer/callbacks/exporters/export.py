@@ -75,13 +75,14 @@ class ExportCallback(TrainerCallback):
         if (epoch + 1) % self._save_interval != 0:
             return
 
-        # build model for export
-        export_model = self._gather_state(ctx.engine)
+        with ctx.engine.status.task(f"Exporting model (epoch {epoch + 1})", level=logging.DEBUG):
+            # build model for export
+            export_model = self._gather_state(ctx.engine)
 
-        persistent_path = self.outdir / f"model.epoch_{epoch + 1}.pt"
+            persistent_path = self.outdir / f"model.epoch_{epoch + 1}.pt"
 
-        try:
-            torch.save(export_model, persistent_path)
-            logger.info("exported model saved: %s", str(persistent_path))
-        except Exception:
-            logger.exception("failed to save persistent model", exc_info=True)
+            try:
+                torch.save(export_model, persistent_path)
+                logger.info("exported model saved: %s", str(persistent_path))
+            except Exception:
+                logger.exception("failed to save persistent model", exc_info=True)

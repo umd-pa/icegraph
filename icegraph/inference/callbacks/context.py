@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from icegraph.engine.callbacks import Context, InitContext  # import without usage is intentional
+from icegraph.engine.callbacks import Context, InitContext, StatusContext  # noqa: F401
 
 if TYPE_CHECKING:
     from ..inference import BatchInference

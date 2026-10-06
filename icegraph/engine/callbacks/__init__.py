@@ -5,7 +5,7 @@
 from .callback import Callback
 
 # base context
-from .context import Context, InitContext
+from .context import Context, InitContext, StatusContext
 
 # manager
 from .manager import CallbackManager
@@ -18,5 +18,6 @@ __all__ = [
     "CallbackManager",
     "CallbackSpec",
     "Context",
-    "InitContext"
+    "InitContext",
+    "StatusContext"
 ]

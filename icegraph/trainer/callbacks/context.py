@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
-from icegraph.engine.callbacks import Context, InitContext  # noqa: F401
+from icegraph.engine.callbacks import Context, InitContext, StatusContext  # noqa: F401
 from icegraph.common.data import GraphBatch
 
 if TYPE_CHECKING:

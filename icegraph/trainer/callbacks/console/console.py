@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 from functools import wraps
+import os
 
 from rich.console import Group
 from rich.text import Text
@@ -19,7 +20,8 @@ from torch import Tensor
 import numpy as np
 
 from icegraph.common.data import Split
-from icegraph.ui import console
+from icegraph.engine.status import EventKind, TaskEvent
+from icegraph.ui import console, StatusView, LogView
 
 from ..callback import TrainerCallback
 
@@ -34,6 +36,51 @@ __all__ = ["ConsoleCallback"]
 # module logger
 import logging
 logger = logging.getLogger(__name__)
+
+
+def _si(value: float) -> str:
+    """Scale to an SI prefix, e.g. 41200 -> '41.2k'."""
+    for prefix in ("", "k", "M", "G", "T", "P"):
+        if abs(value) < 1000:
+            return f"{value:.3g}{prefix}"
+        value /= 1000
+    return f"{value:.3g}E"
+
+
+class _Throughput:
+    """The status's throughput for the split being run, formatted when rendered."""
+
+    def __init__(self, trainer: Trainer) -> None:
+        self._trainer = trainer
+
+    def __rich__(self) -> Text:
+        throughput = self._trainer.status.throughputs.get(self._trainer.split.value)
+        if throughput is None:
+            return Text("-- no throughput yet --", style="dim")
+
+        current = throughput.stats()
+        stats: list[tuple[str, str]] = []
+
+        if current.samples:
+            stats.append((_si(current.samples), "samples/s"))
+            stats.append((f"{current.batches:.3g}", "batches/s"))
+
+            if current.flops:
+                stats.append((_si(current.flops), "FLOP/s"))
+
+            stats.append((f"{current.waiting:.0%}", "waiting on data"))
+
+        if not stats:
+            return Text("-- no throughput yet --", style="dim")
+
+        line = Text()
+        for value, label in stats:
+            if line:
+                line.append("   ")
+            line.append(value, style="bold")
+            line.append(f" {label}", style="dim")
+
+        return line
 
 
 def terminal_only(fn):
@@ -51,6 +98,12 @@ class ConsoleCallback(TrainerCallback):
     # default dead-zone for the trend indicator
     _DEFAULT_EPS: ClassVar[float] = 1e-4
 
+    # running tasks shown in the progress panel
+    _ACTIVITY_ROWS: ClassVar[int] = 3
+
+    # recent log entries shown in the log panel
+    _LOG_ROWS: ClassVar[int] = 5
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -64,6 +117,10 @@ class ConsoleCallback(TrainerCallback):
         self.live:      Live        | None = None
         self.layout:    Layout      | None = None
         self.progress:  Progress    | None = None
+
+        # running backend tasks shown on their own during startup
+        self.startup:   Live        | None = None
+        self._closed:   bool               = False
 
         # metrics snapshot
         self._latest_metrics: list[MetricValue] = []
@@ -95,7 +152,7 @@ class ConsoleCallback(TrainerCallback):
 
         # section sizes
         _init_header_size   = 7  #  (3 lines + 2 padding + 2 border)
-        _init_top_size      = 5  #  (1 progress bar + 2 padding + 2 border)
+        _init_top_size      = 6 + self._ACTIVITY_ROWS  #  (progress + throughput + running tasks + 2 padding + 2 border)
         _init_mid_size      = 7  #  may be resized for > 3 metrics, this is a minimum starting value
 
         # init header panel
@@ -105,19 +162,26 @@ class ConsoleCallback(TrainerCallback):
 
         header_panel = Layout(self._panel(None, body, padding=(1, 2)), name="header", size=_init_header_size)
 
-        # init progres panel
+        # init progress panel
         progress = self.progress if self.progress is not None else Text("-- no progress to show --")
+        activity = StatusView(trainer.status, max_rows=self._ACTIVITY_ROWS)
         progress_panel = Layout(
             Panel(
-                Align(progress, align="center"), padding=(1, 2), title="Progress"
+                Group(progress, _Throughput(trainer), activity), padding=(1, 2), title="Progress"
             ), name="top", size=_init_top_size
         )
 
         # init mid panel: single combined metrics + trends table
         mid_panel = Layout(self._render_metrics(), name="mid", ratio=1, minimum_size=_init_mid_size)
 
+        # init log panel
+        log_panel = Layout(
+            Panel(LogView(trainer.status, rows=self._LOG_ROWS), padding=(0, 2), title="Log"),
+            name="logs", size=self._LOG_ROWS + 2
+        )
+
         # stack all vertically
-        layout.split_column(header_panel, progress_panel, mid_panel)
+        layout.split_column(header_panel, progress_panel, mid_panel, log_panel)
 
         # return initialized layout
         return layout
@@ -256,7 +320,30 @@ class ConsoleCallback(TrainerCallback):
         # reset the progress bar for the start of the next split/epoch
         self.reset_progress_bar(desc, total)
 
+    def _stop_startup(self) -> None:
+        if self.startup is not None:
+            self.startup.stop()
+            self.startup = None
+
     # callback hooks
+    def on_init(self, ctx: context.InitContext) -> None:
+        # only the main rank draws, read from the launch environment since services may not exist yet
+        if int(os.environ.get("RANK", 0)) != 0:
+            self.is_terminal = False
+
+    @terminal_only
+    def on_status(self, ctx: context.StatusContext) -> None:
+        # setup runs before on_execute, so its first task opens a display of its own until
+        # training takes over, the views read the status themselves when rendering
+        event = ctx.event
+        if not isinstance(event, TaskEvent) or event.kind is not EventKind.STARTED:
+            return
+
+        if self.layout is None and self.startup is None and not self._closed:
+            # transient, finished tasks stay behind as log lines
+            self.startup = Live(StatusView(ctx.engine.status), console=self.console, refresh_per_second=10, transient=True)
+            self.startup.start()
+
     def on_execute(self, ctx: context.ExecuteContext) -> None:
         # only run on main rank
         if not ctx.engine.state.is_main_process():
@@ -265,6 +352,9 @@ class ConsoleCallback(TrainerCallback):
         # no op if not in terminal
         if not self.is_terminal:
             return
+
+        # hand over from the startup display
+        self._stop_startup()
 
         self.layout = self._build_layout(ctx.engine)
         self.live = Live(
@@ -322,8 +412,11 @@ class ConsoleCallback(TrainerCallback):
 
     @terminal_only
     def on_teardown(self, ctx: context.TeardownContext) -> None:
+        self._closed = True
+
         try:
             # stop live and progress bar
+            self._stop_startup()
             if self.live:
                 self.live.stop()
             if self.progress:

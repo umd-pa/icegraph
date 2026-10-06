@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import time
-
 from typing import Any, ClassVar
 import multiprocessing as mp
 from functools import partial, cached_property
@@ -32,6 +30,7 @@ class DataService(Service[DataConfig]):
     """
     name: ClassVar[str] = "data"
     version: ClassVar[int] = 1
+    deps: ClassVar[tuple[str, ...]] = ("state", "record", "decode")
 
     def build(self) -> None:
         return
@@ -60,6 +59,10 @@ class DataService(Service[DataConfig]):
         return self._dls[spec]
 
     def _build_dataloader(self, spec: LoaderSpec) -> GraphDataLoader:
+        # build what decoding needs before the dataset is pickled into the workers
+        decode = self._ctx.services.require("decode", required_by=type(self))
+        decode.setup_decoders(spec.exclude_roles)
+
         # get new specs for each
         ds_spec = self._new_dataset()
         dl_spec = self._new_dataloader()
@@ -79,7 +82,6 @@ class DataService(Service[DataConfig]):
 
     def _new_dataloader(self) -> partial[GraphDataLoader]:
         """Build a new dataloader spec."""
-        start = time.perf_counter()
         kwargs: dict[str, Any] = {
             "num_workers":  self.config.num_workers
         }
@@ -93,13 +95,10 @@ class DataService(Service[DataConfig]):
                 pin_memory=torch.cuda.is_available()
             )
 
-        loader = partial(GraphDataLoader, **kwargs)
-        logger.info(f"[DataService] Constructed new dataloader in {time.perf_counter() - start} s.")
-        return loader
+        return partial(GraphDataLoader, **kwargs)
 
     def _new_dataset(self) -> partial[GraphDataset]:
-        start = time.perf_counter()
-        dataset = partial(
+        return partial(
             GraphDataset,
             chunk_size=self.config.chunk_size,
             buffer_size=self.config.buffer_size,
@@ -109,6 +108,4 @@ class DataService(Service[DataConfig]):
             max_chunks_per_epoch=self.config.max_chunks_per_epoch,
             services=self._ctx.services
         )
-        logger.info(f"[DataService] Constructed new dataset in {time.perf_counter() - start} s.")
-        return dataset
 

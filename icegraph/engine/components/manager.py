@@ -23,6 +23,7 @@ from .transformer import Transformer, TransformerFactory
 
 if TYPE_CHECKING:
     from ..services import ServiceManager
+    from ..status import Status
 
     from icegraph.engine.policy import Policy
 
@@ -118,6 +119,7 @@ class ComponentManager(Mapping[ComponentKind, Component[Any]]):
             cls,
             config: dict[ComponentKind, ComponentConfig], *,
             services: ServiceManager,
+            status: Status,
             debug: bool,
             policy: Policy | None = None,
             state_dicts: dict[str, dict[str, Any]] | None = None
@@ -133,43 +135,45 @@ class ComponentManager(Mapping[ComponentKind, Component[Any]]):
                 cls.__name__, str(list(extra))
             )
 
-        # build in preconfigured order
-        for kind in _BUILD_ORDER:
-            if kind not in config:
-                continue
+        kinds = [kind for kind in _BUILD_ORDER if kind in config]
 
-            c = config[kind]
+        with status.task("Building components", total=len(kinds)) as task:
+            # build in preconfigured order
+            for kind in kinds:
+                c = config[kind]
+                task.update(detail=f"{kind} ({c.name})")
 
-            factory = cls._get_component_factory(kind)
-            component = factory.create(c.name, **c.kwargs)
+                factory = cls._get_component_factory(kind)
+                component = factory.create(c.name, **c.kwargs)
 
-            # this components checkpoint, if any
-            state = state_dicts.get(kind) if state_dicts is not None else None
+                # this components checkpoint, if any
+                state = state_dicts.get(kind) if state_dicts is not None else None
 
-            # preload state
-            if state is not None:
-                component.on_preload(dict(state))
+                # preload state
+                if state is not None:
+                    component.on_preload(dict(state))
 
-            # run attach phase
-            ctx = ComponentContext(
-                services=services,
-                components=components,
-                contract=policy.get_contract_for(kind) if policy is not None else None,
-                debug=debug
-            )
-            component.attach(ctx)
+                # run attach phase
+                ctx = ComponentContext(
+                    services=services,
+                    status=status,
+                    components=components,
+                    contract=policy.get_contract_for(kind) if policy is not None else None,
+                    debug=debug
+                )
+                component.attach(ctx)
 
-            # full load state
-            if state is not None:
-                component.load_state_dict(state)
+                # full load state
+                if state is not None:
+                    component.load_state_dict(state)
 
-            component.to_device()
-            components.register(kind, component)
+                component.to_device()
+                components.register(kind, component)
 
-            logger.info(f"built component={kind}")
+                task.advance()
 
-        # run binds
-        components = cls._bind(components, services)
+            # run binds
+            components = cls._bind(components, services)
 
         return components
 

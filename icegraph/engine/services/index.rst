@@ -27,7 +27,9 @@ A service is a :doc:`plugin <../../common/plugins/index>` keyed by its section
 name. A service may declare dependencies on other services; the engine builds the
 configured services, verifies that every declared dependency is present, and
 attaches them in dependency order so that each service can rely on those it depends
-upon. A dependency cycle is reported as a configuration error.
+upon. A dependency cycle is reported as a configuration error. A service may also
+implement ``setup()`` for costly up-front work, which engines run in dependency order
+during startup.
 
 .. toctree::
    :maxdepth: 2

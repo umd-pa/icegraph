@@ -83,14 +83,16 @@ class StateService(Service[StateConfig]):
     def bind_model(self, model: Model[Any]) -> BoundModel:
         """Bind a model to the current execution context."""
         if self.is_ddp():
-            return DistributedDataParallel(
-                model,
-                device_ids=[self.device.index] if self.device.type == "cuda" else None,  # type: ignore
-                output_device=(self.device.index if self.device.type == "cuda" else None),  # type: ignore
-                broadcast_buffers=False,
-                gradient_as_bucket_view=True,
-                find_unused_parameters=False
-            )
+            # every rank waits on the slowest here
+            with self._ctx.status.task("Syncing model across ranks", detail=f"world size {self.world}"):
+                return DistributedDataParallel(
+                    model,
+                    device_ids=[self.device.index] if self.device.type == "cuda" else None,  # type: ignore
+                    output_device=(self.device.index if self.device.type == "cuda" else None),  # type: ignore
+                    broadcast_buffers=False,
+                    gradient_as_bucket_view=True,
+                    find_unused_parameters=False
+                )
 
         return _NoDDP(model)
 

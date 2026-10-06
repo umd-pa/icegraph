@@ -7,7 +7,6 @@ from typing import Iterator, Any, ClassVar
 from collections.abc import Collection
 from functools import cached_property
 from operator import attrgetter
-import time
 
 import numpy as np
 
@@ -31,12 +30,28 @@ class RecordService(Service[RecordConfig]):
     name: ClassVar[str] = "record"
     version: ClassVar[int] = 1
 
+    # built by setup()
+    _cache:         ShardLRUCache
+    _offsets:       ArrayI
+    record_count:   int
+    global_attrs:   GlobalAttributes
+
     def build(self) -> None:
         return
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> RecordConfig:
         return RecordConfig(**config)
+
+    def setup(self) -> None:
+        # open every shard once, which is where the dataset startup time mostly goes
+        self._cache = self._build_cache()
+
+        samples = np.asarray([len(r) for r in self._cache.iter_readers()])
+        self._offsets = np.concatenate((np.array([0]), np.cumsum(samples)))  # (0 appended to start)
+        self.record_count = int(np.sum(samples))
+
+        self.global_attrs = GlobalAttributes.from_attrs(self.attrs(), ignore_checksum=self.config.ignore_checksum)
 
     def read(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
         """
@@ -77,10 +92,6 @@ class RecordService(Service[RecordConfig]):
         return self.record_count
 
     @cached_property
-    def record_count(self) -> int:
-        return int(np.sum(self._samples))
-
-    @cached_property
     def file_count(self) -> int:
         file_count = len(list(self.source.resolve(self._target_file_ext)))
 
@@ -89,17 +100,6 @@ class RecordService(Service[RecordConfig]):
             raise FileNotFoundError("Record service received 0 data files.")
 
         return file_count
-
-    @cached_property
-    def _samples(self) -> ArrayI:
-        start = time.perf_counter()
-        samples = np.asarray([len(r) for r in self._cache.iter_readers()])
-        logger.info(f"[RecordService] Loaded sample counts in {time.perf_counter() - start} s.")
-        return samples
-
-    @cached_property
-    def _offsets(self) -> ArrayI:
-        return np.concatenate((np.array([0]), np.cumsum(self._samples)))  # (0 appended to start)
 
     def _indices_from_global(self, indices: ArrayI) -> tuple[ArrayI, ArrayI]:
         shard_indices = np.searchsorted(self._offsets, indices, side="right") - 1
@@ -111,11 +111,11 @@ class RecordService(Service[RecordConfig]):
     def source(self) -> Source:
         return Source(self.config.source)
 
-    @cached_property
-    def _cache(self) -> ShardLRUCache:
-        start = time.perf_counter()
+    def _build_cache(self) -> ShardLRUCache:
+        paths = list(self.source.resolve(self._target_file_ext))
+
         readers: list[Reader] = []
-        for path in self.source.resolve(self._target_file_ext):
+        for path in self._ctx.status.track(paths, "Indexing shards"):
             # create the reader
             reader = ReaderFactory.create(self.config.reader.name, **self.config.reader.kwargs)
 
@@ -123,20 +123,18 @@ class RecordService(Service[RecordConfig]):
             ctx = ReaderContext(path=path)
             reader.attach(ctx)
 
+            # attributes are read here so the shards can be sorted by id below, this is the
+            # expensive part since each files metadata has to be opened
+            _ = reader.attrs
+            reader.close()
+
             # append to list
             readers.append(reader)
 
         # sort readers by shard id
         readers.sort(key=attrgetter("attrs.shard_id"))
 
-        # since we are sorting by shard id, we need to open each file handle to access attributes
-        # thus we need to go through and close all readers again
-        for reader in readers:
-            reader.close()
-
-        cache = ShardLRUCache(readers, self.config.cache_size)
-        logger.info(f"[RecordService] Built shard cache in {time.perf_counter() - start} s.")
-        return cache
+        return ShardLRUCache(readers, self.config.cache_size)
 
     @cached_property
     def _target_file_ext(self) -> str:
@@ -147,10 +145,3 @@ class RecordService(Service[RecordConfig]):
         """Iterate over all shard attributes in the dataset in a deterministic order."""
         for reader in self._cache.iter_readers():
             yield reader.attrs
-
-    @cached_property
-    def global_attrs(self) -> GlobalAttributes:
-        start = time.perf_counter()
-        gattrs = GlobalAttributes.from_attrs(self.attrs(), ignore_checksum=self.config.ignore_checksum)
-        logger.info(f"[RecordService] Loaded global attrs in {time.perf_counter() - start} s.")
-        return gattrs

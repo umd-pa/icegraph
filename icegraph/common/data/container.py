@@ -37,6 +37,16 @@ class GraphBatch:
     batch:          Tensor
     ptr:            Tensor
 
+    @property
+    def num_graphs(self) -> int:
+        """Graphs in the batch, from the offsets' shape so nothing waits on the device."""
+        return self.ptr.numel() - 1
+
+    @property
+    def num_nodes(self) -> int:
+        """Nodes across every graph in the batch, from the batch vector's shape."""
+        return self.batch.numel()
+
     def apply(self, fn: Callable[[Tensor | SegmentedTensor], Tensor | SegmentedTensor], /) -> Self:
         """Apply a function to all tensors and segmented tensors in the batch"""
         for f in fields(self):

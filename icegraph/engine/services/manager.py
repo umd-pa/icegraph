@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import time
-from typing import Self, Any, overload, Literal
+from typing import Self, Any, overload, Literal, TYPE_CHECKING
 from typing_extensions import override
 from dataclasses import dataclass, field
 from collections.abc import Mapping, Iterator
@@ -21,6 +20,9 @@ from .record import RecordService
 from .decode import DecodeService
 from .types import ServiceContext
 
+if TYPE_CHECKING:
+    from ..status import Status
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,9 @@ __all__ = ["ServiceManager"]
 @dataclass
 class ServiceManager(Mapping[str, Service[Any]]):
     _services: dict[str, Service[Any]] = field(default_factory=dict)
+
+    # dependency order
+    _order: list[str] = field(default_factory=list)
 
     @override
     def __getitem__(self, service: str) -> Service[Any]:
@@ -69,37 +74,50 @@ class ServiceManager(Mapping[str, Service[Any]]):
         return value
 
     @classmethod
-    def from_config(cls, config: dict[str, dict[str, Any]], *, debug: bool) -> Self:
-        start = time.perf_counter()
-
+    def from_config(
+            cls,
+            config: dict[str, dict[str, Any]], *,
+            debug: bool,
+            status: Status
+    ) -> Self:
+        """Build and attach every configured service in dependency order."""
         # iteratively construct the service manager
         instance = cls()
 
-        # construct all services specified in config
-        for name, kwargs in config.items():
-            # create and register the service
-            instance._services[name] = ServiceFactory.create(name, **kwargs)
-
-        # validate deps
-        for n, s in instance._services.items():
-            for d in s.deps:
-                if d not in instance._services:
-                    raise ValueError(f"Service '{n}' depends on missing service '{d}'")
-
-        # topological sort
-        graph = {n: set(s.deps) for n, s in instance._services.items()}
-        try:
-            order = TopologicalSorter(graph).static_order()
-        except CycleError as e:
-            raise ValueError(f"Service dependency cycle detected: {e}") from None
-
         # build service context (includes refs to services as they are built)
-        context = ServiceContext(instance, debug)
-        for name in order:
-            instance._services[name].attach(context)
+        context = ServiceContext(services=instance, status=status, debug=debug)
 
-        logger.info(f"[ServiceManager] Initialized and attached services in {time.perf_counter() - start} s.")
+        with status.task("Building services", total=len(config)) as task:
+            # construct all services specified in config
+            for name, kwargs in config.items():
+                # create and register the service
+                instance._services[name] = ServiceFactory.create(name, **kwargs)
+
+            # validate deps
+            for n, s in instance._services.items():
+                for d in s.deps:
+                    if d not in instance._services:
+                        raise ValueError(f"Service '{n}' depends on missing service '{d}'")
+
+            # topological sort
+            graph = {n: set(s.deps) for n, s in instance._services.items()}
+            try:
+                order = list(TopologicalSorter(graph).static_order())
+            except CycleError as e:
+                raise ValueError(f"Service dependency cycle detected: {e}") from None
+
+            for name in order:
+                task.update(detail=name)
+                instance._services[name].attach(context)
+                task.advance()
+
+        instance._order = order
         return instance
+
+    def setup(self) -> None:
+        """Run each service's up front build in dependency order."""
+        for name in self._order:
+            self._services[name].setup()
 
     def close(self) -> None:
         for service in self._services.values():

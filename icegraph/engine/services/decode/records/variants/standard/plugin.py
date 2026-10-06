@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import cached_property
 from typing import Any, ClassVar, Sequence
 
 import numpy as np
@@ -12,6 +11,7 @@ import torch
 from torch import Tensor
 
 from icegraph.common.record import RecordBlock, Column
+from icegraph.common.data import DataRole
 
 from ...decoder import RecordDecoder
 
@@ -50,8 +50,16 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
 
     _warned_no_weights: bool
 
+    # built by setup() when weights are decoded, surfaces are None for real data
+    _weighted:  bool
+    _surfaces:  SurfaceSet | None
+    _groups:    tuple[_SimGroup, ...]
+
     def build(self) -> None:
         self._warned_no_weights = False
+        self._weighted = False
+        self._surfaces = None
+        self._groups = ()
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> StandardI3DecoderConfig:
@@ -60,20 +68,39 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
     def extract(self, block: RecordBlock, key: str) -> Column | None:
         return block.columns.get(key)
 
+    def setup(self, excluded: frozenset[DataRole]) -> None:
+        # the weighter is built here once, rather than by every loader worker
+        if DataRole.WEIGHTS in excluded or self._weighted:
+            # dont run setup if already run or weights arent being loaded this run
+            return
+
+        with self._ctx.status.task("Building generation surfaces"):
+            self._surfaces = build_surfaces(self._ctx.attrs)
+
+        self._groups = self._build_groups()
+        self._weighted = True
+
+    def __getstate__(self) -> dict[str, Any]:
+        # surfaces pickle and are the costly part, so workers reuse them, but nuflux
+        # flux models cannot be pickled, so each worker rebuilds them on arrival
+        state = self.__dict__.copy()
+        state["_groups"] = ()
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        self._groups = self._build_groups()
+
     ### WEIGHTS
 
-    @cached_property
-    def _surfaces(self) -> SurfaceSet | None:
-        """The dataset's generation surfaces, and how a record is routed to one. None for real data."""
-        return build_surfaces(self._ctx.attrs)
-
-    @cached_property
-    def _groups(self) -> tuple[_SimGroup, ...]:
-        """One weighting group per simulation type the dataset carries."""
-        assert self._surfaces is not None  # only weighted when the shards carry simulation
+    def _build_groups(self) -> tuple[_SimGroup, ...]:
+        """One weighting group per simulation type the dataset carries, none for real data."""
+        surface_set = self._surfaces
+        if surface_set is None:
+            return ()
 
         # dict of simulation keyed to its aggregate surface
-        surfaces = self._surfaces.surfaces
+        surfaces = surface_set.surfaces
 
         # surfaces missing flux config (fatal)
         missing = sorted(simulation for simulation in surfaces if simulation not in self.config.flux)
@@ -93,7 +120,7 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
 
         # construct sim groups
         groups: list[_SimGroup] = []
-        for simulation, surface in surfaces.items():
+        for simulation, surface in self._ctx.status.track(surfaces.items(), "Building flux models"):
             config = self.config.flux[simulation]
 
             # weighting neutrino generation with a cosmic ray flux (or the reverse)
@@ -113,7 +140,7 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
                 surface=surface,
                 flux=build_flux(config),
                 codes=tuple(
-                    code for code, owner in self._surfaces.codes.items() if owner == simulation
+                    code for code, owner in surface_set.codes.items() if owner == simulation
                 )
             )
 
@@ -202,6 +229,9 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
         return weights
 
     def _extract_weights(self, block: RecordBlock, key: str) -> Tensor | None:
+        if not self._weighted:
+            raise RuntimeError(f"{type(self).__name__}: setup() must run before weights are decoded.")
+
         # real data has no weights
         if self._surfaces is None:
             return None

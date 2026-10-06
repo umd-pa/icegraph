@@ -13,6 +13,7 @@ from jaxtyping import Float, Int
 
 from icegraph.common.plugins import Plugin
 from icegraph.common.record import RecordBlock, Column
+from icegraph.common.data import DataRole
 from icegraph.typing.common import ArrayI
 
 from .types import RecordDecoderContext
@@ -25,6 +26,10 @@ C = TypeVar("C")
 
 class RecordDecoder(Plugin[C, RecordDecoderContext], ABC):
     """Provides methods for decoding dataset record blocks."""
+
+    def setup(self, excluded: frozenset[DataRole]) -> None:
+        """Build any state decoding the non-excluded roles needs, before loaders pickle the decoder."""
+        return
 
     @abstractmethod
     def extract(self, block: RecordBlock, key: str) -> Column | None:
