@@ -3,11 +3,16 @@ extractor:
   kwargs:
     gcd_path: /cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz
     skip_missing: true
+    suppress_icetray_output: true
 
     # drop simulated events that have no single truth before anything downstream sees them
     selection:
       drop_coincident: true  # Q frames holding more than one primary
       drop_oversplit: true  # Q frames holding one primary split into more than one event
+      mctree: I3MCTree_preMuonProp
+
+    rebuild_missing_mctree:
+      random_service: GSL
 
     # bundle multiplicity, the number of muons entering the detector hull, counted with MuonGun
     multiplicity:

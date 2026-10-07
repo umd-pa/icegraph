@@ -6,9 +6,12 @@ extractor:
 
     # drop simulated events that have no single truth before anything downstream sees them
     selection:
-      ids: [ Run, Event, SubEvent, SubEventStream ]  # columns identifying an event, used to strip carriers
       drop_coincident: true  # Q frames holding more than one primary
       drop_oversplit: true  # Q frames holding one primary split into more than one event
+      mctree: I3MCTree_preMuonProp
+
+    rebuild_missing_mctree:
+      random_service: GSL
 
     # bundle multiplicity, the number of muons entering the detector hull, counted with MuonGun
     multiplicity:

@@ -164,8 +164,6 @@ as Q frames (``daq``) and the ``InIceSplit`` events split from them (``physics``
      coincident: { daq: 3, physics: 4 }
      oversplit:  { daq: 7, physics: 15 }
 
-The settings are stored under ``attrs.GLOBAL.selection``.
-
 
 Rebuilding the MC tree
 ----------------------
@@ -173,7 +171,8 @@ Rebuilding the MC tree
 Simulation often discards the propagated ``I3MCTree`` to save space. When
 ``rebuild_missing_mctree`` is set, each Q frame that does not hold the propagated tree but does
 hold saved state has it rebuilt with ``I3PropagatorModule``, using PROPOSAL for muons and
-CMC for showers.
+CMC for showers. The ``MMCTrackList`` is written along with the tree, so if the frame already has one
+it will be deleted and replaced.
 
 .. list-table::
    :header-rows: 1

@@ -141,14 +141,13 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         env.set_local_attr("origin", str(item))
         env.set_global_attr("gcd", str(self.config.gcd_path))
 
-        # settings are global so shards selected differently never load together
         # counts are per file
         if self.config.selection is not None and drop_counter is not None:
             env.set_local_attr("dropped", drop_counter.dropped)
-            env.set_global_attr("selection", self.config.selection.model_dump())
 
+        # padding should be the same across all files so bundle_multiplicity is equivalent for each
         if self.config.multiplicity is not None:
-            env.set_global_attr("multiplicity", self.config.multiplicity.model_dump())
+            env.set_global_attr("multiplicity", self.config.multiplicity.model_dump(exclude={"key"}))
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext

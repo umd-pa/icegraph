@@ -135,6 +135,14 @@ def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:
         "MT":       lambda: phys_services.I3MTRandomService(42),
     }[config.random_service]()
 
+    # without the saved state the tree cannot be reproduced
+    def missing(frame: Any) -> bool:
+        return config.rng_state in frame and config.mctree not in frame
+
+    # the propagator writes the track list along with the tree and fails if the frame kept the original,
+    # which is replaced by the one rebuilt along with the tree
+    tray.Add("Delete", Keys=["MMCTrackList"], If=missing)
+
     tray.Add(
         "I3PropagatorModule",
         PropagatorServices=make_standard_propagators(),
@@ -142,6 +150,5 @@ def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:
         RNGStateName=config.rng_state,
         InputMCTreeName=config.raw_mctree,
         OutputMCTreeName=config.mctree,
-        # without the saved state the tree cannot be reproduced
-        If=lambda frame: config.rng_state in frame and config.mctree not in frame,
+        If=missing,
     )

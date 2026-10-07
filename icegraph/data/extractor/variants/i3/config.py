@@ -32,7 +32,7 @@ class MultiplicityConfig(BaseModel):
 class RebuildMCTreeConfig(BaseModel):
     mctree:             str             = "I3MCTree"  # propagated tree, rebuilt when the Q frame does not hold it
     raw_mctree:         str             = "I3MCTree_preMuonProp"  # un-propagated tree it is rebuilt from
-    rng_state:          str             = "RNGState"  # state of the random number generator it was propagated with
+    rng_state:          str             = "I3MCTree_preMuonProp_RNGState"  # state of the random number generator it was propagated with
     random_service:     Literal["SPRNG", "GSL", "MT"] = "SPRNG"  # must match the type the state was saved from
 
 
