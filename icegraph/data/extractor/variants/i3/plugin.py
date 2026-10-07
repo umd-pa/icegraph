@@ -19,7 +19,7 @@ from icegraph.data.extractor import Extractor
 from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
-from .modules import is_sub_event_stream, DropCounter, event_selector, bundle_multiplicity
+from .modules import is_sub_event_stream, DropCounter, event_selector, bundle_multiplicity, rebuild_mctree
 
 __all__ = ["I3Extractor"]
 
@@ -61,6 +61,10 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             if self.config.selection is not None:
                 drop_counter = DropCounter.from_config(self.config.selection)
                 tray.Add(event_selector(self.config.selection, drop_counter, self.config.sub_event_stream))
+
+            # rebuild the propagated tree where it was discarded, after the selection so dropped events are skipped
+            if self.config.rebuild_missing_mctree is not None:
+                rebuild_mctree(tray, self.config.rebuild_missing_mctree)
 
             # bundle multiplicity
             if self.config.multiplicity is not None:

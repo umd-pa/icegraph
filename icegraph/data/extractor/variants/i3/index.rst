@@ -50,6 +50,11 @@ Selected as ``name: i3``.
        set.
      - mapping
      - ``null``
+   * - ``rebuild_missing_mctree``
+     - Rebuild the propagated ``I3MCTree`` where it was discarded, see `Rebuilding the
+       MC tree`_. Only runs if set.
+     - mapping
+     - ``null``
    * - ``skip_missing``
      - Skip files that contain no usable frames instead of failing.
      - bool
@@ -160,6 +165,52 @@ as Q frames (``daq``) and the ``InIceSplit`` events split from them (``physics``
      oversplit:  { daq: 7, physics: 15 }
 
 The settings are stored under ``attrs.GLOBAL.selection``.
+
+
+Rebuilding the MC tree
+----------------------
+
+Simulation often discards the propagated ``I3MCTree`` to save space. When
+``rebuild_missing_mctree`` is set, each Q frame that does not hold the propagated tree but does
+hold saved state has it rebuilt with ``I3PropagatorModule``, using PROPOSAL for muons and
+CMC for showers.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 60 10 8
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``mctree``
+     - The propagated tree, rebuilt when the Q frame does not hold it.
+     - str
+     - ``I3MCTree``
+   * - ``raw_mctree``
+     - The un-propagated tree it is rebuilt from.
+     - str
+     - ``I3MCTree_preMuonProp``
+   * - ``rng_state``
+     - The saved state of the random number generator.
+     - str
+     - ``RNGState``
+   * - ``random_service``
+     - Type of the random number generator, one of ``SPRNG``, ``GSL`` or ``MT``. It must
+       match the type the state was saved from.
+     - str
+     - ``SPRNG``
+
+The tree is rebuilt after the `Selection`_, so dropped events are never propagated.
+
+.. code-block:: yaml
+
+   extractor:
+     name: i3
+     kwargs:
+       # ...
+       rebuild_missing_mctree:
+         raw_mctree: I3MCTree_preMuonProp
 
 
 Bundle multiplicity

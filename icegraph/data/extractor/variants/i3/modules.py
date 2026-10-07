@@ -8,7 +8,11 @@ from dataclasses import dataclass
 
 from icegraph.utils.stdout import suppress_output
 
-from .config import SelectionConfig, MultiplicityConfig
+from .config import SelectionConfig, MultiplicityConfig, RebuildMCTreeConfig
+
+__all__ = [
+    "is_sub_event_stream", "DropCounter", "event_selector", "bundle_multiplicity", "rebuild_mctree"
+]
 
 __all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "bundle_multiplicity"]
 
@@ -114,3 +118,30 @@ def bundle_multiplicity(config: MultiplicityConfig) -> type:
             self.PushFrame(frame)
 
     return BundleMultiplicity
+
+
+def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:
+    """
+    Add a module rebuilding the propagated tree of each Q frame that does not hold it using PROPOSAL/CMC.
+    """
+    with suppress_output():
+        from icecube import phys_services, sim_services  # noqa: F401  # pyright: ignore[reportMissingImports]
+        from icecube.simprod.segments.PropagateMuons import make_standard_propagators  # pyright: ignore[reportMissingImports]
+
+    # the seeds do not matter, the generator is re-initialized from the saved state
+    random_service = {
+        "SPRNG":    lambda: phys_services.I3SPRNGRandomService(seed=2, nstreams=10000, streamnum=1),
+        "GSL":      lambda: phys_services.I3GSLRandomService(42),
+        "MT":       lambda: phys_services.I3MTRandomService(42),
+    }[config.random_service]()
+
+    tray.Add(
+        "I3PropagatorModule",
+        PropagatorServices=make_standard_propagators(),
+        RandomService=random_service,
+        RNGStateName=config.rng_state,
+        InputMCTreeName=config.raw_mctree,
+        OutputMCTreeName=config.mctree,
+        # without the saved state the tree cannot be reproduced
+        If=lambda frame: config.rng_state in frame and config.mctree not in frame,
+    )

@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Any, Literal, Self
 from pathlib import Path
 
 from pydantic import BaseModel, FilePath, model_validator
 
-__all__ = ["I3ExtractorConfig", "SelectionConfig", "MultiplicityConfig"]
+__all__ = ["I3ExtractorConfig", "SelectionConfig", "MultiplicityConfig", "RebuildMCTreeConfig"]
 
 
 class SelectionConfig(BaseModel):
@@ -29,6 +29,13 @@ class MultiplicityConfig(BaseModel):
     padding:            float           = 0.0  # metres added around the detector hull built from the GCD
 
 
+class RebuildMCTreeConfig(BaseModel):
+    mctree:             str             = "I3MCTree"  # propagated tree, rebuilt when the Q frame does not hold it
+    raw_mctree:         str             = "I3MCTree_preMuonProp"  # un-propagated tree it is rebuilt from
+    rng_state:          str             = "RNGState"  # state of the random number generator it was propagated with
+    random_service:     Literal["SPRNG", "GSL", "MT"] = "SPRNG"  # must match the type the state was saved from
+
+
 class I3ExtractorConfig(BaseModel):
     gcd_path:       FilePath
     include:        list[str]
@@ -36,6 +43,7 @@ class I3ExtractorConfig(BaseModel):
     mclabeler:      dict[str, Any] | None = None  # validation is up to MCLabeler, only run if set
     selection:      SelectionConfig | None = None  # only run if set
     multiplicity:   MultiplicityConfig | None = None  # only run if set
+    rebuild_missing_mctree: RebuildMCTreeConfig | None = None  # only run if set
     sub_event_stream: str           = "InIceSplit"
     skip_missing:   bool            = False  # skip any files with no frames
     suppress_icetray_output: bool   = True
@@ -52,6 +60,21 @@ class I3ExtractorConfig(BaseModel):
             raise ValueError(
                 "'multiplicity' requires 'selection' with both 'drop_coincident' and 'drop_oversplit' set, "
                 "otherwise the count will be incorrect."
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def rebuild_selection(self) -> Self:
+        rebuild, selection = self.rebuild_missing_mctree, self.selection
+        if rebuild is None or selection is None:
+            return self
+
+        # the tree is rebuilt after the selection, so the selection never sees a rebuilt tree
+        if selection.mctree == rebuild.mctree:
+            raise ValueError(
+                f"'selection' counts primaries in '{selection.mctree}', which is only rebuilt after the selection. "
+                f"Count them in '{rebuild.raw_mctree}' instead (the primaries are the same)."
             )
 
         return self
