@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from typing import Any
-from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from .collector import CollectorConfig
 
 __all__ = ["Config"]
 
@@ -14,6 +15,7 @@ __all__ = ["Config"]
 class Config(BaseModel):
     # stage config
     extractor:  StageConfig
+    collector:  CollectorConfig     = Field(default_factory=CollectorConfig)
     processors: list[StageConfig]
     writer:     StageConfig
 

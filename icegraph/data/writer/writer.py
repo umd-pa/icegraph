@@ -8,7 +8,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import ClassVar, TypeVar, Any
 from datetime import datetime
-import math
 import shutil
 
 import polars as pl
@@ -20,13 +19,15 @@ from icegraph.common.data import AttributeDomain, flatten
 from ..stage import Stage
 from ..envelope import Envelope
 
+from .config import WriterConfig
+
 import logging
 logger = logging.getLogger(__name__)
 
 __all__ = ["Writer"]
 
 
-C = TypeVar("C")
+C = TypeVar("C", bound=WriterConfig)
 
 
 class Writer(Stage[C, Envelope]):
@@ -50,6 +51,14 @@ class Writer(Stage[C, Envelope]):
     def outdir(self) -> Path:
         assert self._ctx.outdir is not None
         return self._ctx.outdir
+
+    def _path(self, item: Envelope) -> Path:
+        """Where the shard is written, named by the number the collector gave it."""
+        if item.shard is None:
+            raise RuntimeError("The envelope has no shard number, the collector sets it.")
+
+        name = f"shard.{item.shard:06d}{type(self).suffix}"
+        return self.outdir / (name if self.config.prefix is None else f"{self.config.prefix}.{name}")
 
     def _process(self, item: Envelope) -> Envelope | None:
         # ensure no doubly ragged columns at this point
@@ -97,8 +106,7 @@ class Writer(Stage[C, Envelope]):
         metadata = flatten(metadata)
 
         # generate output file path
-        origin = Path(item.get_local_attr("origin"))
-        fp = self.outdir / origin.with_suffix(type(self).suffix).name
+        fp = self._path(item)
 
         # ensure no stale keys
         if fp.exists():

@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 from typing import Any, Literal, Self
-from pathlib import Path
 
-from pydantic import BaseModel, FilePath, model_validator
+from pydantic import BaseModel, Field, FilePath, model_validator
 
 __all__ = ["I3ExtractorConfig", "SelectionConfig", "MultiplicityConfig", "RebuildMCTreeConfig"]
 
@@ -14,7 +13,7 @@ __all__ = ["I3ExtractorConfig", "SelectionConfig", "MultiplicityConfig", "Rebuil
 class SelectionConfig(BaseModel):
     drop_coincident:    bool            = False  # drop Q frames holding more than one primary
     drop_oversplit:     bool            = False  # drop Q frames holding one primary split into several events
-    mctree:             str             = "I3MCTree"  # tree the primaries are counted in
+    mctree:             str             = "I3MCTree_preMuonProp"  # tree the primaries are counted in
 
     @model_validator(mode="after")
     def any_rule(self) -> Self:
@@ -45,8 +44,11 @@ class I3ExtractorConfig(BaseModel):
     multiplicity:   MultiplicityConfig | None = None  # only run if set
     rebuild_missing_mctree: RebuildMCTreeConfig | None = None  # only run if set
     sub_event_stream: str           = "InIceSplit"
-    skip_missing:   bool            = False  # skip any files with no frames
+    skip_missing:   bool            = False  # skip files with events that lack an included key
     suppress_icetray_output: bool   = True
+
+    # columns identifying an event, the index columns the table writer books with every table
+    ids:            list[str]       = Field(default=["Run", "Event", "SubEvent", "SubEventStream"], min_length=1)
 
     @model_validator(mode="after")
     def multiplicity_selection(self) -> Self:

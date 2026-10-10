@@ -36,6 +36,6 @@ Selected as ``name: pivot``.
 
    - name: pivot
      kwargs:
-       index: event_id
+       index: __ids__  # the event ids
        col: feature_name
        values: feature_value

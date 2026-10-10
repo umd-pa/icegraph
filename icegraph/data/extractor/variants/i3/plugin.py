@@ -27,6 +27,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# booked with every event, so the ids of the events written are read off it
+_HEADER: str = "I3EventHeader"
+
+
 class I3Extractor(Extractor[I3ExtractorConfig]):
     """Extracts features from I3 files using the IceTray module `ml_suite`."""
     name: ClassVar[str] = "i3"
@@ -89,7 +93,7 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             tray.AddSegment(
                 hdfwriter.I3HDFWriter,
                 Output=out.name,
-                Keys=self.config.include,
+                Keys=list(dict.fromkeys([*self.config.include, _HEADER])),
                 SubEventStreams=[self.config.sub_event_stream],
                 CompressionLevel=0
             )
@@ -99,43 +103,22 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
             with ctx():
                 tray.Execute()
 
-            # nothing is left to extract if the selection dropped every event, so break out with warning
-            if drop_counter is not None and drop_counter.kept == 0 and drop_counter.dropped_events > 0:
-                logger.warning(f"skipping file {item}, selection dropped all of its events: {drop_counter.dropped}")
+            read = self._read(item, out.name)
+            if read is None:
                 return None
 
-            # load each key into a dict to save to an arrow IPC
-            tables: dict[str, pl.DataFrame] = {}
+        tables, events = read
 
-            with h5py.File(out.name, "r") as f:
-
-                # ensure key exists in file
-                available = list(f.keys())
-                for key in self.config.include:
-                    if key not in available:
-                        # if skip missing is set to True, just skip the file and continue
-                        if self.config.skip_missing:
-                            logger.warning(f"skipping file {item}, missing key '{key}', available keys: {available}")
-                            return None
-
-                        # if skip missing is set to False, raise and break out
-                        raise KeyError(
-                            f"Missing key '{key}' for input file {item}. Available keys: {available}"
-                        )
-
-                    dset = f[key]
-                    assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
-                    rec = dset[:]
-                    tables[key] = pl.DataFrame(
-                        {n: self._to_native(rec[n]) for n in rec.dtype.names}
-                    )
+        # the file is kept so it still counts toward its set when weighting
+        if events.is_empty():
+            logger.info(f"file {item} holds no events, keeping it so it counts toward its set")
 
         # persistent quiver dir inside scratch
         # cleaned up when the pipeline tears down scratch
         quiver_dir = Path(tempfile.mkdtemp(dir=self._ctx.scratch, prefix="quiver-"))
 
         # create the envelope
-        env = Envelope(quiver=QuiverIPC.from_data(data=tables, root=quiver_dir))
+        env = Envelope(quiver=QuiverIPC.from_data(data=tables, root=quiver_dir), events=events)
 
         # register metadata
         env.set_local_attr("origin", str(item))
@@ -153,6 +136,45 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         env.state["extractor"]["src_file_ext"] = type(self).file_ext
 
         return env
+
+    def _read(self, item: Path, path: str) -> tuple[dict[str, pl.DataFrame], pl.DataFrame] | None:
+        """The included tables and the ids of every event in the table writer's output, None to skip the file."""
+        tables: dict[str, pl.DataFrame] = {}
+
+        with h5py.File(path, "r") as f:
+            available = list(f.keys())
+
+            # the header is absent only when no event was written
+            events = (
+                self._read_table(f, _HEADER).select(self.config.ids)
+                if _HEADER in available else pl.DataFrame(schema=self.config.ids)
+            )
+
+            for key in self.config.include:
+                if key in available:
+                    tables[key] = self._read_table(f, key)
+                    continue
+
+                # a file without events keeps whatever it holds, such as its S-frames
+                if events.is_empty():
+                    continue
+
+                # if skip missing is set to True, just skip the file and continue
+                if self.config.skip_missing:
+                    logger.warning(f"skipping file {item}, missing key '{key}', available keys: {available}")
+                    return None
+
+                # if skip missing is set to False, raise and break out
+                raise KeyError(f"Missing key '{key}' for input file {item}. Available keys: {available}")
+
+        return tables, events
+
+    @classmethod
+    def _read_table(cls, f: h5py.File, key: str) -> pl.DataFrame:
+        dset = f[key]
+        assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
+        rec = dset[:]
+        return pl.DataFrame({n: cls._to_native(rec[n]) for n in rec.dtype.names})
 
     @staticmethod
     def _to_native(a: np.ndarray) -> np.ndarray:

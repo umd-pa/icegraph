@@ -29,7 +29,7 @@ Selected as ``name: compress``.
    * - ``by``
      - Columns to group rows by (one output row per group).
      - column(s)
-     - required
+     - the event ids
    * - ``cols``
      - Columns concatenated and stacked into the per-group array. Use '__all__' to compress all non-``by`` cols.
      - column(s)
@@ -61,6 +61,5 @@ Selected as ``name: compress``.
    - name: compress
      kwargs:
        to: pulses
-       by: event_id
        cols: [ x, y, z, charge, time ]
        out: features

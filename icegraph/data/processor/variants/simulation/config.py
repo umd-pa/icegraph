@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from icegraph.data.envelope import IDS
+
 from ...types import Columns
 
 __all__ = ["I3SimulationConfig"]
@@ -14,7 +16,7 @@ __all__ = ["I3SimulationConfig"]
 
 class I3SimulationConfig(BaseModel):
     simulation:     Literal["nugen", "corsika"] = Field(alias="type")
-    ids:            Columns
+    ids:            Columns                     = IDS  # the event ids by default
     to:             str                         = "generation"
 
     # discovered from the generation info when not given

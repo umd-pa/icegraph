@@ -74,7 +74,7 @@ class I3Simulation(Processor[I3SimulationConfig]):
             # if more than one flavor, raise and request manual sim_code
             if len(flavors) != 1:
                 raise RuntimeError(
-                    f"{type(self).name}: the file holds neutrinos of flavors {flavors.tolist()}, so "
+                    f"{type(self).name}: the block holds neutrinos of flavors {flavors.tolist()}, so "
                     f"its set cannot be told from its generation. Set 'sim_code' to name it."
                 )
 
@@ -95,8 +95,32 @@ class I3Simulation(Processor[I3SimulationConfig]):
         # truncate to fit as float64
         return int(CBORBlake2B()(settings)[:2 * _CODE_BYTES], 16)
 
+    def _check_nugen_set(self, events: pl.DataFrame) -> None:
+        """Raise unless every file of the block threw the same generation."""
+        # only one row per type is stored, so the files of a block must agree on these
+        varying = [
+            name for name in _NUGEN_SETTINGS if name in events.columns and events.get_column(name).n_unique() > 1
+        ]
+
+        # the share of each type is the same in every file of a set
+        if "TypeWeight" in events.columns:
+            shares = events.group_by("PrimaryNeutrinoType").agg(pl.col("TypeWeight").n_unique())
+            if (shares.get_column("TypeWeight") > 1).any():
+                varying.append("TypeWeight")
+
+        if varying:
+            raise RuntimeError(
+                f"{type(self).name}: the files of a block differ in {varying}, so they were thrown by different "
+                f"sets. Keep each set in its own directory and collect with 'group_by: parent', or process seperately."
+            )
+
     def _process(self, item: Envelope) -> Envelope | None:
         quiver, config = item.quiver, self.config
+
+        # the collector records every input file of the block, with events or without
+        sources = item.get_local_attr("sources")
+        if not sources:
+            raise RuntimeError(f"{type(self).name}: no source files found in the envelope.")
 
         events: pl.DataFrame
         # simweights reads the per event quantities off the tables under its own names
@@ -105,6 +129,7 @@ class I3Simulation(Processor[I3SimulationConfig]):
                 # load eventwise generation info and nugen sim info table
                 # (nugen sim info is duplicated per event alongside generation info for some reason)
                 events = quiver[config.weight_dict]
+                self._check_nugen_set(events)
 
                 # construct the weighter
                 weighter = simweights.NuGenWeighter({"I3MCWeightDict": _polars_to_numpy(events)}, nfiles=1)
@@ -116,6 +141,18 @@ class I3Simulation(Processor[I3SimulationConfig]):
                 }
 
             case "corsika":
+                # the generation is the S-frames of every file, so a file without them would go uncounted
+                parts = quiver.parts
+                if len(parts) != len(sources):
+                    raise RuntimeError(
+                        f"{type(self).name}: the quiver holds {len(parts)} file(s), the envelope records "
+                        f"{len(sources)}."
+                    )
+
+                missing = [source for source, part in zip(sources, parts) if config.corsika_info not in part]
+                if missing:
+                    raise RuntimeError(f"{type(self).name}: the files {missing} hold no '{config.corsika_info}'.")
+
                 # load eventwise generation info and corsika sim info tables
                 events = quiver[config.primary]
                 info = _polars_to_numpy(quiver[config.corsika_info])
@@ -159,6 +196,9 @@ class I3Simulation(Processor[I3SimulationConfig]):
             "sim_code": code,
             "type": config.simulation,
             "column": _COLUMN,
+
+            # files the generation was thrown over, counting those without events
+            "nfiles": len(sources),
             **generation
         })
 

@@ -10,11 +10,7 @@ from icegraph.utils.stdout import suppress_output
 
 from .config import SelectionConfig, MultiplicityConfig, RebuildMCTreeConfig
 
-__all__ = [
-    "is_sub_event_stream", "DropCounter", "event_selector", "bundle_multiplicity", "rebuild_mctree"
-]
-
-__all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "bundle_multiplicity"]
+__all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "bundle_multiplicity", "rebuild_mctree"]
 
 
 def is_sub_event_stream(frame: Any, sub_event_stream: str) -> bool:
@@ -25,17 +21,12 @@ def is_sub_event_stream(frame: Any, sub_event_stream: str) -> bool:
 @dataclass
 class DropCounter:
     dropped:    dict[str, dict[str, int]]
-    kept:       int = 0
 
     @classmethod
     def from_config(cls, config: SelectionConfig) -> DropCounter:
         # one entry per enabled rule, a rule never set is left out rather than counted as zero
         rules = {"coincident": config.drop_coincident, "oversplit": config.drop_oversplit}
         return cls(dropped={rule: {"daq": 0, "physics": 0} for rule, on in rules.items() if on})
-
-    @property
-    def dropped_events(self) -> int:
-        return sum(counts["physics"] for counts in self.dropped.values())
 
 
 def event_selector(config: SelectionConfig, tally: DropCounter, sub_event_stream: str) -> type:
@@ -77,7 +68,6 @@ def event_selector(config: SelectionConfig, tally: DropCounter, sub_event_stream
 
             reason = self._reason(daq, events)
             if reason is None:
-                tally.kept += events
                 for frame in frames:
                     self.PushFrame(frame)
                 return

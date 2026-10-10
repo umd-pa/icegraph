@@ -50,6 +50,7 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
     # sim code keyed to its type and the table its generation was stored as
     codes: dict[int, str] = {}
     tables: dict[int, list[dict[str, np.ndarray]]] = {}
+    files: dict[int, int] = {}
     columns: set[str] = set()
     real = 0
 
@@ -92,8 +93,9 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
                 f"a corresponding generation table {generation_table_name!r}, but it was not found."
             )
 
-        # store lists of all gen tables keyed by sim_code
+        # store lists of all gen tables keyed by sim_code, and how many files each was thrown over
         tables.setdefault(code, []).append(generation_table)
+        files[code] = files.get(code, 0) + sim_attrs.nfiles
 
     # if codes is empty, no shards were simulation and can safely return None
     if not codes:
@@ -122,7 +124,7 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
         # construct based on sim source
         match sim:
             case "nugen":
-                surface = simweights.NuGenWeighter({"I3MCWeightDict": merged}, nfiles=len(tables[code])).surface
+                surface = simweights.NuGenWeighter({"I3MCWeightDict": merged}, nfiles=files[code]).surface
             case "corsika":
                 surface = simweights.CorsikaWeighter({"I3CorsikaInfo": merged, "PolyplopiaPrimary": _NO_EVENTS}).surface
             case _:
@@ -132,7 +134,7 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
 
         logger.info(
             "[StandardI3Decoder] Built the generation surface for %s (sim code %d) over %d loaded file(s).",
-            sim, code, len(tables[code])
+            sim, code, files[code]
         )
 
     return SurfaceSet(

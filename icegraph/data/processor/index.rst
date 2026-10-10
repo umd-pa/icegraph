@@ -32,6 +32,26 @@ which frame is active, most processors transform that frame in place, and the
 output that the writer persists. Columns can be addressed individually or through
 named groups defined by the :doc:`alias <variants/alias/index>` processor.
 
+Event ids
+---------
+
+The extractor sets the columns identifying an event on the envelope. Every option
+naming them (``ids`` or ``by`` on :doc:`commit <variants/commit/index>`,
+:doc:`compress <variants/compress/index>`, :doc:`copy <variants/copy/index>`,
+:doc:`knn <variants/knn/index>` and :doc:`i3-simulation <variants/simulation/index>`)
+uses them when left out, and ``__ids__`` stands for them wherever columns are given:
+
+.. code-block:: yaml
+
+   - name: pivot
+     kwargs:
+       index: [ __ids__, string, om, pmt ]
+       col: vector_index
+       values: item
+
+The envelope a processor receives is a :doc:`collected <../collector/index>` block of
+one or more input files, processed as if it were one file.
+
 Variants
 --------
 

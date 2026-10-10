@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from icegraph.data.envelope import IDS
+
 from ...types import Columns
 
 __all__ = ["CompressorConfig"]
@@ -12,7 +14,7 @@ __all__ = ["CompressorConfig"]
 
 class CompressorConfig(BaseModel):
     to:     str
-    by:     Columns
+    by:     Columns = IDS  # the event ids by default
     cols:   Columns
     out:    str | int
     dtype:  str | None = None
