@@ -7,7 +7,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, FilePath, model_validator
 
-__all__ = ["I3ExtractorConfig", "SelectionConfig", "MultiplicityConfig", "RebuildMCTreeConfig"]
+__all__ = ["I3ExtractorConfig", "SelectionConfig", "MuonGunConfig", "RebuildMCTreeConfig"]
 
 
 class SelectionConfig(BaseModel):
@@ -23,9 +23,19 @@ class SelectionConfig(BaseModel):
         return self
 
 
-class MultiplicityConfig(BaseModel):
-    key:                str             = "bundle_multiplicity"  # frame key the count is written to
+class MuonGunConfig(BaseModel):
     padding:            float           = 0.0  # metres added around the detector hull built from the GCD
+
+    # frame keys each label is written to, a label is only computed if its key is set
+    multiplicity:       str | None      = None  # number of muons entering the hull
+    prominence:         str | None      = None  # leading muon energy fraction
+
+    @model_validator(mode="after")
+    def any_label(self) -> Self:
+        if self.multiplicity is None and self.prominence is None:
+            raise ValueError("MuonGun was enabled but no labels were set.")
+
+        return self
 
 
 class RebuildMCTreeConfig(BaseModel):
@@ -41,7 +51,7 @@ class I3ExtractorConfig(BaseModel):
     ml_suite:       dict[str, Any]  # validation is up to ml_suite
     mclabeler:      dict[str, Any] | None = None  # validation is up to MCLabeler, only run if set
     selection:      SelectionConfig | None = None  # only run if set
-    multiplicity:   MultiplicityConfig | None = None  # only run if set
+    muongun:        MuonGunConfig | None = None  # only run if set
     rebuild_missing_mctree: RebuildMCTreeConfig | None = None  # only run if set
     sub_event_stream: str           = "InIceSplit"
     event_header: str               = "I3EventHeader"
@@ -52,17 +62,17 @@ class I3ExtractorConfig(BaseModel):
     ids:            list[str]       = Field(default=["Run", "Event", "SubEvent", "SubEventStream"], min_length=1)
 
     @model_validator(mode="after")
-    def multiplicity_selection(self) -> Self:
-        if self.multiplicity is None:
+    def muongun_selection(self) -> Self:
+        if self.muongun is None:
             return self
 
-        # the multiplicity counts every muon in the Q frame, which is only the truth of an event
+        # the labels cover every muon in the Q frame, which is only the truth of an event
         # when the frame holds a single primary that was split into a single event
         selection = self.selection
         if selection is None or not (selection.drop_coincident and selection.drop_oversplit):
             raise ValueError(
-                "'multiplicity' requires 'selection' with both 'drop_coincident' and 'drop_oversplit' set, "
-                "otherwise the count will be incorrect."
+                "'muongun' requires 'selection' with both 'drop_coincident' and 'drop_oversplit' set, "
+                "otherwise the labels will be incorrect."
             )
 
         return self

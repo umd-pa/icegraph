@@ -19,7 +19,7 @@ from icegraph.data.extractor import Extractor
 from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
-from .modules import is_sub_event_stream, DropCounter, event_selector, bundle_multiplicity, rebuild_mctree
+from .modules import is_sub_event_stream, DropCounter, event_selector, muongun_labels, rebuild_mctree
 
 __all__ = ["I3Extractor"]
 
@@ -71,9 +71,9 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 with ctx():
                     rebuild_mctree(tray, self.config.rebuild_missing_mctree)
 
-            # bundle multiplicity
-            if self.config.multiplicity is not None:
-                tray.Add(bundle_multiplicity(self.config.multiplicity))
+            # labels computed with MuonGun
+            if self.config.muongun is not None:
+                tray.Add(muongun_labels(self.config.muongun))
 
             # mc labeler
             if self.config.mclabeler is not None:
@@ -126,9 +126,9 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         if self.config.selection is not None and drop_counter is not None:
             env.set_local_attr("dropped", drop_counter.dropped)
 
-        # padding should be the same across all files so bundle_multiplicity is equivalent for each
-        if self.config.multiplicity is not None:
-            env.set_global_attr("multiplicity", self.config.multiplicity.model_dump(exclude={"key"}))
+        # padding should be the same across all files so the muongun labels are equivalent for each
+        if self.config.muongun is not None:
+            env.set_global_attr("muongun", self.config.muongun.model_dump(include={"padding"}))
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext

@@ -45,9 +45,8 @@ Selected as ``name: i3``.
        Only runs if set.
      - mapping
      - ``null``
-   * - ``multiplicity``
-     - Count the muons entering the detector, see `Bundle multiplicity`_. Only runs if
-       set.
+   * - ``muongun``
+     - Labels computed using with MuonGun, see `MuonGun labels`_. Only runs if set.
      - mapping
      - ``null``
    * - ``rebuild_missing_mctree``
@@ -237,15 +236,24 @@ The tree is rebuilt after the `Selection`_, so dropped events are never propagat
          raw_mctree: I3MCTree_preMuonProp
 
 
-Bundle multiplicity
--------------------
+MuonGun labels
+--------------
 
-When ``multiplicity`` is set, the number of muons entering the detector is counted with
-MuonGun's ``muons_at_surface`` and written to each Q frame.
+When ``muongun`` is set, the muons entering the detector are found with MuonGun's
+``muons_at_surface``, and labels of the bundle they form are written to each Q frame:
+
+* the **multiplicity**, the number of muons that enter, and
+* the **prominence**, the share of the bundle's energy at the surface carried by its
+  leading muon, ``max(E) / sum(E)``. It is 1 for a single muon, falls toward 0 as the energy
+  is spread over more muons, and is NaN when no muon enters.
 
 The surface is the convex hull of the strings in the GCD's geometry, padded by ``padding``
 meters. A muon counts only if it reaches the surface from outside with energy left, so a
-muon starting inside the detector does not count.
+muon starting inside the detector does not count. Its energy is the energy it has as it
+reaches the surface.
+
+Each label is computed only if the frame key it is written to is set, and at least one must
+be.
 
 .. list-table::
    :header-rows: 1
@@ -255,20 +263,24 @@ muon starting inside the detector does not count.
      - Description
      - Type
      - Default
-   * - ``key``
-     - Frame key the count is written to.
-     - str
-     - ``bundle_multiplicity``
    * - ``padding``
      - Meters added around the detector hull.
      - float
      - ``0.0``
+   * - ``multiplicity``
+     - Frame key the multiplicity is written to.
+     - str
+     - ``null``
+   * - ``prominence``
+     - Frame key the prominence is written to.
+     - str
+     - ``null``
 
 ``muons_at_surface`` reads the propagated ``I3MCTree`` and the ``MMCTrackList``, so both
-must be present in the files. The count is that of every muon in the Q frame, so ``multiplicity``
-requires ``selection`` with both ``drop_coincident`` and ``drop_oversplit`` set to true.
+must be present in the files. The labels cover every muon in the Q frame, so ``muongun``
+requires ``selection`` with both ``drop_coincident`` and ``drop_oversplit`` set to true for accurate counts.
 
-The settings are stored under ``attrs.GLOBAL.multiplicity``.
+The padding is stored under ``attrs.GLOBAL.muongun`` as this must be consistent across loaded shards.
 
 .. code-block:: yaml
 
@@ -279,12 +291,13 @@ The settings are stored under ``attrs.GLOBAL.multiplicity``.
        selection:
          drop_coincident: true
          drop_oversplit: true
-       multiplicity:
-         key: bundle_multiplicity
+       muongun:
          padding: 0.0
+         multiplicity: bundle_multiplicity
+         prominence: prominence
        # ...
-       include: [ features, bundle_multiplicity ]
+       include: [ features, bundle_multiplicity, prominence ]
 
    processors:
-     # select the table, rename 'value' to 'bundle_multiplicity' if desired and copy it to the truth
+     # select each table, rename 'value' to its label if desired and copy it to the truth
      # table under construction, same as the MC labels above

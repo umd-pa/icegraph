@@ -6,11 +6,13 @@ from __future__ import annotations
 from typing import Any
 from dataclasses import dataclass
 
+import numpy as np
+
 from icegraph.utils.stdout import suppress_output
 
-from .config import SelectionConfig, MultiplicityConfig, RebuildMCTreeConfig
+from .config import SelectionConfig, MuonGunConfig, RebuildMCTreeConfig
 
-__all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "bundle_multiplicity", "rebuild_mctree"]
+__all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "muongun_labels", "rebuild_mctree"]
 
 
 def is_sub_event_stream(frame: Any, sub_event_stream: str) -> bool:
@@ -79,10 +81,11 @@ def event_selector(config: SelectionConfig, tally: DropCounter, sub_event_stream
     return EventSelector
 
 
-def bundle_multiplicity(config: MultiplicityConfig) -> type:
+def muongun_labels(config: MuonGunConfig) -> type:
     """
-    Build a module writing the bundle multiplicity, defined as the number of muons that enter the detector
-    hull, to each Q frame.
+    Build a module writing labels of the muon bundle that enters the detector hull, computed with MuonGun, to each
+    Q frame: the multiplicity, the number of muons that enter, and the prominence, the share of the bundle energy
+    at the hull carried by the leading muon.
     """
     with suppress_output():
         from icecube import icetray, dataclasses, simclasses, MuonGun  # noqa: F401  # pyright: ignore[reportMissingImports]
@@ -90,7 +93,7 @@ def bundle_multiplicity(config: MultiplicityConfig) -> type:
     # only muons belong to a bundle
     muons = (dataclasses.I3Particle.MuMinus, dataclasses.I3Particle.MuPlus)
 
-    class BundleMultiplicity(icetray.I3Module):
+    class MuonGunLabels(icetray.I3Module):
         def __init__(self, context):
             icetray.I3Module.__init__(self, context)
             self._surface = None
@@ -101,13 +104,22 @@ def bundle_multiplicity(config: MultiplicityConfig) -> type:
 
         def DAQ(self, frame):
             if self._surface is None:
-                raise RuntimeError("bundle multiplicity needs the geometry, which no frame before the Q frame held.")
+                raise RuntimeError("MuonGun labels need the geometry, which no frame before the Q frame held.")
 
-            count = sum(1 for p in MuonGun.muons_at_surface(frame, self._surface) if p.type in muons)
-            frame[config.key] = icetray.I3Int(count)
+            # energy of each muon as it enters the hull
+            energies = np.array([p.energy for p in MuonGun.muons_at_surface(frame, self._surface) if p.type in muons])
+
+            if config.multiplicity is not None:
+                frame[config.multiplicity] = icetray.I3Int(energies.size)
+
+            # leading muon energy fraction
+            if config.prominence is not None:
+                prominence = energies.max() / energies.sum() if energies.size > 0 else np.nan
+                frame[config.prominence] = dataclasses.I3Double(prominence)
+
             self.PushFrame(frame)
 
-    return BundleMultiplicity
+    return MuonGunLabels
 
 
 def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:

@@ -14,19 +14,14 @@ extractor:
     rebuild_missing_mctree:
       random_service: GSL
 
-    # bundle multiplicity, the number of muons entering the detector hull, counted with MuonGun
-    multiplicity:
-      key: bundle_multiplicity
+    # labels of the muon bundle entering the detector hull, computed with MuonGun
+    muongun:
       padding: 0.0
+      multiplicity: bundle_multiplicity  # number of muons entering the hull
+      prominence: prominence  # share of the bundle energy at the hull carried by the leading muon
 
     # MCLabeler configurations, see mclabeler docs
-    mclabeler:
-      event_properties_name: ~
-      weight_dict_name: I3MCWeightDict
-      corsika_weight_map_name: ~
-      mctree_name: I3MCTree_preMuonProp
-      bg_mctree_name: I3MCTree_preMuonProp
-      mcpe_pid_map_name: ~
+    mclabeler: ~
 
     # ml_suite configurations, see ml_suite docs
     ml_suite:
@@ -64,7 +59,7 @@ extractor:
             kwargs:
               percentiles: [ 0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8 ]
 
-    include: [ features, I3MCWeightDict, coincident_muons, bundle_multiplicity ]
+    include: [ features, I3MCWeightDict, bundle_multiplicity, prominence ]
 
 collector:  # packs whole input files into shards, see the collector docs
   min_bytes: 100_000_000  # a shard closes only after its extracted tables reach this size
@@ -137,20 +132,6 @@ processors:  # ordered list of processors, each can be used any number of times
       to: tmp_label
       cols: __ids__
 
-  - name: select  # coincident muon count written by the mclabeler
-    kwargs:
-      key: coincident_muons
-
-  - name: rename  # the table writer stores the label as 'value', so rename
-    kwargs:
-      map:
-        value: coincident_muons
-
-  - name: copy
-    kwargs:
-      to: tmp_label
-      cols: coincident_muons
-
   - name: select  # bundle multiplicity counted with MuonGun by the extractor
     kwargs:
       key: bundle_multiplicity
@@ -164,6 +145,20 @@ processors:  # ordered list of processors, each can be used any number of times
     kwargs:
       to: tmp_label
       cols: bundle_multiplicity
+
+  - name: select  # leading muon's share of the bundle energy, from the extractor
+    kwargs:
+      key: prominence
+
+  - name: rename
+    kwargs:
+      map:
+        value: prominence
+
+  - name: copy
+    kwargs:
+      to: tmp_label
+      cols: prominence
 
   - name: select
     kwargs:
@@ -182,7 +177,7 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: compress  # compress labels to compressed frame
     kwargs:
       to: compressed
-      cols: [ sim, bundle_multiplicity, coincident_muons ]
+      cols: [ sim, bundle_multiplicity, prominence ]
       out: targets
 
   - name: select
