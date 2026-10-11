@@ -21,6 +21,10 @@ Residuals are taken columnwise across the whole packed row and then scattered
 into per-head totals, so heads of any width cost one pass rather than one pass
 each.
 
+A target that is NaN is left out of both the
+summed residual and the count. A head whose targets were all NaN over the whole
+epoch has no value that epoch, so its running average holds its last value.
+
 The ``resolve`` step exists because not every metric reports the mean itself. A
 transform that does not distribute over addition
 cannot be folded into the accumulator without changing the answer, so it is

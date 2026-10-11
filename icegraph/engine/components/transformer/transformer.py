@@ -54,7 +54,13 @@ class Transformer(Component[C], ABC):
 
         # only check in debug mode, since this forces a sync
         if self._ctx.debug:
-            if not torch.isfinite(out).all():
+            produced = ~torch.isfinite(out)
+
+            # if the output is NaN due to a NaN target, not an error
+            if role == DataRole.TARGETS:
+                produced &= torch.isfinite(t.data)
+
+            if produced.any():
                 raise ValueError(
                     f"Transformer produced non-finite values (inf/nan); "
                     f"check domain of inputs to the {type(self).__name__} mapping "

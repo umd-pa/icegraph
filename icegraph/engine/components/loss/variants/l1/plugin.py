@@ -32,10 +32,17 @@ class L1Loss(LossFunction[L1Config]):
 
     def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         # compute loss for each head and reduce
-        losses = [
-            F.l1_loss(o, t, reduction=self.config.reduction)
-            for o, t in zip(out, target, strict=True)
-        ]
+        losses = []
+        for o, t in zip(out, target, strict=True):
+            if not self.config.ignore_nan:
+                losses.append(F.l1_loss(o, t, reduction=self.config.reduction))
+                continue
+
+            keep = ~t.isnan()
+            loss = F.l1_loss(o[keep], t[keep], reduction="sum")
+
+            # a head with no target in the batch adds nothing, rather than NaN
+            losses.append(loss / keep.sum().clamp(min=1) if self.config.reduction == "mean" else loss)
 
         # stack and return sum
         return torch.stack(losses).sum()

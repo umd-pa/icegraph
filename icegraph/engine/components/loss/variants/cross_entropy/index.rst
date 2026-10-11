@@ -10,15 +10,30 @@ Configuration
 
 Selected as ``name: cross-entropy``.
 
-===================  ====================================================  ===================  =========
-Option               Description                                           Type                 Default
-===================  ====================================================  ===================  =========
-``reduction``        How per-sample losses are reduced.                    ``mean`` | ``sum``   ``mean``
-``weight``           Optional per-class weights for class imbalance.       list[float] | null   ``null``
-``ignore_index``     Target value that is ignored and contributes no       int                  ``-100``
-                     gradient.
-``label_smoothing``  Amount of label smoothing in ``[0, 1]``.              float                ``0.0``
-===================  ====================================================  ===================  =========
+.. list-table::
+   :header-rows: 1
+   :widths: 19 53 19 9
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``reduction``
+     - How per-sample losses are reduced.
+     - ``mean`` | ``sum``
+     - ``mean``
+   * - ``weight``
+     - Optional per-class weights for class imbalance.
+     - list[float] | null
+     - ``null``
+   * - ``ignore_index``
+     - Target value that is ignored and contributes no gradient.
+     - int
+     - ``-100``
+   * - ``label_smoothing``
+     - Amount of label smoothing in ``[0, 1]``.
+     - float
+     - ``0.0``
 
 .. code-block:: yaml
 

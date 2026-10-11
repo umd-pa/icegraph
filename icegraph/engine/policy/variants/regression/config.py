@@ -9,4 +9,4 @@ __all__ = ["RegressionConfig"]
 
 
 class RegressionConfig(BaseModel):
-    pass
+    norm_targets: bool = True  # transform and normalize the targets as the features are

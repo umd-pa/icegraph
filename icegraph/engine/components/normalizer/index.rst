@@ -6,8 +6,9 @@ target tensors into a numerically conditioned range before they reach the model,
 keeping input columns on comparable scales so optimization is well behaved. It alters
 tensor values without changing their
 shape, and it is invertible, so model predictions can be mapped back into the
-original units. By default it normalizes input features only. Targets are
-normalized only when the :doc:`policy <../../policy/index>` requests it.
+original units. Targets are normalized only when the :doc:`policy <../../policy/index>`
+requests it: the regression policy does unless ``norm_targets`` is turned off, and
+classification never does. A NaN target passes through as NaN.
 
 Usage
 -----

@@ -5,8 +5,8 @@ The **transformer** is the :doc:`component <../index>` that applies a per-featur
 value-space transform before normalization, compressing the dynamic range of
 features that span many orders of magnitude (for example mapping a charge into log
 space). Like the :doc:`normalizer <../normalizer/index>` it is a pure, invertible
-value map: it changes values without changing tensor shape, and it normalizes
-targets only when the task requests it.
+value map: it changes values without changing tensor shape, and it transforms
+targets only when the task requests it. A NaN target passes through as NaN.
 
 Usage
 -----

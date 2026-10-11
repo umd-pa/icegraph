@@ -10,18 +10,38 @@ Configuration
 
 Selected as ``name: adam``.
 
-================  ====================================================  ================  ================
-Option            Description                                           Type              Default
-================  ====================================================  ================  ================
-``lr``            Learning rate.                                        float             required
-``betas``         Coefficients for the running gradient and squared-    (float, float)    ``(0.9, 0.999)``
-                  gradient averages.
-``eps``           Term added to the denominator for numerical           float             ``1e-8``
-                  stability.
-``weight_decay``  Decoupled weight-decay coefficient.                   float             ``1e-2``
-``amsgrad``       Whether to use the AMSGrad variant.                   bool              ``False``
-``maximize``      Whether to maximize rather than minimize.             bool              ``False``
-================  ====================================================  ================  ================
+.. list-table::
+   :header-rows: 1
+   :widths: 16 52 16 16
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``lr``
+     - Learning rate.
+     - float
+     - required
+   * - ``betas``
+     - Coefficients for the running gradient and squared-gradient averages.
+     - (float, float)
+     - ``(0.9, 0.999)``
+   * - ``eps``
+     - Term added to the denominator for numerical stability.
+     - float
+     - ``1e-8``
+   * - ``weight_decay``
+     - Decoupled weight-decay coefficient.
+     - float
+     - ``1e-2``
+   * - ``amsgrad``
+     - Whether to use the AMSGrad variant.
+     - bool
+     - ``False``
+   * - ``maximize``
+     - Whether to maximize rather than minimize.
+     - bool
+     - ``False``
 
 .. code-block:: yaml
 

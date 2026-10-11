@@ -61,11 +61,14 @@ class RegressionMetric(Metric[C, RegressionState], ABC):
         ids     = out.ids
         widths  = out.widths
 
+        # a NaN target has no value to score against, so it counts toward neither the total nor the count
+        valid = ~target.data.isnan()                                    # [B, V]
+
         diff = out.data - target.data                                   # [B, V]
-        col  = self.residual(diff).sum(dim=0, dtype=torch.float32)      # [V]
+        col  = self.residual(diff).masked_fill_(~valid, 0).sum(dim=0, dtype=torch.float32)  # [V]
 
         total_batch = col.new_zeros(widths.numel()).scatter_add_(0, ids, col)
-        count_batch = widths * out.data.shape[0]
+        count_batch = widths.new_zeros(widths.numel()).scatter_add_(0, ids, valid.sum(dim=0))
 
         if state is None:
             return total_batch, count_batch
@@ -92,8 +95,11 @@ class RegressionMetric(Metric[C, RegressionState], ABC):
             return ()
 
         total, count = state
-        value = self.resolve(total / count)  # [L]
-        return tuple(v.reshape(1) for v in value.unbind(0))
+        value = self.resolve(total / count.clamp(min=1))  # [L]
+
+        # a head whose targets were all NaN has no value this epoch
+        # triggers one sync per epoch, negligible
+        return tuple(v.reshape(1) if n else None for v, n in zip(value.unbind(0), count.tolist()))
 
     @abstractmethod
     def residual(self, diff: Tensor) -> Tensor:

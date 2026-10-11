@@ -129,5 +129,5 @@ class Multiclass(Policy[MulticlassConfig]):
         return TaskSpec(
             out_offsets=offsets,
             target_dtype=torch.long,
-            norm_targets=False
+            norm_targets=False  # class indices, never normalized
         )

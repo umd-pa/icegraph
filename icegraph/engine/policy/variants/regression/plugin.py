@@ -33,5 +33,5 @@ class Regression(Policy[RegressionConfig]):
         return TaskSpec(
             out_offsets=layout.offsets,
             target_dtype=torch.float32,
-            norm_targets=False
+            norm_targets=self.config.norm_targets
         )

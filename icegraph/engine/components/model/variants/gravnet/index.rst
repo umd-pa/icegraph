@@ -14,16 +14,34 @@ Configuration
 
 Selected as ``name: gravnet``.
 
-========================  ==============================================================  ======  =========
-Option                    Description                                                     Type    Default
-========================  ==============================================================  ======  =========
-``hidden_layers``         Number of GravNet blocks.                                       int     required
-``hidden_channels``       Width of each hidden layer.                                     int     required
-``num_neighbors``         Number of nearest neighbors aggregated per node.                int     required
-``space_dimensions``      Dimensionality of the learned latent space used for neighbor    int     required
-                          search.
-``propagate_dimensions``  Dimensionality of the features propagated between neighbors.    int     required
-========================  ==============================================================  ======  =========
+.. list-table::
+   :header-rows: 1
+   :widths: 24 61 6 9
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``hidden_layers``
+     - Number of GravNet blocks.
+     - int
+     - required
+   * - ``hidden_channels``
+     - Width of each hidden layer.
+     - int
+     - required
+   * - ``num_neighbors``
+     - Number of nearest neighbors aggregated per node.
+     - int
+     - required
+   * - ``space_dimensions``
+     - Dimensionality of the learned latent space used for neighbor search.
+     - int
+     - required
+   * - ``propagate_dimensions``
+     - Dimensionality of the features propagated between neighbors.
+     - int
+     - required
 
 .. code-block:: yaml
 
