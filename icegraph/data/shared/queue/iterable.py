@@ -39,9 +39,14 @@ class IterableQueue(Iterator[O], Generic[O]):
             ctx = ctx if ctx is not None else get_context("spawn")
             self._q = ctx.Queue(maxsize)
             self._remaining = ctx.Value("i", producers)
+            self._size = ctx.Value("i", 0)
         else:
             self._q = Queue(maxsize)
             self._remaining = Value("i", producers)
+            self._size = Value("i", 0)
+
+        # 0 for unbounded
+        self.maxsize = maxsize
 
         # active flag
         self._closed = False
@@ -67,10 +72,7 @@ class IterableQueue(Iterator[O], Generic[O]):
         return self
 
     def __next__(self) -> O:
-        item = self._q.get()
-        if isinstance(item, _Sentinel):
-            raise StopIteration
-        return cast(O, item)
+        return self._take(self._q.get())
 
     def poll(self, timeout: float) -> O | None:
         """
@@ -84,15 +86,30 @@ class IterableQueue(Iterator[O], Generic[O]):
         except Empty:
             return None
 
+        return self._take(item)
+
+    def _take(self, item: O | _Sentinel) -> O:
         if isinstance(item, _Sentinel):
             raise StopIteration
+
+        with self._size.get_lock():
+            self._size.value -= 1
         return cast(O, item)
+
+    def qsize(self) -> int:
+        """Items waiting in the queue, not counting the sentinels that end it. Approximate while it is in use."""
+        # a consumer can take an item before its producer counts it, briefly going below 0
+        return max(0, self._size.value)
 
     def put(self, item: O) -> None:
         with self._lock:
             if self._closed:
                 raise RuntimeError("Cannot put to a closed queue.")
         self._q.put(item)
+
+        # counted once queued, so a producer blocked on a full queue is not
+        with self._size.get_lock():
+            self._size.value += 1
 
     def done(self) -> None:
         """Called once per producer; closes the queue when the last producer finishes."""

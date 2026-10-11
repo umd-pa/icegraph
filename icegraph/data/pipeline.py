@@ -12,15 +12,14 @@ from multiprocessing.process import BaseProcess
 from multiprocessing.synchronize import Event
 
 import yaml
-from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
 from icegraph.common.files import SourceType, Source
 from icegraph.utils import set_proctitle
-from icegraph.ui import console
 
 from .shared.queue import IterableQueue
 from .config import Config
 from .types import StageContext, Envelope
+from .console import Tally, Step, PipelineConsole
 
 from .extractor import Extractor, ExtractorFactory
 from .collector import Collector, CollectorConfig
@@ -40,6 +39,7 @@ def _extract_worker(
         stage: Extractor,
         src: IterableQueue[Path],
         dst: IterableQueue[Envelope],
+        tally: Tally,
         scratch: str,
         stage_count: int,
         error: Event,
@@ -54,7 +54,7 @@ def _extract_worker(
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
-        stage.attach(StageContext(src=src, dst=dst, scratch=Path(scratch), index=0, total=stage_count))
+        stage.attach(StageContext(src=tally.count(src, 0), dst=dst, scratch=Path(scratch), index=0, total=stage_count))
         stage.execute()
 
     except BaseException as e:
@@ -72,6 +72,7 @@ def _collect_worker(
         stage: Collector,
         src: IterableQueue[Envelope],
         dst: IterableQueue[Envelope],
+        tally: Tally,
         scratch: str,
         stage_count: int,
         error: Event,
@@ -86,7 +87,7 @@ def _collect_worker(
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
-        stage.attach(StageContext(src=src, dst=dst, scratch=Path(scratch), index=1, total=stage_count))
+        stage.attach(StageContext(src=tally.count(src, 1), dst=dst, scratch=Path(scratch), index=1, total=stage_count))
         stage.execute()
 
     except BaseException as e:
@@ -104,6 +105,7 @@ def _process_worker(
         stages: list[Processor],
         src: IterableQueue[Envelope],
         dst: IterableQueue[Envelope],
+        tally: Tally,
         scratch: str,
         stage_count: int,
         error: Event,
@@ -149,7 +151,7 @@ def _process_worker(
         threads: list[Thread] = []
         for j, s in enumerate(stages):
             s.attach(StageContext(
-                src=internal[j], dst=internal[j + 1], scratch=Path(scratch), index=2 + j, total=stage_count
+                src=tally.count(internal[j], 2 + j), dst=internal[j + 1], scratch=Path(scratch), index=2 + j, total=stage_count
             ))
             threads.append(Thread(target=_run, args=(s, internal[j + 1]), daemon=True))
 
@@ -178,6 +180,7 @@ def _write_worker(
         stage: Writer,
         src: IterableQueue[Envelope],
         dst: IterableQueue[Envelope],
+        tally: Tally,
         scratch: str,
         stage_count: int,
         error: Event,
@@ -195,7 +198,7 @@ def _write_worker(
     try:
         stage.attach(
             StageContext(
-                src=src,
+                src=tally.count(src, stage_count - 1),
                 dst=dst,
                 scratch=Path(scratch),
                 index=stage_count - 1,
@@ -323,6 +326,9 @@ class Pipeline:
         stage_count = 1 + 1 + len(self._processors) + 1
         scratch = self._scratch.name
 
+        # every stage counts the items passing through it, for the console
+        tally = Tally(stage_count, _MP_CTX)
+
         procs = self._split_procs(nproc, epw_ratio)
 
         # shards are numbered from 0 every run, so ones already there may be overwritten or mixed in
@@ -338,32 +344,41 @@ class Pipeline:
             IterableQueue(mp=True, ctx=_MP_CTX, producers=procs[2], consumers=1,        maxsize=1       )
         ]
 
+        # the console draws each stage with the queue feeding it, in stage order
+        # processors past the first are fed by queues internal to each processor process
+        steps = [
+            Step("extract", self._extractor.name, procs[0], self._channels[0]),
+            Step("collect", self._collector.name, 1, self._channels[1]),
+            *(Step("process", p.name, procs[1], None if j else self._channels[2]) for j, p in enumerate(self._processors)),
+            Step("write", self._writer.name, procs[2], self._channels[3])
+        ]
+
         self._procs = []
         for n in range(procs[0]):
             self._procs.append(_MP_CTX.Process(
                 target=_extract_worker,
-                args=(self._extractor, self._channels[0], self._channels[1], scratch, stage_count, self._error, self._errors, n),
+                args=(self._extractor, self._channels[0], self._channels[1], tally, scratch, stage_count, self._error, self._errors, n),
                 name=f"icegraph-extractor-{n}", daemon=True
             ))
 
         # only ever need one collector, it only does a mapping no actual work
         self._procs.append(_MP_CTX.Process(
             target=_collect_worker,
-            args=(self._collector, self._channels[1], self._channels[2], scratch, stage_count, self._error, self._errors, 0),
+            args=(self._collector, self._channels[1], self._channels[2], tally, scratch, stage_count, self._error, self._errors, 0),
             name="icegraph-collector", daemon=True
         ))
 
         for n in range(procs[1]):
             self._procs.append(_MP_CTX.Process(
                 target=_process_worker,
-                args=(self._processors, self._channels[2], self._channels[3], scratch, stage_count, self._error, self._errors, n),
+                args=(self._processors, self._channels[2], self._channels[3], tally, scratch, stage_count, self._error, self._errors, n),
                 name=f"icegraph-processor-{n}", daemon=True
             ))
 
         for n in range(procs[2]):
             self._procs.append(_MP_CTX.Process(
                 target=_write_worker,
-                args=(self._writer, self._channels[3], self._channels[4], scratch, stage_count, self._error, self._errors, n, self._outdir),
+                args=(self._writer, self._channels[3], self._channels[4], tally, scratch, stage_count, self._error, self._errors, n, self._outdir),
                 name=f"icegraph-writer-{n}", daemon=True
             ))
 
@@ -376,7 +391,8 @@ class Pipeline:
         self._channels[0].done()
 
         # track writer output for progress and metrics
-        metrics = self.track(self._channels[4], self._error)
+        view = PipelineConsole(self._outdir, self._file_count, steps, tally)
+        metrics = self.track(self._channels[4], view, self._error)
 
         if self._error.is_set():
             # drain the error channel before close() tears it down
@@ -417,27 +433,14 @@ class Pipeline:
 
         return messages[0]
 
-    def track(self, out_ch: IterableQueue[Envelope], error: Event | None = None) -> dict[str, float]:
-        progress = Progress(
-            TextColumn("{task.description}"),
-            BarColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TimeElapsedColumn(),
-            TextColumn("| ETA:"),
-            TimeRemainingColumn(),
-            transient=False,
-            expand=True,
-            console=console,
-            refresh_per_second=10,
-            speed_estimate_period=300.0
-        )
-
-        with progress:
-            task = progress.add_task("Processing", total=self._file_count)
-
-            metrics: dict[str, float] = {}
-            shards = 0
-            files = 0
+    def track(
+            self,
+            out_ch: IterableQueue[Envelope],
+            view: PipelineConsole,
+            error: Event | None = None
+    ) -> dict[str, float]:
+        # the view reads the workers' counts as it refreshes, so only written shards need passing on
+        with view:
             timeout = 0.5
             while True:
                 if error is not None and error.is_set():
@@ -455,26 +458,16 @@ class Pipeline:
                 if item is None:
                     if error is not None and error.is_set():
                         break
-                    if files >= self._file_count:
-                        logger.warning("all %d files received but no sentinel arrived", files)
+                    if view.files >= self._file_count:
+                        logger.warning("all %d files received but no sentinel arrived", view.files)
                         break
                     continue
 
                 # data is persisted, drop the scratch arrow files so scratch space stays bounded
                 item.quiver.close()
+                view.add(item)
 
-                # each shard holds every file collected into it
-                count = len(item.get_local_attr("sources"))
-                files += count
-
-                shards += 1
-                # running mean of each metric
-                for key, value in item.metrics.items():
-                    metrics[key] = metrics.get(key, 0.0) + (value - metrics.get(key, 0.0)) / shards
-
-                progress.advance(task, count)
-
-        return metrics
+        return view.metrics
 
     def close(self) -> None:
         """Terminate live workers and clean temporary resources."""

@@ -221,7 +221,7 @@ class ConsoleCallback(TrainerCallback):
             return val
 
         rising = value > ema
-        glyph = "▲" if rising else "▼"  # dont feel like finding the ascii codes for these chars
+        glyph = "\N{BLACK UP-POINTING TRIANGLE}" if rising else "\N{BLACK DOWN-POINTING TRIANGLE}"
 
         # desirability: did the gap to the optimum shrink vs the trend
         if optimum is not None and ema is not None:
@@ -230,7 +230,7 @@ class ConsoleCallback(TrainerCallback):
             diff = 0
 
         if abs(diff) < cls._DEFAULT_EPS:
-            val.append(" –", style="dim")  # flat or jsut noise
+            val.append(" \N{EN DASH}", style="dim")  # flat or jsut noise
             return val
 
         style = "bold green" if diff > 0 else "bold red"
