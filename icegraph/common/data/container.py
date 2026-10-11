@@ -6,7 +6,6 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Self, Callable, Mapping
 
-from torch_geometric.data import Batch
 from jaxtyping import Int, Float
 import torch
 

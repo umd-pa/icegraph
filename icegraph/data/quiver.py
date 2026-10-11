@@ -36,7 +36,7 @@ class QuiverIPC(Mapping[str, pl.DataFrame]):
             raise KeyError(key)
 
         # tables of one key must share a schema, concat raises if they do not
-        return pl.concat([pl.read_ipc(f, memory_map=True) for f in files], how="vertical")
+        return pl.concat([pl.read_ipc(f) for f in files], how="vertical")
 
     def __contains__(self, key: object) -> bool:
         return isinstance(key, str) and bool(self._files(key))

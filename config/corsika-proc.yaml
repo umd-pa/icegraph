@@ -61,8 +61,8 @@ extractor:
     include: [ features, I3CorsikaInfo, PolyplopiaPrimary, bundle_multiplicity, prominence ]
 
 collector:  # packs whole input files into shards, see the collector docs
-  min_bytes: 100_000_000  # a shard closes only after its extracted tables reach this size
-  group_by: parent  # only files from the same directory can share a shard
+  min_bytes: 500_000_000  # a shard closes only after its extracted tables reach this size
+  group_by: all
 
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active

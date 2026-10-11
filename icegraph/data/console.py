@@ -133,7 +133,7 @@ class PipelineConsole:
             (f"{self.shards:,}", "shards"),
             (f"{self.events:,}", "events"),
             (f"{self.files / elapsed:.3g}", "files/s"),
-            (f"{self.events / elapsed:,.0f}", "events/s")
+            (f"{self.events / elapsed:,.3f}", "events/s")
         ]
 
         line = Text()

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 from dataclasses import dataclass
+from functools import cache
 
 import numpy as np
 
@@ -106,8 +107,13 @@ def muongun_labels(config: MuonGunConfig) -> type:
             if self._surface is None:
                 raise RuntimeError("MuonGun labels need the geometry, which no frame before the Q frame held.")
 
-            # energy of each muon as it enters the hull
-            energies = np.array([p.energy for p in MuonGun.muons_at_surface(frame, self._surface) if p.type in muons])
+            # MuonGun only counts muons with an entry in the track list, so a tree without one has no muon to count
+            if "I3MCTree" in frame and "MMCTrackList" not in frame:
+                energies = np.empty(0)
+            else:
+                # energy of each muon as it enters the hull
+                entering = MuonGun.muons_at_surface(frame, self._surface)
+                energies = np.array([p.energy for p in entering if p.type in muons])
 
             if config.multiplicity is not None:
                 frame[config.multiplicity] = icetray.I3Int(energies.size)
@@ -122,15 +128,26 @@ def muongun_labels(config: MuonGunConfig) -> type:
     return MuonGunLabels
 
 
+@cache
+def _propagators() -> Any:
+    """
+    The PROPOSAL/CMC propagators, built once per process and shared by every tray. Building them is slow.
+    """
+    with suppress_output():
+        from icecube.simprod.segments.PropagateMuons import make_standard_propagators  # pyright: ignore[reportMissingImports]
+
+    return make_standard_propagators()
+
+
 def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:
     """
     Add a module rebuilding the propagated tree of each Q frame that does not hold it using PROPOSAL/CMC.
     """
     with suppress_output():
         from icecube import phys_services, sim_services  # noqa: F401  # pyright: ignore[reportMissingImports]
-        from icecube.simprod.segments.PropagateMuons import make_standard_propagators  # pyright: ignore[reportMissingImports]
 
     # the seeds do not matter, the generator is re-initialized from the saved state
+    # the module hands its generator to the shared propagators, so each tray still propagates with its own
     random_service = {
         "SPRNG":    lambda: phys_services.I3SPRNGRandomService(seed=2, nstreams=10000, streamnum=1),
         "GSL":      lambda: phys_services.I3GSLRandomService(42),
@@ -147,7 +164,7 @@ def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:
 
     tray.Add(
         "I3PropagatorModule",
-        PropagatorServices=make_standard_propagators(),
+        PropagatorServices=_propagators(),
         RandomService=random_service,
         RNGStateName=config.rng_state,
         InputMCTreeName=config.raw_mctree,
