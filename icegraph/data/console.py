@@ -102,7 +102,7 @@ class PipelineConsole:
         )
         self._task = self.progress.add_task("Files", total=total)
 
-        self.live = Live(self, console=self.console, refresh_per_second=4)
+        self.live = Live(self, console=self.console, refresh_per_second=4, screen=True)
 
     def __enter__(self) -> Self:
         self.live.start()
