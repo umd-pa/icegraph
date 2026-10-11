@@ -15,7 +15,11 @@ from icegraph.common.data import AttributeDomain
 
 from .quiver import QuiverIPC
 
-__all__ = ["Envelope"]
+__all__ = ["Envelope", "IDS"]
+
+
+# column selection resolving to the event ids the extractor set
+IDS: str = "__ids__"
 
 
 def nested_dict():
@@ -28,6 +32,10 @@ class Envelope:
     # raw data
     quiver:     QuiverIPC
 
+    # ids of every event the envelope holds, one row each, set by the extractor
+    # its columns are the event ids processors key on, see IDS
+    events:     pl.DataFrame                = field(default_factory=pl.DataFrame)
+
     # tables and attrs
     tmp:        dict[str, pl.DataFrame]     = field(default_factory=dict)
     main:       pl.DataFrame                = field(default_factory=pl.DataFrame)
@@ -38,6 +46,17 @@ class Envelope:
     metrics:    dict[str, float]            = field(default_factory=dict)
     active:     str | None                  = None
 
+    # number of the shard the envelope is written as, set by the collector
+    shard:      int | None                  = None
+
+    @property
+    def ids(self) -> list[str]:
+        """The columns identifying an event."""
+        if not self.events.columns:
+            raise RuntimeError("The envelope has no event ids, the extractor sets them.")
+
+        return self.events.columns
+
     def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str] | None = None) -> list[str]:
         _seen = set() if _seen is None else _seen
 
@@ -47,6 +66,9 @@ class Envelope:
 
         # polars column names are always strings, normalize numeric refs
         value = str(value)
+
+        if value == IDS:
+            return self.ids
 
         # check for cyclic refs
         if value in _seen:

@@ -7,7 +7,7 @@ generated with, and extracts the per-event quantities needed to weight it, using
 
 It emits the *inputs* to a weight calculation rather than a weight. Baking a number
 in during processing would fix the mixture at processing time. Instead this processor
-stores the per-event generation quantities as columns and the file's generation info under
+stores the per-event generation quantities as columns and the shard's generation info under
 ``attrs.LOCAL.simulation``:
 
 .. code-block:: yaml
@@ -16,15 +16,20 @@ stores the per-event generation quantities as columns and the file's generation 
      sim_code: 173502938116405
      type: corsika
      column: sim_code
+     nfiles: 14
      corsika_info: ...
 
-On load, the surface of each set is built by simweights over the files actually
-read. No file depends on another, so any can be dropped without reprocessing the rest. A file
-without the attribute is inferred to be real data and thus has no weights.
+A shard is a :doc:`collected <../../../collector/index>` block of input files.
+``nfiles`` counts every one of them, including files without events. On load, the surface
+of each set is built by simweights over the shards actually read, as ``nfiles`` summed over
+them. No shard depends on another, so any can be dropped without reprocessing the rest. A
+shard without the attribute is inferred to be real data and thus has no weights.
 
 The generation info is stored like so:
 
-- ``corsika_info``: the ``I3CorsikaInfo`` S-frames. CORSIKA files are required to carry them.
+- ``corsika_info``: the ``I3CorsikaInfo`` S-frames of every file of the shard. Every CORSIKA
+  file is required to carry them, including files without events. A file without them
+  raises.
 - ``weight_dict``: one ``I3MCWeightDict`` row per neutrino type.
 
 The sim code, carried in the generation column
@@ -33,7 +38,7 @@ automatically from the generation info or specified manually:
 
 - **CORSIKA**: one code for all files.
 - **NuGen**: a hash of the generation info shared by every type a file threw, and of the
-  neutrino flavor. A file is assumed to contain only one flavor and a file holding
+  neutrino flavor. A shard is assumed to contain only one flavor and a shard holding
   several is refused unless ``sim_code`` is configured manually.
 
 Configuration
@@ -56,7 +61,7 @@ Selected as ``name: i3-simulation``.
    * - ``ids``
      - ID columns keying the output frame, read from the event table.
      - str | int | list
-     - required
+     - the event ids
    * - ``to``
      - Working frame the extracted columns are written to.
      - str
@@ -84,7 +89,6 @@ Selected as ``name: i3-simulation``.
    - name: i3-simulation
      kwargs:
        type: corsika
-       ids: event_ids
 
 The processor reads from the extracted frames directly, so it does not need an
 active frame.
@@ -92,6 +96,4 @@ active frame.
 .. note::
 
    The columns this processor writes are joined onto the output on the id columns.
-   An event holding features but no row in the event table joins to null. If
-   the tables can be absent for whole files, prefer letting the extractor skip
-   those files.
+   An event holding features but no row in the event table joins to null.

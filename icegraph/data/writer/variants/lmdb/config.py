@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from ...config import WriterConfig
 
 __all__ = ["LMDBWriterConfig"]
 
 
-class LMDBWriterConfig(BaseModel):
+class LMDBWriterConfig(WriterConfig):
     pass

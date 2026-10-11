@@ -17,14 +17,22 @@ Weighting
 
 The :doc:`i3-simulation <../../../../../../data/processor/variants/simulation/index>`
 processor does not store a weight. It stores the per-event generation quantities
-as a column and the generating file's simulation metadata as a local attribute, so the
+as a column and the shard's simulation metadata as a local attribute, so the
 mixture is chosen when the data is read rather than when it is written.
 
-On load this decoder builds the surface of each simulation set with simweights,
-over the set's loaded files as one with ``nfiles`` counting them, sums the sets
-of each type, weights the generation columns of each block against them, and
-returns the final weights, one per record. Shards without a simulation are inferred to be real
-data and have no weights.
+On load this decoder:
+
+- Builds the surface of each simulation set with simweights, treating the set's
+  loaded shards as one.
+
+  - Counts the input files each shard records under ``nfiles``, including files
+    without events.
+
+- Sums the surfaces of the sets of each type.
+- Weights each block's generation columns against those sums.
+- Returns the final weights, one per record.
+
+Shards without a simulation are inferred to be real data and get no weights.
 
 The weights role reads the generation column through the decode service's
 ``keymap.weights``, which defaults to ``generation``.

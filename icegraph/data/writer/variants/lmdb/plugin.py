@@ -48,8 +48,7 @@ class LMDB(Writer[LMDBWriterConfig]):
 
     def _process(self, item: Envelope) -> Envelope | None:
         # build output file path
-        origin = Path(item.get_local_attr("origin"))
-        path = self.outdir / origin.with_suffix(".lmdb").name
+        path = self._path(item)
 
         # ensure no stale keys
         if path.exists():

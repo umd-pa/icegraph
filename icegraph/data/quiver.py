@@ -16,32 +16,54 @@ __all__ = ["QuiverIPC", "QuiverSubset", "QuiverArrays"]
 
 class QuiverIPC(Mapping[str, pl.DataFrame]):
     """
-    A directory of Arrow IPC files ("arrows"), one table per key.
+    Directories ("roots") of Arrow IPC files ("arrows"), one table per key in each.
 
-    Tables are written uncompressed so reads can be zero-copy memory maps.
-    Nested keys (e.g. ``"a/b"``) map to subdirectories.
+    A key held by several roots reads as their tables stacked in root order, so the
+    quivers of several files merge without copying. Tables are written uncompressed
+    so reads can be zero-copy memory maps. Nested keys (e.g. ``"a/b"``) map to
+    subdirectories.
     """
 
-    def __init__(self, root: str | Path) -> None:
-        self.root = Path(root)
+    def __init__(self, *roots: str | Path) -> None:
+        self.roots = [Path(root) for root in roots]
 
-    def path(self, key: str) -> Path:
-        return self.root / f"{key}.arrow"
+    def _files(self, key: str) -> list[Path]:
+        return [f for root in self.roots if (f := root / f"{key}.arrow").exists()]
 
     def __getitem__(self, key: str) -> pl.DataFrame:
-        f = self.path(key)
-        if not f.exists():
+        files = self._files(key)
+        if not files:
             raise KeyError(key)
-        return pl.read_ipc(f, memory_map=True)
+
+        # tables of one key must share a schema, concat raises if they do not
+        return pl.concat([pl.read_ipc(f, memory_map=True) for f in files], how="vertical")
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and bool(self._files(key))
 
     def __iter__(self) -> Iterator[str]:
-        yield from sorted(
-            p.relative_to(self.root).with_suffix("").as_posix()
-            for p in self.root.rglob("*.arrow")
-        )
+        yield from sorted({
+            p.relative_to(root).with_suffix("").as_posix()
+            for root in self.roots for p in root.rglob("*.arrow")
+        })
 
     def __len__(self) -> int:
-        return sum(1 for _ in self.root.rglob("*.arrow"))
+        return sum(1 for _ in self)
+
+    @property
+    def parts(self) -> list[QuiverIPC]:
+        """One quiver per root, in order."""
+        return [QuiverIPC(root) for root in self.roots]
+
+    @property
+    def nbytes(self) -> int:
+        """Size of every table on disk."""
+        return sum(p.stat().st_size for root in self.roots for p in root.rglob("*.arrow"))
+
+    @classmethod
+    def merge(cls, quivers: Iterable[QuiverIPC]) -> QuiverIPC:
+        """One quiver over the roots of each, in order."""
+        return cls(*(root for quiver in quivers for root in quiver.roots))
 
     def arrays(self) -> QuiverArrays:
         """Lazy column-dict view (tables as ``dict[str, np.ndarray]``)"""
@@ -53,7 +75,10 @@ class QuiverIPC(Mapping[str, pl.DataFrame]):
 
     @classmethod
     def from_data(cls, data: Mapping[str, pl.DataFrame], root: str | Path) -> QuiverIPC:
+        # a file without events may have no tables
+        # its root still needs to exist
         root = Path(root)
+        root.mkdir(parents=True, exist_ok=True)
 
         # write each table
         for key, df in data.items():
@@ -64,7 +89,8 @@ class QuiverIPC(Mapping[str, pl.DataFrame]):
         return cls(root)
 
     def close(self) -> None:
-        shutil.rmtree(self.root, ignore_errors=True)
+        for root in self.roots:
+            shutil.rmtree(root, ignore_errors=True)
 
 
 class QuiverSubset(Mapping[str, pl.DataFrame]):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Literal
+from collections import defaultdict
 
 import numpy as np
 
@@ -50,6 +51,7 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
     # sim code keyed to its type and the table its generation was stored as
     codes: dict[int, str] = {}
     tables: dict[int, list[dict[str, np.ndarray]]] = {}
+    files: defaultdict[int, int] = defaultdict(int)
     columns: set[str] = set()
     real = 0
 
@@ -95,6 +97,9 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
         # store lists of all gen tables keyed by sim_code
         tables.setdefault(code, []).append(generation_table)
 
+        # record how many source files make up the shard
+        files[code] += sim_attrs.nfiles
+
     # if codes is empty, no shards were simulation and can safely return None
     if not codes:
         return None
@@ -122,7 +127,7 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
         # construct based on sim source
         match sim:
             case "nugen":
-                surface = simweights.NuGenWeighter({"I3MCWeightDict": merged}, nfiles=len(tables[code])).surface
+                surface = simweights.NuGenWeighter({"I3MCWeightDict": merged}, nfiles=files[code]).surface
             case "corsika":
                 surface = simweights.CorsikaWeighter({"I3CorsikaInfo": merged, "PolyplopiaPrimary": _NO_EVENTS}).surface
             case _:
@@ -132,7 +137,7 @@ def build_surfaces(attrs: Callable[[], Iterator[Attributes]]) -> SurfaceSet | No
 
         logger.info(
             "[StandardI3Decoder] Built the generation surface for %s (sim code %d) over %d loaded file(s).",
-            sim, code, len(tables[code])
+            sim, code, files[code]
         )
 
     return SurfaceSet(

@@ -31,7 +31,7 @@ _COLUMN: str = "sim_code"
 # nugen generation shared by every type a file threw, so the same whichever it kept
 _NUGEN_SETTINGS: tuple[str, ...] = (
     "NEvents", "MinEnergyLog", "MaxEnergyLog", "PowerLawIndex", "MinZenith", "MaxZenith",
-    "InjectionSurfaceR", "CylinderHeight", "CylinderRadius",
+    "InjectionSurfaceR", "CylinderHeight", "CylinderRadius"
 )
 
 # the generation columns are pinned to these dtypes rather than kept as the tables
@@ -42,7 +42,7 @@ _NUGEN_SETTINGS: tuple[str, ...] = (
 # carries an int32 pdgid and a float weight, but they must have the same dtype
 _GEN_DTYPE_DEFAULT: type[pl.DataType] = pl.Float64
 _GEN_DTYPES: dict[str, type[pl.DataType]] = {
-    "pdgid": pl.Int32,
+    "pdgid": pl.Int32
 }
 
 
@@ -74,7 +74,7 @@ class I3Simulation(Processor[I3SimulationConfig]):
             # if more than one flavor, raise and request manual sim_code
             if len(flavors) != 1:
                 raise RuntimeError(
-                    f"{type(self).name}: the file holds neutrinos of flavors {flavors.tolist()}, so "
+                    f"{type(self).name}: the block holds neutrinos of flavors {flavors.tolist()}, so "
                     f"its set cannot be told from its generation. Set 'sim_code' to name it."
                 )
 
@@ -95,34 +95,65 @@ class I3Simulation(Processor[I3SimulationConfig]):
         # truncate to fit as float64
         return int(CBORBlake2B()(settings)[:2 * _CODE_BYTES], 16)
 
+    def _check_nugen_set(self, events: pl.DataFrame) -> None:
+        """Raise unless every file of the block threw the same generation."""
+        # only one row per type is stored, so the files of a block must agree on these
+        varying = [
+            name for name in _NUGEN_SETTINGS if name in events.columns and events.get_column(name).n_unique() > 1
+        ]
+
+        # the share of each particle type must be the same in every file of a set
+        if "TypeWeight" in events.columns:
+            shares = events.group_by("PrimaryNeutrinoType").agg(pl.col("TypeWeight").n_unique())
+            if (shares.get_column("TypeWeight") > 1).any():
+                varying.append("TypeWeight")
+
+        if varying:
+            raise RuntimeError(
+                f"{type(self).name}: the files of a block differ in {varying}, so they were thrown by different "
+                f"sets. Keep each set in its own directory and collect with 'group_by: parent', or process seperately."
+            )
+
     def _process(self, item: Envelope) -> Envelope | None:
         quiver, config = item.quiver, self.config
 
-        events: pl.DataFrame
+        # the collector records every input file of the block, with events or without
+        sources = item.get_local_attr("sources")
+        if not sources:
+            raise RuntimeError(f"{type(self).name}: no source files found in the envelope.")
+
         # simweights reads the per event quantities off the tables under its own names
+        weight_dict: pl.DataFrame | None = None
         match config.simulation:
             case "nugen":
                 # load eventwise generation info and nugen sim info table
                 # (nugen sim info is duplicated per event alongside generation info for some reason)
-                events = quiver[config.weight_dict]
+                weight_dict = quiver[config.weight_dict]
+                self._check_nugen_set(weight_dict)
 
                 # construct the weighter
-                weighter = simweights.NuGenWeighter({"I3MCWeightDict": _polars_to_numpy(events)}, nfiles=1)
+                weighter = simweights.NuGenWeighter({"I3MCWeightDict": _polars_to_numpy(weight_dict)}, nfiles=1)
 
                 # stash generation info
+                # store one row per type
                 generation = {
                     "weight_dict": _polars_to_numpy(
-                        events.unique(subset="PrimaryNeutrinoType", keep="first", maintain_order=True))
+                        weight_dict.unique(subset="PrimaryNeutrinoType", keep="first", maintain_order=True))
                 }
 
             case "corsika":
+                # ensure every file contains an S frame (required)
+                missing = [source for source, part in zip(sources, quiver.parts) if config.corsika_info not in part]
+                if missing:
+                    raise RuntimeError(f"{type(self).name}: the files {missing} hold no '{config.corsika_info}'.")
+
                 # load eventwise generation info and corsika sim info tables
-                events = quiver[config.primary]
+                weight_dict = quiver[config.primary]
                 info = _polars_to_numpy(quiver[config.corsika_info])
 
                 # construct the weighter
                 weighter = simweights.CorsikaWeighter({"I3CorsikaInfo": info, "PolyplopiaPrimary": _polars_to_numpy(
-                    events)})
+                    weight_dict)})
 
                 # stash generation info
                 generation = {"corsika_info": info}
@@ -133,8 +164,11 @@ class I3Simulation(Processor[I3SimulationConfig]):
                     f"{type(self).name}: unknown simulation {config.simulation!r}"
                 )
 
+        # weight_dict is assigned by now
+        assert weight_dict is not None
+
         # compute the sim code if not given
-        code = self._sim_code(events) if config.sim_code is None else config.sim_code
+        code = self._sim_code(weight_dict) if config.sim_code is None else config.sim_code
 
         # resolve all cols, each pinned to the dtype every simulation type must agree on
         columns = [
@@ -144,7 +178,7 @@ class I3Simulation(Processor[I3SimulationConfig]):
         ]
 
         # the weight columns are read off the event table, so its ids key them
-        ids = events.select(item.resolve_cols(config.ids))
+        ids = weight_dict.select(item.resolve_cols(config.ids))
         if ids.is_duplicated().any():
             raise RuntimeError(
                 f"{type(self).name}: the ids {ids.columns} repeat in the event table, so the weight "
@@ -159,6 +193,9 @@ class I3Simulation(Processor[I3SimulationConfig]):
             "sim_code": code,
             "type": config.simulation,
             "column": _COLUMN,
+
+            # files the generation was thrown over, counting those without events
+            "nfiles": len(sources),
             **generation
         })
 

@@ -43,6 +43,10 @@ extractor:
 
     include: [ features ]
 
+collector:  # packs whole input files into shards, see the collector docs
+  min_bytes: 100_000_000  # a shard closes only after its extracted tables reach this size
+  group_by: parent  # only files from the same directory can share a shard
+
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active
     kwargs:
@@ -51,7 +55,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: alias
     kwargs:
       map:
-        event_ids: [ Run, Event, SubEvent, SubEventStream ]
         dom_pos: [ dom_x, dom_y, dom_z ]
         feature_cols:
           - total_charge
@@ -72,7 +75,7 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: pivot
     kwargs:
-      index: [ event_ids, string, om, pmt ]
+      index: [ __ids__, string, om, pmt ]  # __ids__ is the event ids the extractor set
       col: vector_index
       values: item
 
@@ -91,7 +94,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: compress  # compress the main feature table
     kwargs:
       to: compressed
-      by: event_ids
       cols: [ feature_cols, dom_pos ]
       out: features
       dtype: float64
@@ -102,7 +104,6 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: commit
     kwargs:
-      ids: event_ids
       cols: [ features ]
 
 writer:

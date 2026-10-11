@@ -24,7 +24,7 @@ Selected as ``name: copy``.
    * - ``by``
      - Columns to join on.
      - column(s)
-     - required
+     - the event ids
    * - ``cols``
      - Columns to copy across.
      - column(s)
@@ -35,5 +35,4 @@ Selected as ``name: copy``.
    - name: copy
      kwargs:
        to: truth
-       by: event_id
        cols: [ energy ]

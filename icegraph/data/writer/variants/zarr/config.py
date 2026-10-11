@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from ...config import WriterConfig
 
 __all__ = ["ZarrWriterConfig"]
 
 
-class ZarrWriterConfig(BaseModel):
+class ZarrWriterConfig(WriterConfig):
     chunk_size: int = 8

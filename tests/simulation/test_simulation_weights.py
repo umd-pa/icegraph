@@ -16,12 +16,14 @@ import pytest
 
 simweights = pytest.importorskip("simweights")
 
+from icegraph.data.collector import Collector, CollectorConfig
 from icegraph.data.envelope import Envelope
 from icegraph.data.quiver import QuiverIPC
 from icegraph.data.processor import ProcessorFactory
 from icegraph.data.types import StageContext
 from icegraph.data.writer.factory import WriterFactory
 from icegraph.engine.services import ServiceManager
+from icegraph.engine.status import Status, StatusConfig
 from icegraph.engine.services.decode.records.variants.standard.surface import build_surfaces
 
 
@@ -217,47 +219,69 @@ OVERLAPPING: dict[str, Callable[[np.random.Generator], list[list[Tables]]]] = {
 
 ### ICEGRAPH
 
-def _write_file(tables: Tables, *, simulation: dict[str, Any] | None, scratch: Path, outdir: Path, origin: str) -> None:
-    """Process and write one file with the stages the processing configs run, the simulation ones if given."""
-    env = Envelope(quiver=QuiverIPC.from_data({key: pl.DataFrame(table) for key, table in tables.items()}, scratch))
-    env.state["alias"]["event_ids"] = ID_COLS
+def _envelope(tables: Tables, scratch: Path, origin: str) -> Envelope:
+    """The envelope the extractor emits for one file, which holds no events without features."""
+    frames = {key: pl.DataFrame(table) for key, table in tables.items()}
+    events = (
+        frames["features"].select(ID_COLS).unique(maintain_order=True)
+        if "features" in frames else pl.DataFrame(schema=ID_COLS)
+    )
+
+    env = Envelope(quiver=QuiverIPC.from_data(frames, scratch), events=events)
     env.set_local_attr("origin", origin)
 
+    return env
+
+
+def _write_block(env: Envelope, *, simulation: dict[str, Any] | None, outdir: Path) -> None:
+    """Process and write one collected block with the stages the processing configs run, the simulation ones if given."""
     stages = [
         ("select", {"key": "features"}),
-        ("compress", {"to": "compressed", "by": "event_ids", "cols": ["charge"], "out": "features",
-                      "dtype": "float32", "override_dtypes": True}),
+        ("compress", {"to": "compressed", "cols": ["charge"], "out": "features", "dtype": "float32",
+                      "override_dtypes": True}),
     ]
     if simulation is not None:
         stages += [
-            ("i3-simulation", {**simulation, "ids": "event_ids"}),
+            ("i3-simulation", simulation),
             ("select", {"key": "generation"}),
-            ("compress", {"to": "compressed", "by": "event_ids", "cols": "__all__", "out": KEY, "dtype": "float64"}),
+            ("compress", {"to": "compressed", "cols": "__all__", "out": KEY, "dtype": "float64"}),
         ]
     stages += [
         ("select", {"key": "compressed"}),
-        ("commit", {"ids": "event_ids", "cols": ["features"] if simulation is None else ["features", KEY]}),
+        ("commit", {"cols": ["features"] if simulation is None else ["features", KEY]}),
     ]
 
     for name, kwargs in stages:
-        env = ProcessorFactory.create(name, **kwargs)._process(env)
-        assert env is not None
+        out = ProcessorFactory.create(name, **kwargs)._process(env)
+        assert out is not None
+        env = out
 
     # the last stage devivifies before it runs
     env.devivify()
 
     writer = WriterFactory.create("zarr", chunk_size=8)
-    writer.attach(StageContext(src=(), dst=None, scratch=scratch, index=0, total=1, outdir=outdir))
+    writer.attach(StageContext(src=(), dst=None, scratch=outdir, index=0, total=1, outdir=outdir))
     writer._process(env)
 
 
-def _write_dataset(files: list[Tables], simulation: str, root: Path, *, sim_code: int | None = None) -> Path:
+def _write_dataset(
+        files: list[Tables], simulation: str | None, root: Path, *, sim_code: int | None = None, min_bytes: int = 0
+) -> Path:
+    """Write the files as the pipeline does, collected into shards of at least min_bytes, one file each for 0."""
     outdir = root / "out"
     outdir.mkdir(parents=True)
 
-    config = {"type": simulation} if sim_code is None else {"type": simulation, "sim_code": sim_code}
-    for i, tables in enumerate(files):
-        _write_file(tables, simulation=config, scratch=root / f"scratch{i}", outdir=outdir, origin=f"file{i}.i3.zst")
+    envelopes = [
+        _envelope(tables, root / "scratch" / str(i), str(root / "in" / f"file{i}.i3.zst"))
+        for i, tables in enumerate(files)
+    ]
+
+    config = None
+    if simulation is not None:
+        config = {"type": simulation} if sim_code is None else {"type": simulation, "sim_code": sim_code}
+
+    for block in Collector(CollectorConfig(min_bytes=min_bytes)).collect(envelopes):
+        _write_block(block, simulation=config, outdir=outdir)
 
     return outdir
 
@@ -271,7 +295,11 @@ def _services(sources: list[Path], simulations: list[str]) -> Iterator[ServiceMa
             "attrs": {"name": "standard", "kwargs": {}},
             "records": {"name": "standard", "kwargs": {"flux": {s: _FLUX_CONFIGS[s] for s in simulations}}},
         },
-    }, debug=False)
+    }, debug=False, status=Status(StatusConfig()))
+
+    # as the engine sets them up before a run
+    services.setup()
+    services.require("decode").setup_decoders()
 
     try:
         yield services
@@ -302,10 +330,14 @@ def _icegraph_weights(services: ServiceManager, blocks: int = 4) -> pl.DataFrame
 ### SIMWEIGHTS
 
 def _simweights(files: list[Tables], simulation: str) -> Any:
-    """simweights over one dataset held as one file."""
+    """simweights over one dataset held as one file, counting files without events."""
+    keys = {key for tables in files for key in tables} - {"features"}
     merged = {
-        key: {col: np.concatenate([tables[key][col] for tables in files]) for col in files[0][key]}
-        for key in files[0] if key != "features"
+        key: {
+            col: np.concatenate([tables[key][col] for tables in files if key in tables])
+            for col in next(tables[key] for tables in files if key in tables)
+        }
+        for key in keys
     }
 
     # S-frames count the files themselves, and simweights reads them only without nfiles
@@ -322,7 +354,7 @@ def _simweights_weights(datasets: list[list[Tables]], simulation: str, flux: Any
     # an event outside the surface weighs 0 on both sides, which would compare equal
     assert (weights > 0).all()
 
-    events = [tables[_EVENT_TABLE[simulation]] for files in datasets for tables in files]
+    events = [tables[_EVENT_TABLE[simulation]] for files in datasets for tables in files if _EVENT_TABLE[simulation] in tables]
     ids = {name: np.concatenate([table[name] for table in events]) for name in ID_COLS}
 
     # the engine sees float32
@@ -374,13 +406,19 @@ class Written(NamedTuple):
     outdir:     Path
 
 
-@pytest.fixture(scope="module", params=list(DATASETS))
+# a shard per file, and every file in one shard
+_COLLECTED: dict[str, int] = {"per-file": 0, "one-shard": 10 ** 9}
+
+
+@pytest.fixture(scope="module", params=[(d, c) for d in DATASETS for c in _COLLECTED], ids="-".join)
 def written(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Written:
     """A dataset processed and written by icegraph."""
-    simulation, make = DATASETS[request.param]
+    dataset, collected = request.param
+    simulation, make = DATASETS[dataset]
     files = make(np.random.default_rng(0))
 
-    return Written(simulation, files, _write_dataset(files, simulation, tmp_path_factory.mktemp(request.param)))
+    root = tmp_path_factory.mktemp(f"{dataset}-{collected}")
+    return Written(simulation, files, _write_dataset(files, simulation, root, min_bytes=_COLLECTED[collected]))
 
 
 @pytest.fixture
@@ -399,7 +437,7 @@ def test_weights_match_simweights_over_the_whole_dataset(written: Written, nuflu
         _assert_same_weights(_icegraph_weights(services), expected)
 
 
-def test_rebuilt_surface_matches_simweights_over_the_whole_dataset(written: Written) -> None:
+def test_rebuilt_surface_matches_simweights_over_the_whole_dataset(written: Written, nuflux: _StubNuFlux) -> None:
     """Where the weights disagree, the surface says which species and why."""
     with _services([written.outdir], [written.simulation]) as services:
         surfaces = build_surfaces(services.require("record").attrs)
@@ -415,12 +453,46 @@ def test_weights_match_simweights_after_dropping_a_file(dataset: str, tmp_path: 
     outdir = _write_dataset(files, simulation, tmp_path)
 
     # dropped after processing, leaving the file that kept fewer types with one that kept all
-    shutil.rmtree(outdir / "file0.i3.zarr")
+    shutil.rmtree(outdir / "shard.000000.zarr")
 
     expected = _simweights_weights([files[1:]], simulation, _flux(simulation, nuflux))
 
     with _services([outdir], [simulation]) as services:
         _assert_same_weights(_icegraph_weights(services), expected)
+
+
+@pytest.mark.parametrize("position", [0, 2, 3], ids=["first", "between", "last"])
+@pytest.mark.parametrize("dataset", list(DATASETS))
+def test_files_without_events_still_count(dataset: str, position: int, tmp_path: Path, nuflux: _StubNuFlux) -> None:
+    simulation, make = DATASETS[dataset]
+    files = make(np.random.default_rng(0))
+
+    # emptied by the selection, or never holding events, it keeps only its S-frames
+    files.insert(position, {key: table for key, table in files[0].items() if key == "I3CorsikaInfo"})
+
+    # each file with events its own shard, the one without joins one of them
+    outdir = _write_dataset(files, simulation, tmp_path)
+    expected = _simweights_weights([files], simulation, _flux(simulation, nuflux))
+
+    with _services([outdir], [simulation]) as services:
+        assert len(services.require("record")) == expected.height
+        _assert_same_weights(_icegraph_weights(services), expected)
+
+
+def test_a_corsika_file_without_s_frames_is_refused(tmp_path: Path) -> None:
+    files = _corsika_dataset(np.random.default_rng(0))
+    files.append({})
+
+    with pytest.raises(RuntimeError, match="hold no 'I3CorsikaInfo'"):
+        _write_dataset(files, "corsika", tmp_path)
+
+
+def test_a_shard_of_several_nugen_sets_is_refused(tmp_path: Path) -> None:
+    files = [tables for files in OVERLAPPING["nugen"](np.random.default_rng(5)) for tables in files]
+
+    # one set per directory keeps them apart, here they share a shard
+    with pytest.raises(RuntimeError, match=r"differ in \['MinEnergyLog', 'MaxEnergyLog'\]"):
+        _write_dataset(files, "nugen", tmp_path, min_bytes=10 ** 9)
 
 
 def test_mixed_datasets_match_simweights_per_dataset(tmp_path: Path, nuflux: _StubNuFlux) -> None:
@@ -484,16 +556,13 @@ def test_sets_with_overlapping_energy_are_weighted_together(simulation: str, tmp
 def test_nugen_file_of_several_flavours_needs_a_sim_code(tmp_path: Path) -> None:
     tables = _nugen_file(np.random.default_rng(4), 1, 50, spatial="cylinder", types=(14, 12))
 
-    with pytest.raises(RuntimeError, match="Set 'sim_code'"):
-        _write_file(tables, simulation={"type": "nugen"}, scratch=tmp_path / "scratch", outdir=tmp_path, origin="file0.i3.zst")
+    with pytest.raises(RuntimeError, match="set cannot be told from its generation"):
+        _write_dataset([tables], "nugen", tmp_path)
 
 
 def test_real_data_has_no_weights(tmp_path: Path) -> None:
-    outdir = tmp_path / "out"
-    outdir.mkdir()
-
     features = {"features": _features(_ids(1, 50), np.random.default_rng(2))}
-    _write_file(features, simulation=None, scratch=tmp_path / "scratch", outdir=outdir, origin="file0.i3.zst")
+    outdir = _write_dataset([features], None, tmp_path)
 
     with _services([outdir], []) as services:
         record = services.require("record")

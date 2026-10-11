@@ -20,6 +20,10 @@ Selected as ``name: zarr``.
      - Approximate writer chunk size in MB.
      - int
      - 8
+   * - ``prefix``
+     - Prefix of every shard name, see :doc:`Writer <../../index>`.
+     - str
+     - ``null``
 
 .. code-block:: yaml
 

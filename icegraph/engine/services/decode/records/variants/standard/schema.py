@@ -13,13 +13,16 @@ __all__ = ["SimulationAttrs"]
 
 
 class SimulationAttrs(BaseModel):
-    """The simulation of one file, as the i3-simulation processor writes it."""
+    """The simulation of one shard, as the i3-simulation processor writes it."""
 
     sim_code:       Scalar[int]
     simulation:     Scalar[Literal["nugen", "corsika"]] = Field(alias="type")
 
     # generation column the sim code of each record is written to
     column:         Scalar[str]
+
+    # files the generation was thrown over, counting those without events
+    nfiles:         Scalar[int]                 = Field(ge=1)
 
     # the generation, as the columns of the one table it was read from
     weight_dict:    dict[str, Array] | None = None

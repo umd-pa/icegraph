@@ -21,7 +21,7 @@ Selected as ``name: commit``.
    * - ``ids``
      - Columns forming the unique key the committed rows are aligned on.
      - column(s)
-     - required
+     - the event ids
    * - ``cols``
      - Columns to write into the output.
      - column(s)
@@ -31,5 +31,4 @@ Selected as ``name: commit``.
 
    - name: commit
      kwargs:
-       ids: event_id
        cols: [ features, edge_index, edge_attr ]

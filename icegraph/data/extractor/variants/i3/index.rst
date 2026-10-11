@@ -56,13 +56,20 @@ Selected as ``name: i3``.
      - mapping
      - ``null``
    * - ``skip_missing``
-     - Skip files that contain no usable frames instead of failing.
+     - Skip a file that holds events but lacks one of the ``include`` keys, instead of
+       failing. A skipped file is not counted toward its set, see `Files without events`_.
      - bool
      - ``false``
    * - ``suppress_icetray_output``
      - Suppress any output from IceTray.
      - bool
      - ``true``
+   * - ``ids``
+     - Columns identifying an event. They must be index columns the table writer books
+       with every table. Processors key on them by default, see :doc:`Processor
+       <../../../processor/index>`.
+     - list[str]
+     - ``[Run, Event, SubEvent, SubEventStream]``
 
 .. code-block:: yaml
 
@@ -73,6 +80,20 @@ Selected as ``name: i3``.
        include: [ charge, time ]
        ml_suite: {}
        skip_missing: true
+
+
+Files without events
+--------------------
+
+``I3EventHeader`` is always booked, so the ids of every event written are read off it
+into the envelope.
+
+A file that holds no events, before or after the `Selection`_, is still passed downstream
+with whatever tables it does hold. The
+:doc:`collector <../../../collector/index>` adds it to a shard so it still counts toward its
+set for file-count sensitive operations, like weighting.
+
+``skip_missing`` only applies to files that actually hold events.
 
 
 MC labels
@@ -114,10 +135,9 @@ Brief example on using the MCLabeler during processing:
            value: classification
 
      # copy to the main truth table under construction
-     - name: copy  # left joined, so only events that kept features are labeled
+     - name: copy  # left joined on the event ids, so only events that kept features are labeled
        kwargs:
          to: my_truth_table  # whatever table truth is being constructed in
-         by: event_ids
          cols: classification
 
      # ... further processing as usual ...
@@ -151,18 +171,23 @@ Selection
    * - ``mctree``
      - The tree the primaries are counted in.
      - str
-     - ``I3MCTree``
+     - ``I3MCTree_preMuonProp``
 
 At least one rule must be set.
 
+A file whose every event is dropped is still kept, see `Files without events`_.
+
 The number dropped by each enabled rule is recorded per file under ``attrs.LOCAL.dropped``,
-as Q frames (``daq``) and the ``InIceSplit`` events split from them (``physics``):
+as Q frames (``daq``) and the ``InIceSplit`` events split from them (``physics``). The
+:doc:`collector <../../../collector/index>` keeps it under the file in ``attrs.LOCAL.sources``:
 
 .. code-block:: yaml
 
-   dropped:
-     coincident: { daq: 3, physics: 4 }
-     oversplit:  { daq: 7, physics: 15 }
+   sources:
+     /path/to/file.i3.zst:
+       dropped:
+         coincident: { daq: 3, physics: 4 }
+         oversplit:  { daq: 7, physics: 15 }
 
 
 Rebuilding the MC tree
@@ -193,7 +218,7 @@ it will be deleted and replaced.
    * - ``rng_state``
      - The saved state of the random number generator.
      - str
-     - ``RNGState``
+     - ``I3MCTree_preMuonProp_RNGState``
    * - ``random_service``
      - Type of the random number generator, one of ``SPRNG``, ``GSL`` or ``MT``. It must
        match the type the state was saved from.

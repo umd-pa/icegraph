@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from icegraph.data.envelope import IDS
+
 from ...types import Columns
 
 __all__ = ["CopyConfig"]
@@ -12,6 +14,6 @@ __all__ = ["CopyConfig"]
 
 class CopyConfig(BaseModel):
     to:     str
-    by:     Columns
+    by:     Columns = IDS  # the event ids by default
     cols:   Columns
 

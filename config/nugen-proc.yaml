@@ -9,7 +9,7 @@ extractor:
     selection:
       drop_coincident: true  # Q frames holding more than one primary
       drop_oversplit: true  # Q frames holding one primary split into more than one event
-      mctree: I3MCTree_preMuonProp
+      mctree: I3MCTree_preMuonProp  # only the tree before muon propagation is stored, primaries are the same
 
     rebuild_missing_mctree:
       random_service: GSL
@@ -66,6 +66,10 @@ extractor:
 
     include: [ features, I3MCWeightDict, coincident_muons, bundle_multiplicity ]
 
+collector:  # packs whole input files into shards, see the collector docs
+  min_bytes: 100_000_000  # a shard closes only after its extracted tables reach this size
+  group_by: parent  # only files from the same directory can share a shard
+
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active
     kwargs:
@@ -74,7 +78,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: alias
     kwargs:
       map:
-        event_ids: [ Run, Event, SubEvent, SubEventStream ]
         dom_pos: [ dom_x, dom_y, dom_z ]
         feature_cols:
           - total_charge
@@ -96,11 +99,10 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: i3-simulation  # generation data, weights themselves are computed on load
     kwargs:
       type: nugen
-      ids: event_ids
 
   - name: pivot
     kwargs:
-      index: [ event_ids, string, om, pmt ]
+      index: [ __ids__, string, om, pmt ]  # __ids__ is the event ids the extractor set
       col: vector_index
       values: item
 
@@ -119,7 +121,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: compress  # compress the main feature table
     kwargs:
       to: compressed
-      by: event_ids
       cols: [ feature_cols, dom_pos ]
       out: features
       dtype: float32
@@ -134,8 +135,7 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: copy  # copy id cols to new temp frame to build labels
     kwargs:
       to: tmp_label
-      by: event_ids
-      cols: event_ids
+      cols: __ids__
 
   - name: select  # coincident muon count written by the mclabeler
     kwargs:
@@ -149,7 +149,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: copy
     kwargs:
       to: tmp_label
-      by: event_ids
       cols: coincident_muons
 
   - name: select  # bundle multiplicity counted with MuonGun by the extractor
@@ -164,7 +163,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: copy
     kwargs:
       to: tmp_label
-      by: event_ids
       cols: bundle_multiplicity
 
   - name: select
@@ -184,7 +182,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: compress  # compress labels to compressed frame
     kwargs:
       to: compressed
-      by: event_ids
       cols: [ sim, bundle_multiplicity, coincident_muons ]
       out: targets
 
@@ -195,7 +192,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: compress  # compress generation data to compressed frame
     kwargs:
       to: compressed
-      by: event_ids
       cols: __all__
       out: generation
       dtype: float64
@@ -226,7 +222,6 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: commit
     kwargs:
-      ids: event_ids
       cols: [ features, targets, generation ]
 
 writer:
