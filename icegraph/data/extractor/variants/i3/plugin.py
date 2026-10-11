@@ -1,4 +1,4 @@
- # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
+# Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
 from __future__ import annotations
@@ -51,6 +51,9 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
 
         files = [str(self.config.gcd_path), str(item)]
 
+        # suppress output from icetray if desired
+        ctx = suppress_output if self.config.suppress_icetray_output else nullcontext
+
         with tempfile.NamedTemporaryFile(dir=self._ctx.scratch) as out:
             tray = I3Tray()
 
@@ -63,8 +66,10 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 tray.Add(event_selector(self.config.selection, drop_counter, self.config.sub_event_stream))
 
             # rebuild the propagated tree where it was discarded, after the selection so dropped events are skipped
+            # PROPOSAL prints as its propagators are built, before the tray runs, so need to suppr3ess here too
             if self.config.rebuild_missing_mctree is not None:
-                rebuild_mctree(tray, self.config.rebuild_missing_mctree)
+                with ctx():
+                    rebuild_mctree(tray, self.config.rebuild_missing_mctree)
 
             # bundle multiplicity
             if self.config.multiplicity is not None:
@@ -94,8 +99,6 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
                 CompressionLevel=0
             )
 
-            # suppress output from icetray if desired
-            ctx = suppress_output if self.config.suppress_icetray_output else nullcontext
             with ctx():
                 tray.Execute()
 

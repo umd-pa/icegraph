@@ -175,7 +175,7 @@ class PipelineConsole:
         last = None
         for index, step in enumerate(self._steps):
             if step.queue is not None:
-                table.add_row("", Text("\N{BOX DRAWINGS LIGHT VERTICAL}", style="dim"), self._queue(step.queue))
+                table.add_row("", "", self._queue(step.queue))
 
             # extractors and the collector take whole files, every stage after takes shards
             unit = "files" if step.group in ("extract", "collect") else "shards"
