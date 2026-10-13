@@ -46,7 +46,7 @@ class ParityPlotter(BHistogramReducer):
         ]
 
         # mins/maxs
-        mins = torch.as_tensor(lo, dtype=torch.float32).repeat(2)
+        mins = torch.as_tensor(lo, dtype=torch.float32)
         maxs = torch.as_tensor(stats.get("max")[index], dtype=torch.float32).repeat(2)
 
         return mins, maxs

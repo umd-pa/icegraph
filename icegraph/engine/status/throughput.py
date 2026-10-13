@@ -7,8 +7,10 @@ import logging
 import time
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, Any
 
+import torch
+from torch import Tensor
 from torch.utils.flop_counter import FlopCounterMode
 
 from .meter import Meter
@@ -26,6 +28,39 @@ T = TypeVar("T")
 
 # marks an exhausted loader
 _END = object()
+
+
+def _matmul_flops(a: Tensor, b: Tensor) -> int:
+    """FLOPs of ``a @ b``, counting a sparse operand by its stored values. The default
+    formulas size a product from shapes alone, so a sparse ``[N, N]``
+    adjacency would be counted as a dense ``N x N`` product, inflating the count by
+    orders of magnitude.
+    """
+    if a.layout != torch.strided:
+        return 2 * a._nnz() * b.shape[-1]
+
+    if b.layout != torch.strided:
+        return 2 * a.shape[0] * b._nnz()
+
+    return 2 * a.shape[0] * a.shape[1] * b.shape[-1]
+
+
+def _mm_flops(a: Tensor, b: Tensor, *args: Any, out_val: Any = None, **kwargs: Any) -> int:
+    return _matmul_flops(a, b)
+
+
+def _addmm_flops(bias: Tensor, a: Tensor, b: Tensor, *args: Any, out_val: Any = None, **kwargs: Any) -> int:
+    return _matmul_flops(a, b)
+
+
+# formulas marked raw receive the tensors rather than their shapes so they can see the layout
+_mm_flops._get_raw = True  # pyright: ignore[reportFunctionMemberAccess]
+_addmm_flops._get_raw = True  # pyright: ignore[reportFunctionMemberAccess]
+
+_FLOP_FORMULAS = {
+    torch.ops.aten.mm:      _mm_flops,
+    torch.ops.aten.addmm:   _addmm_flops,
+}
 
 
 class Throughput:
@@ -67,18 +102,18 @@ class Throughput:
             iterator = iter(loader)
             item = next(iterator, _END)
 
-        while item is not _END:
+        while item is not _END:  # pyright: ignore[reportPossiblyUnboundVariable]
             self.waiting.add(time.perf_counter() - start)
-            yield item
+            yield item  # pyright: ignore[reportPossiblyUnboundVariable, reportReturnType]
 
             start = time.perf_counter()
-            item = next(iterator, _END)
+            item = next(iterator, _END)  # pyright: ignore[reportPossiblyUnboundVariable]
 
     @contextmanager
     def step(self, batch: GraphBatch) -> Iterator[None]:
         """Account for processing one batch, counting its FLOPs if it is the stream's first."""
         if self.flops_per_node is None and self._status.config.profile_flops:
-            counter = FlopCounterMode(display=False)
+            counter = FlopCounterMode(display=False, custom_mapping=_FLOP_FORMULAS)
             with counter:
                 yield
 

@@ -1,6 +1,8 @@
 outdir: /data/i3store/users/tstjean/BSN
 run: '1'
 
+amp: true
+
 # epochs and val interval
 max_epochs: 10000
 val_interval: 5
@@ -12,7 +14,7 @@ services:
   data:
     # batch size controls how many samples are passed at a time in each
     # training batch (see torch DataLoader batch_size argument)
-    batch_size: 4096
+    batch_size: 8192
 
     # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
