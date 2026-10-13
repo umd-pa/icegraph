@@ -48,7 +48,7 @@ Selected as ``name: sum-in-quadrature``.
        name: sum-in-quadrature
        kwargs:
          k: 10
-         neighbor_cols: [ dom_pos ]
-         weight_cols: [ dom_pos ]
+         neighbor_cols: [ dom_x, dom_y, dom_z ]
+         weight_cols: [ dom_x, dom_y, dom_z ]
 
 The attribute produced has shape ``[E, 1]``.

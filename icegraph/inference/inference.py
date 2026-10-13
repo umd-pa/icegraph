@@ -72,16 +72,17 @@ class BatchInference(Engine[InferenceConfig]):
     @torch.no_grad()
     def _process_batch(self, batch: GraphBatch) -> Tensor:
         # pull from batch
-        features = batch.features
+        features    = batch.features
         index       = batch.batch
+        num_graphs  = batch.num_graphs
 
         # build connectivity while the feature block still holds raw values
-        edge_index, edge_attr = self.edges(features, batch=index)
+        edge_index, edge_attr = self.edges(features, batch=index, num_graphs=num_graphs)
 
         features = self.transformer(features, DataRole.FEATURES)
         features = self.normalizer(features, DataRole.FEATURES)
 
-        out = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index)
+        out = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index, num_graphs=num_graphs)
 
         out = self.normalizer(out, DataRole.TARGETS, inverse=True)
         out = self.transformer(out, DataRole.TARGETS, inverse=True)

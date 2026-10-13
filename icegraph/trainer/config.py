@@ -34,6 +34,9 @@ class TrainerConfig(EngineConfig[TrainerServiceConfig, TrainerComponentConfig]):
     val_interval:   int
     run:            str = ''
 
+    # auto mixed precision
+    amp:            bool = False
+
     # paths
     outdir:     DirectoryPath
 

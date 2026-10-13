@@ -150,6 +150,10 @@ class Model(Component[C], ABC):
 
         return layout
 
+    def supports_amp(self) -> bool:
+        # override to true to opt in to AMP
+        return False
+
     @final
     def forward(
             self,
@@ -157,9 +161,10 @@ class Model(Component[C], ABC):
             /,
             edge_index: Tensor,
             edge_attr: Tensor,
-            batch: Tensor | None = None
+            batch: Tensor | None = None,
+            num_graphs: int | None = None
     ) -> SegmentedTensor:
-        out = self.forward_pass(t, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
+        out = self.forward_pass(t, edge_index=edge_index, edge_attr=edge_attr, batch=batch, num_graphs=num_graphs)
 
         # internal validation
         if out.shape[1] != self.out_channels:
@@ -181,6 +186,7 @@ class Model(Component[C], ABC):
             /,
             edge_index: Tensor,
             edge_attr: Tensor,
-            batch: Tensor | None
+            batch: Tensor | None,
+            num_graphs: int | None
     ) -> Tensor:
         ...

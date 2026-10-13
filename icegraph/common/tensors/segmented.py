@@ -41,10 +41,11 @@ class SegmentLayout:
 
     def pin_memory(self) -> Self:
         # offsets is a cpu tensor, no need to pin
-        self.ids.pin_memory()
-        self.widths.pin_memory()
-
-        return self
+        return dataclasses.replace(
+            self,
+            ids=self.ids.pin_memory(),
+            widths=self.widths.pin_memory(),
+        )
 
     @classmethod
     def empty(cls) -> Self:
@@ -173,10 +174,11 @@ class SegmentedTensor(Sequence[Tensor]):
         return dataclasses.replace(self, data=self.data.detach())
 
     def pin_memory(self) -> Self:
-        self.data.pin_memory()
-        self.layout.pin_memory()
-
-        return self
+        return dataclasses.replace(
+            self,
+            data=self.data.pin_memory(),
+            layout=self.layout.pin_memory(),
+        )
 
     def to(
         self,

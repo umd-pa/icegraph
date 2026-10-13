@@ -8,7 +8,7 @@ from typing_extensions import override
 from pathlib import Path
 from contextlib import nullcontext
 import time
-from functools import lru_cache
+from functools import lru_cache, cached_property
 
 # torch imports
 import torch
@@ -16,12 +16,11 @@ from torch import Tensor
 from torch_geometric.seed import seed_everything
 
 # data container
-from icegraph.common.data import GraphBatch
-
-from icegraph.common.data import Split, DataRole
+from icegraph.common.data import Split, DataRole, GraphBatch
 from icegraph.common.tensors import SegmentedTensor
 from icegraph.common.engine import ComponentKind
 
+from ..engine.components.model import Model
 from ..engine import Engine
 
 # callbacks
@@ -39,10 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer(Engine[TrainerConfig]):
-    """
-    Engine responsible for managing the training, validation, and testing
-    lifecycle of a PyTorch model.
-    """
+    """Engine responsible for managing the training, validation, and testing lifecycle of a PyTorch model."""
 
     def __init__(self, config: TrainerConfig) -> None:
         """Initialize the Trainer."""
@@ -75,6 +71,23 @@ class Trainer(Engine[TrainerConfig]):
 
     # training algo
 
+    @cached_property
+    def _amp(self) -> bool:
+        """Whether the model forward runs under bfloat16 autocast."""
+        model_supports_amp = self.model.supports_amp() if isinstance(self.model, Model) else self.model.module.supports_amp()
+        if not self.config.amp or not model_supports_amp:
+            return False
+
+        if self.state.device.type != "cuda":
+            logger.warning("amp only applies on cuda, training on %s runs in float32", self.state.device)
+            return False
+
+        if not torch.cuda.is_bf16_supported():
+            raise RuntimeError("amp runs the model in bfloat16, which this GPU does not support.")
+
+        logger.info("amp enabled, model forward runs in bfloat16")
+        return True
+
     @staticmethod
     def _set_seed(seed: int) -> None:
         """
@@ -100,11 +113,12 @@ class Trainer(Engine[TrainerConfig]):
         targets     = batch.targets
         index       = batch.batch
         weights     = batch.weights
+        num_graphs  = batch.num_graphs
 
         # build connectivity while the feature block still holds raw values:
         # the transformer and normalizer rescale columns independently, which
         # would distort the space the neighbour search runs in
-        edge_index, edge_attr = self.edges(features, batch=index)
+        edge_index, edge_attr = self.edges(features, batch=index, num_graphs=num_graphs)
 
         # transform and normalize features on accelerator
         features = self.transformer(features, DataRole.FEATURES)
@@ -115,7 +129,14 @@ class Trainer(Engine[TrainerConfig]):
         targets = self.normalizer(targets, DataRole.TARGETS)
 
         # forward pass
-        out: SegmentedTensor = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index)
+        with torch.autocast(self.state.device.type, dtype=torch.bfloat16, enabled=self._amp):
+            out: SegmentedTensor = self.model(
+                features, edge_index=edge_index, edge_attr=edge_attr, batch=index, num_graphs=num_graphs
+            )
+
+        # autocast leaves the output in bfloat16, everything downstream runs in float32
+        if self._amp:
+            out = out.to(dtype=torch.float32)
 
         # compute batch loss
         loss = self.loss(out, targets, weights)

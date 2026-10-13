@@ -56,11 +56,16 @@ class GCN(Model[GCNConfig]):
                 "conv": GCNConv(
                     in_channels=in_channels if layer == 0 else hidden_c,
                     out_channels=hidden_c,
+                    add_self_loops=False
                 ),
                 "linear": Linear(hidden_c, hidden_c)
             }))
 
         self._blocks = ModuleList(blocks)
+
+    def supports_amp(self) -> bool:
+        # override to true to opt in to AMP
+        return True
 
     def forward_pass(
         self,
@@ -68,7 +73,8 @@ class GCN(Model[GCNConfig]):
         /,
         edge_index: Tensor,
         edge_attr: Tensor,
-        batch: Tensor | None
+        batch: Tensor | None,
+        num_graphs: int | None
     ) -> Tensor:
         # we dont care about segments here
         data = t.data.to(torch.float32)
@@ -78,6 +84,7 @@ class GCN(Model[GCNConfig]):
             # if batch is not provided (single-sample inference), create a dummy batch tensor
             # this assumes all nodes belong to a single graph
             batch = torch.zeros(data.size(0), dtype=torch.long, device=data.device)
+            num_graphs = 1
 
         # GCNConv wants a 1d edge_weight, collapse edge_attr [E, ATTR] -> [E]
         edge_weight: Tensor | None = None
@@ -92,10 +99,29 @@ class GCN(Model[GCNConfig]):
 
         edge_index = edge_index.to(torch.long)
 
+        # add self loops
+        edge_index, edge_weight = self._add_self_loops(edge_index, edge_weight, data.size(0))
+
         # forward pass through each block
         for block in self._blocks:
             data = block["conv"](data, edge_index, edge_weight)  # pyright: ignore[reportIndexIssue]
             data = self._activation(block["linear"](data))  # pyright: ignore[reportIndexIssue]
 
-        data = global_mean_pool(data, batch)
+        data = global_mean_pool(data.float(), batch, size=num_graphs)
         return self._out(data)
+
+    def _add_self_loops(
+            self,
+            edge_index: Tensor,
+            edge_weight: Tensor | None,
+            num_nodes: int
+    ) -> tuple[Tensor, Tensor | None]:
+        """Append one self loop per node, as GCNConv would with its default add_self_loops."""
+        loops = torch.arange(num_nodes, dtype=torch.long, device=edge_index.device)
+        edge_index = torch.cat([edge_index, torch.stack([loops, loops])], dim=1)
+
+        # GCNConv weights an added loop 1
+        if edge_weight is not None:
+            edge_weight = torch.cat([edge_weight, edge_weight.new_ones(num_nodes)])
+
+        return edge_index, edge_weight

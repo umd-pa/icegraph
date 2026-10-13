@@ -37,9 +37,9 @@ class KNNEdgeBuilder(EdgeBuilder[C], ABC):
     def build(self) -> None:
         return
 
-    def build_index(self, t: SegmentedTensor, batch: Tensor) -> Tensor:
+    def build_index(self, t: SegmentedTensor, batch: Tensor, num_graphs: int | None = None) -> Tensor:
         # the neighbour search backend rejects a strided input
         position = t.block(self.config.neighbor_cols, contiguous=True)
 
         # the batch vector keeps the search inside each graph
-        return knn_graph(position, k=self.config.k, batch=batch, loop=False)
+        return knn_graph(position, k=self.config.k, batch=batch, loop=False, batch_size=num_graphs)

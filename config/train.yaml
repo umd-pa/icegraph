@@ -16,7 +16,7 @@ services:
 
     # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
-    buffer_size: 12
+    buffer_size: 8
     chunk_size: 16384
     max_chunks_per_epoch: 500
     shuffle_chunks: true
@@ -61,9 +61,9 @@ services:
 
   record:
     source:
-      - /data/i3store/users/tstjean/processed/sim/23016
-      - /data/i3store/users/tstjean/processed/sim/22803
-      - /data/i3store/users/tstjean/processed/sim/23123
+      - /scratch/users/tstjean/processed-sim/23016
+      - /scratch/users/tstjean/processed-sim/22803
+      - /scratch/users/tstjean/processed-sim/23123
 
     reader:
       name: zarr
@@ -99,13 +99,16 @@ components:
     kwargs: { }
 
   edges:
-    name: sum-in-quadrature
+    name: gaussian
     kwargs:
       k: 10
 
       # logical feature column groups
       neighbor_cols: [ dom_x, dom_y, dom_z ]
       weight_cols: [ dom_x, dom_y, dom_z ]
+
+      # approx dist between strings in m
+      sigma: 125
 
   optimizer:
     name: adam

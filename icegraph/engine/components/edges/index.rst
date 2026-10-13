@@ -60,7 +60,7 @@ An edge builder is a subclass of ``EdgeBuilder`` that declares a ``name`` and
 ``version``, validates its configuration, and supplies the connectivity in two
 parts. The base class validates the shapes and dtypes of both:
 
-``build_index(self, t, batch) -> Tensor``
+``build_index(self, t, batch, num_graphs) -> Tensor``
    Return the edge index for the feature block ``t``, with shape ``[2, E]`` and
    dtype ``long``. Use ``batch`` to keep edges inside a single graph.
 ``build_attr(self, t, edge_index) -> Tensor``
@@ -89,7 +89,7 @@ parts. The base class validates the shapes and dtypes of both:
        def build(self) -> None:
            ...  # one-time setup, e.g. registering buffers
 
-       def build_index(self, t: SegmentedTensor, batch: Tensor) -> Tensor:
+       def build_index(self, t: SegmentedTensor, batch: Tensor, num_graphs: int | None) -> Tensor:
            ...  # return the edge index, shape [2, E], dtype long
 
        def build_attr(self, t: SegmentedTensor, edge_index: Tensor) -> Tensor:

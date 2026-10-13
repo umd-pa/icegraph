@@ -46,6 +46,8 @@ Variants
 
 * :doc:`Sum in Quadrature <variants/sum_in_quadrature/index>`: weight each edge by
   the quadrature sum of its endpoint differences.
+* :doc:`Gaussian <variants/gaussian/index>`: weight each edge by a gaussian of the
+  distance between its endpoints.
 
 Registering a new KNN edge builder
 ----------------------------------
@@ -101,3 +103,4 @@ that extends the family's and overrides ``validate_config``.
    :hidden:
 
    variants/sum_in_quadrature/index
+   variants/gaussian/index

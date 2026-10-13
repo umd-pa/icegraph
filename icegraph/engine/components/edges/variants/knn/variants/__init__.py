@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .sum_in_quadrature import SumInQuadrature
+from .gaussian import Gaussian
 
-__all__ = ["SumInQuadrature"]
+__all__ = ["SumInQuadrature", "Gaussian"]

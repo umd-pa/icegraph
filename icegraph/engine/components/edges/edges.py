@@ -29,9 +29,9 @@ class EdgeBuilder(Component[C], ABC):
 
     @final
     @torch.no_grad()
-    def forward(self, t: SegmentedTensor, /, batch: Tensor) -> tuple[Tensor, Tensor]:
+    def forward(self, t: SegmentedTensor, /, batch: Tensor, num_graphs: int | None = None) -> tuple[Tensor, Tensor]:
         """Forward pass through the edge builder."""
-        edge_index = self.build_index(t, batch)
+        edge_index = self.build_index(t, batch, num_graphs)
 
         # internal validation
         if edge_index.ndim != 2 or edge_index.shape[0] != 2:
@@ -61,7 +61,7 @@ class EdgeBuilder(Component[C], ABC):
         return edge_index, edge_attr
 
     @abstractmethod
-    def build_index(self, t: SegmentedTensor, batch: Tensor) -> Tensor:
+    def build_index(self, t: SegmentedTensor, batch: Tensor, num_graphs: int | None = None) -> Tensor:
         ...
 
     @abstractmethod
