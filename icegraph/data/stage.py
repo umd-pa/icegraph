@@ -82,7 +82,9 @@ class Stage(Plugin[C, StageContext[I]], Generic[C, I]):
 
                 # continue if dropped
                 if out is None:
-                    logger.warning("envelope dropped at stage %s", self.name)
+                    logger.warning("item %s dropped at stage %s", item if isinstance(item, Path) else i, self.name)
+                    if self._ctx.tally is not None:
+                        self._ctx.tally.drop(self._ctx.index)
                     continue
 
                 if self._ctx.dst is None:

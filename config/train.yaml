@@ -1,4 +1,5 @@
 outdir: /data/i3store/users/tstjean/BSN
+run: '1'
 
 # epochs and val interval
 max_epochs: 10000
@@ -20,6 +21,7 @@ services:
     max_chunks_per_epoch: 500
     shuffle_chunks: true
 
+    # standard pytorch dataloader configuration
     num_workers: 6
     prefetch_factor: 8
     mp_context: spawn
@@ -27,12 +29,12 @@ services:
 
   decode:
     features:   [ ]
-    targets:    [ sim ]
+    targets:    [ prominence, bundle_multiplicity ]
 
     # auxiliary is for any non-target labels to include (not used in training), useful for plotting,
     # these labels are served to callbacks by the trainer during validation and test steps,
     # but are NOT used for loss computation
-    auxiliary:  [ coincident_muons ]
+    auxiliary:  [ sim ]
 
     keymap:
       truth: targets
@@ -71,19 +73,13 @@ services:
 
   metrics:
     select:
-      - name: top-k-acc
+      - name: rmse
         kwargs: { }
-      - name: balanced-acc
-        kwargs: { }
-      - name: cohen-kappa
-        kwargs: { }
-      - name: auprc
-        kwargs: { }
-      - name: ece
+      - name: mae
         kwargs: { }
 
 policy:
-  name: multiclass
+  name: regression
   kwargs: { }
 
 components:
@@ -118,5 +114,6 @@ components:
       weight_decay: 0.00005
 
   loss:
-    name: cross-entropy
-    kwargs: { }
+    name: mse
+    kwargs:
+      ignore_nan: true

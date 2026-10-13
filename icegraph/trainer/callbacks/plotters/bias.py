@@ -12,6 +12,7 @@ from torch import Tensor
 
 # local package
 from icegraph.common.data import DataRole
+from icegraph.common.transforms import TransformSpace
 from icegraph.renderer import Histogram2D, MedianQuantileBand
 from icegraph.common.histogram import Histogram
 
@@ -37,8 +38,14 @@ class BiasPlotter(BHistogramReducer):
         stats = ctx.get_stats(DataRole.TARGETS)
         index = ctx.physical_index(label, DataRole.TARGETS)
 
+        # a log axis starts at the smallest positive value, the linear min may be <= 0 and send the bound to -inf
+        if self.scale[0] == TransformSpace.LOG:
+            lo = 10 ** stats.get("min", space=TransformSpace.LOG)[index]
+        else:
+            lo = stats.get("min")[index]
+
         # mins/maxs
-        mins = torch.as_tensor([stats.get("min")[index], -5], dtype=torch.float32)
+        mins = torch.as_tensor([lo, -5], dtype=torch.float32)
         maxs = torch.as_tensor([stats.get("max")[index], 5], dtype=torch.float32)
 
         return mins, maxs
@@ -74,8 +81,8 @@ class BiasPlotter(BHistogramReducer):
         plot.set_title(title)
 
         # update axis labels
-        xlabel = r"$\mathrm{Target}\;%s$" % self.scale[0].format_repr(r"\mathrm{%s}" % label)
-        ylabel = r"$\mathrm{(Predicted - Target)/Target}\;%s$" % self.scale[1].format_repr(r"\mathrm{%s}" % label)
+        xlabel = r"$\mathrm{Target}\;%s$" % self.scale[0].format_repr(r"\mathrm{%s}" % label.replace("_", r"\_"))
+        ylabel = r"$\mathrm{(Predicted - Target)/Target}\;%s$" % self.scale[1].format_repr(r"\mathrm{%s}" % label.replace("_", r"\_"))
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)

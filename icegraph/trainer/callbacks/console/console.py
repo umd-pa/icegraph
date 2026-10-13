@@ -42,9 +42,9 @@ def _si(value: float) -> str:
     """Scale to an SI prefix, e.g. 41200 -> '41.2k'."""
     for prefix in ("", "k", "M", "G", "T", "P"):
         if abs(value) < 1000:
-            return f"{value:.3g}{prefix}"
+            return f"{value:#.3g}{prefix}"
         value /= 1000
-    return f"{value:.3g}E"
+    return f"{value:#.3g}E"
 
 
 class _Throughput:
@@ -61,17 +61,19 @@ class _Throughput:
         current = throughput.stats()
         stats: list[tuple[str, str]] = []
 
-        if current.samples:
-            stats.append((_si(current.samples), "samples/s"))
-            stats.append((f"{current.batches:.3g}", "batches/s"))
+        stats.append((_si(current.samples) if current.samples else "-", "samples/s"))
+        stats.append((f"{current.batches:#.3g}" if current.samples else "-", "batches/s"))
 
-            if current.flops:
-                stats.append((_si(current.flops), "FLOP/s"))
+        # determine what to show for flops
+        if not current.samples:
+            flops = "-"
+        elif current.flops:
+            flops = _si(current.flops)
+        else:
+            flops = "N/A"
+        stats.append((flops, "FLOP/s"))
 
-            stats.append((f"{current.waiting:.0%}", "waiting on data"))
-
-        if not stats:
-            return Text("-- no throughput yet --", style="dim")
+        stats.append((f"{current.waiting:#.2%}" if current.samples else "-", "waiting on data"))
 
         line = Text()
         for value, label in stats:

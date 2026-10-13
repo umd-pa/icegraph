@@ -51,6 +51,14 @@ class Trainer(Engine[TrainerConfig]):
 
         # stash outdir and derive logdir
         self.outdir: Path = Path(self.config.outdir)
+
+        if self.config.run:
+            self.outdir /= "named-runs"
+            self.outdir /= self.config.run
+
+        # make sure dir exists
+        self.outdir.mkdir(parents=True, exist_ok=True)
+
         self.logdir: Path = self.outdir / "logs"
         self.plotdir: Path = self.outdir / "plots"
 

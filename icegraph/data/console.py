@@ -8,6 +8,7 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 import time
 
+from rich.align import Align
 from rich.console import Group, RenderableType
 from rich.live import Live
 from rich.panel import Panel
@@ -37,13 +38,20 @@ def _duration(ms: float) -> str:
 class Tally:
     """
     Counts each stage keeps in shared memory as items pass through it, for the console to draw: the items the
-    stage holds right now and the items it has finished. Indexed by stage index.
+    stage holds right now, the items it has finished and, of those, the items it dropped instead of passing on.
+    Indexed by stage index.
     """
 
     def __init__(self, stages: int, ctx: BaseContext) -> None:
         self._lock = ctx.Lock()
         self.busy = ctx.RawArray("i", stages)
         self.done = ctx.RawArray("i", stages)
+        self.dropped = ctx.RawArray("i", stages)
+
+    def drop(self, index: int) -> None:
+        """Count an item stage `index` dropped. It still counts as finished once the stage asks for the next."""
+        with self._lock:
+            self.dropped[index] += 1
 
     def count(self, src: Iterable[T], index: int) -> Iterator[T]:
         """Pass on the items of `src` to stage `index`, which holds each one until it asks for the next."""
@@ -133,7 +141,7 @@ class PipelineConsole:
             (f"{self.shards:,}", "shards"),
             (f"{self.events:,}", "events"),
             (f"{self.files / elapsed:.3g}", "files/s"),
-            (f"{self.events / elapsed:,.3f}", "events/s")
+            (f"{self.events / elapsed:,.2f}", "events/s")
         ]
 
         line = Text()
@@ -142,6 +150,11 @@ class PipelineConsole:
                 line.append("   ")
             line.append(value, style="bold")
             line.append(f" {label}", style="dim")
+
+        # files the extractors dropped are never written, so the progress bar cannot reach its total
+        if dropped := self._tally.dropped[0]:
+            line.append("   ")
+            line.append(f"{dropped:,} files dropped", style="bold red")
 
         return line
 
@@ -183,11 +196,16 @@ class PipelineConsole:
             # the collector only groups files, so records no time
             ms = self.metrics.get(f"{index}_{step.name}")
 
+            # items the stage dropped never reach the next stage, so they are never written
+            finished = Text(f"{self._tally.done[index]:,} {unit}")
+            if dropped := self._tally.dropped[index]:
+                finished.append(f" ({dropped:,} dropped)", style="bold red")
+
             table.add_row(
                 Text(step.group if step.group != last else "", style="bold"),
                 step.name,
                 self._workers(self._tally.busy[index], step.workers),
-                f"{self._tally.done[index]:,} {unit}",
+                finished,
                 "" if ms is None else _duration(ms)
             )
             last = step.group
@@ -197,7 +215,7 @@ class PipelineConsole:
             "\N{BLACK PARALLELOGRAM} queued   \N{WHITE PARALLELOGRAM} free",
             style="dim"
         )
-        return Group(table, "", legend)
+        return Group(Align.center(table), "", legend)
 
     def __rich__(self) -> RenderableType:
         title = Text("ICEGRAPH PIPELINE", style="bold cyan")

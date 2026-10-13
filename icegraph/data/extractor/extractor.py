@@ -28,7 +28,10 @@ class Extractor(Stage[C, Path]):
 
     @final
     def _process(self, item: Path) -> Envelope | None:
-        env = self.extract(item)
+        try:
+            env = self.extract(item)
+        except Exception as e:
+            raise RuntimeError(f"{type(self).__name__} failed on item {item!r}: {e}") from e
 
         if env is not None:
             env.set_local_attr("origin", str(item))

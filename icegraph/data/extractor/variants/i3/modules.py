@@ -16,6 +16,20 @@ from .config import SelectionConfig, MuonGunConfig, RebuildMCTreeConfig
 __all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "muongun_labels", "rebuild_mctree"]
 
 
+def readable(frame: Any, key: str) -> bool:
+    """
+    Whether the frame holds an object under the key that deserializes. A corrupt object is still listed under its key,
+    but reading it fails, and readers such as MuonGun see it as absent.
+    """
+    if key not in frame:
+        return False
+
+    try:
+        return frame[key] is not None
+    except KeyError:
+        return False
+
+
 def is_sub_event_stream(frame: Any, sub_event_stream: str) -> bool:
     """Whether a P frame belongs to the sub event stream events are extracted from."""
     return frame.Has("I3EventHeader") and frame["I3EventHeader"].sub_event_stream == sub_event_stream
@@ -107,8 +121,22 @@ def muongun_labels(config: MuonGunConfig) -> type:
             if self._surface is None:
                 raise RuntimeError("MuonGun labels need the geometry, which no frame before the Q frame held.")
 
+            # MuonGun reads the propagated tree under this name only
+            # name the event and the trees the frame does hold, since MuonGun's own error names neither
+            if not readable(frame, "I3MCTree"):
+                header = frame["I3EventHeader"] if "I3EventHeader" in frame else None
+                event = f"run {header.run_id}, event {header.event_id}" if header is not None else "with no header"
+                state = "holds it, but it does not deserialize" if "I3MCTree" in frame else "does not hold it"
+                trees = sorted(key for key in frame.keys() if "MCTree" in key)
+                raise RuntimeError(
+                    f"MuonGun labels need the propagated tree 'I3MCTree', and the Q frame ({event}) {state}. "
+                    f"It holds {trees}. Set rebuild_missing_mctree to rebuild it, which needs the frame to have kept "
+                    f"the RNG state of the propagation."
+                )
+
             # MuonGun only counts muons with an entry in the track list, so a tree without one has no muon to count
-            if "I3MCTree" in frame and "MMCTrackList" not in frame:
+            # the propagator stores no list for an event it propagated no muon or tau in
+            if "MMCTrackList" not in frame:
                 energies = np.empty(0)
             else:
                 # energy of each muon as it enters the hull
@@ -155,12 +183,13 @@ def rebuild_mctree(tray: Any, config: RebuildMCTreeConfig) -> None:
     }[config.random_service]()
 
     # without the saved state the tree cannot be reproduced
+    # a tree that does not deserialize is rebuilt as if it was discarded
     def missing(frame: Any) -> bool:
-        return config.rng_state in frame and config.mctree not in frame
+        return config.rng_state in frame and not readable(frame, config.mctree)
 
     # the propagator writes the track list along with the tree and fails if the frame kept the original,
     # which is replaced by the one rebuilt along with the tree
-    tray.Add("Delete", Keys=["MMCTrackList"], If=missing)
+    tray.Add("Delete", Keys=[config.mctree, "MMCTrackList"], If=missing)
 
     tray.Add(
         "I3PropagatorModule",

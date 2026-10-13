@@ -63,6 +63,8 @@ class Plotter(ABC, Generic[T, M]):
         # init global fig object
         self._fig = go.Figure()
 
+        self._title = ""
+
         # cache modules
         self._modules: list[M] = []
 
@@ -78,8 +80,10 @@ class Plotter(ABC, Generic[T, M]):
         # plotly never wraps titles, so break long ones to fit the title's share of the figure (title.x = 0.05 each side)
         width = int(0.9 * (PLOT_STYLE.inner_px + 2 * PLOT_STYLE.pad_px) / _TITLE_CHAR_PX)
 
+        self._title = _wrap_title(title, width)
+
         self._fig.update_layout(
-            title_text=_wrap_title(title, width),
+            title_text=self._title,
             title_font=dict(size=_TITLE_SIZE)
         )
 
@@ -107,6 +111,7 @@ class Plotter(ABC, Generic[T, M]):
         if isinstance(module, list):
             for m in module:
                 self.add_module(m)
+            return
 
         # make sure a list didnt leak through
         assert not isinstance(module, list)
@@ -133,9 +138,7 @@ class Plotter(ABC, Generic[T, M]):
 
         # set plot size and margins, growing the top for each extra title line so the plot area is unchanged
         padding = PLOT_STYLE.pad_px
-
-        title = fig.layout.title.text or ""
-        extra = len(_BREAK.findall(title)) * _TITLE_LINE_PX * 1.1  # add a little extra room
+        extra = len(_BREAK.findall(self._title)) * _TITLE_LINE_PX * 1.1  # add a little extra room
 
         fig.update_layout(
             width=PLOT_STYLE.inner_px + 2 * padding,

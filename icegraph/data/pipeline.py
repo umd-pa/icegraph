@@ -34,6 +34,29 @@ __all__ = ["Pipeline"]
 # polars thread pool is not fork-safe, forked children can deadlock on frame ops
 _MP_CTX = mp.get_context("spawn")
 
+# open files the stack dumps are written to, kept alive for the life of the worker
+_STACK_FILES: list[Any] = []
+
+
+def _register_stack_dump(title: str) -> None:
+    """
+    Dump the stack of every thread of this worker to a file on SIGUSR1, for debugging a stalled pipeline.
+    Writes to a file rather than stderr, since stderr goes to /dev/null while IceTray output is suppressed.
+    """
+    import faulthandler, os, signal
+
+    # SIGUSR1 does not exist on windows
+    if not hasattr(signal, "SIGUSR1"):
+        return
+
+    directory = Path(tempfile.gettempdir()) / "icegraph-stacks"
+    directory.mkdir(exist_ok=True)
+
+    f = (directory / f"{title}-{os.getpid()}.txt").open("w")
+    _STACK_FILES.append(f)
+    faulthandler.register(signal.SIGUSR1, file=f, all_threads=True, chain=False)
+
+
 
 def _extract_worker(
         stage: Extractor,
@@ -46,7 +69,10 @@ def _extract_worker(
         errors: mp.Queue,
         worker_index: int
 ) -> None:
-    set_proctitle(f"icegraph-extractor-{worker_index}")
+    title = f"ig-e-{worker_index}"
+
+    set_proctitle(title)
+    _register_stack_dump(title)
 
     # allow main process to orchestrate shutdown on interrupt
     import signal, sys
@@ -54,7 +80,16 @@ def _extract_worker(
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
-        stage.attach(StageContext(src=tally.count(src, 0), dst=dst, scratch=Path(scratch), index=0, total=stage_count))
+        stage.attach(
+            StageContext(
+                src=tally.count(src, 0),
+                dst=dst,
+                scratch=Path(scratch),
+                index=0,
+                total=stage_count,
+                tally=tally
+            )
+        )
         stage.execute()
 
     except BaseException as e:
@@ -79,7 +114,10 @@ def _collect_worker(
         errors: mp.Queue,
         worker_index: int
 ) -> None:
-    set_proctitle(f"icegraph-collector-{worker_index}")
+    title = f"ig-c-{worker_index}"
+
+    set_proctitle(title)
+    _register_stack_dump(title)
 
     # allow main process to orchestrate shutdown on interrupt
     import signal, sys
@@ -87,7 +125,16 @@ def _collect_worker(
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
-        stage.attach(StageContext(src=tally.count(src, 1), dst=dst, scratch=Path(scratch), index=1, total=stage_count))
+        stage.attach(
+            StageContext(
+                src=tally.count(src, 1),
+                dst=dst,
+                scratch=Path(scratch),
+                index=1,
+                total=stage_count,
+                tally=tally
+            )
+        )
         stage.execute()
 
     except BaseException as e:
@@ -112,7 +159,10 @@ def _process_worker(
         errors: mp.Queue,
         worker_index: int
 ) -> None:
-    set_proctitle(f"icegraph-processor-{worker_index}")
+    title = f"ig-p-{worker_index}"
+
+    set_proctitle(title)
+    _register_stack_dump(title)
 
     # allow main process to orchestrate shutdown on interrupt
     import signal, sys
@@ -134,7 +184,7 @@ def _process_worker(
         finally:
             # close this stage's internal outbound queue so the next stage in the
             # chain sees end-of-input and exits, cascading shutdown to the tail
-            # the shared `dst` is closed once per process, in the finally below
+            # the shared `dst` is closed once per process
             if out_q is not dst:
                 out_q.done()
 
@@ -150,9 +200,16 @@ def _process_worker(
         # start each stage
         threads: list[Thread] = []
         for j, s in enumerate(stages):
-            s.attach(StageContext(
-                src=tally.count(internal[j], 2 + j), dst=internal[j + 1], scratch=Path(scratch), index=2 + j, total=stage_count
-            ))
+            s.attach(
+                StageContext(
+                    src=tally.count(internal[j], 2 + j),
+                    dst=internal[j + 1],
+                    scratch=Path(scratch),
+                    index=2 + j,
+                    total=stage_count,
+                    tally=tally
+                )
+            )
             threads.append(Thread(target=_run, args=(s, internal[j + 1]), daemon=True))
 
         for t in threads:
@@ -188,7 +245,10 @@ def _write_worker(
         worker_index: int,
         outdir: Path
 ) -> None:
-    set_proctitle(f"icegraph-writer-{worker_index}")
+    title = f"ig-w-{worker_index}"
+
+    set_proctitle(title)
+    _register_stack_dump(title)
 
     # allow main process to orchestrate shutdown on interrupt
     import signal, sys
@@ -203,7 +263,8 @@ def _write_worker(
                 scratch=Path(scratch),
                 index=stage_count - 1,
                 total=stage_count,
-                outdir=outdir
+                outdir=outdir,
+                tally=tally
             )
         )
         stage.execute()

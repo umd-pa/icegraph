@@ -118,10 +118,16 @@ class IterableQueue(Iterator[O], Generic[O]):
                 return
 
         with self._remaining.get_lock():
+            if self._remaining.value == 1:
+                # last producer, its own items precede its sentinels since one feeder writes them in order
+                self.close()
+            elif isinstance(self._q, MPQueueType):
+                with self._lock:
+                    self._closed = True
+                self._q.close()
+                self._q.join_thread()
+
             self._remaining.value -= 1
-            last = self._remaining.value == 0
-        if last:
-            self.close()
 
     def close(self) -> None:
         with self._lock:
