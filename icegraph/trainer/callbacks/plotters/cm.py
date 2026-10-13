@@ -60,8 +60,8 @@ class CMPlotter(CHistogramReducer):
         plot.set_title(title)
 
         # update axis labels
-        ylabel = r"$\mathrm{Predicted}\;\mathrm{%s}$" % label
-        xlabel = r"$\mathrm{Target}\;\mathrm{%s}$" % label
+        ylabel = r"$\mathrm{Predicted}\;\mathrm{%s}$" % label.replace("_", r"\_")
+        xlabel = r"$\mathrm{Target}\;\mathrm{%s}$" % label.replace("_", r"\_")
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)
