@@ -10,6 +10,9 @@ extractor:
       drop_oversplit: true  # Q frames holding one primary split into more than one event
       mctree: I3MCTree_preMuonProp  # only the tree before muon propagation is stored, primaries are the same
 
+    charge_cut:
+      min_pe: 500
+
     rebuild_missing_mctree:
       random_service: GSL
 

@@ -21,7 +21,7 @@ Each column of a 2D array is accumulated independently.
    import numpy as np
 
    from icegraph.statistics import StatisticService
-   from icegraph.common.transforms import TransformSpace
+   from icegraph.common.transforms import Space
 
    # track a set of statistics over the data
    stats = StatisticService(["mean", "m2", "min", "max", "finite_count"])
@@ -31,8 +31,8 @@ Each column of a 2D array is accumulated independently.
 
    # read a base statistic, optionally in a transform space or in a specific base
    mean = stats.get("mean")
-   mean_log = stats.get("mean", space=TransformSpace.LOG)
-   mean_log_base4 = stats.get("mean", space=TransformSpace.LOG, base=4)
+   mean_log = stats.get("mean", space=Space.LOG)
+   mean_log_base4 = stats.get("mean", space=Space.LOG, base=4)
 
    # read a derived quantity, computed from the tracked bases
    std = stats.std()
@@ -102,13 +102,13 @@ configuration.
    from typing import ClassVar
 
    from icegraph.typing.common import ArrayF
-   from icegraph.common.transforms import TransformSpace
+   from icegraph.common.transforms import Space
    from icegraph.statistics.statistic import Statistic
    from icegraph.statistics.factory import StatisticFactory
 
    class MyStatistic(Statistic):
        name: ClassVar[str] = "my-statistic"
-       spaces: ClassVar[tuple[TransformSpace, ...]] = TransformSpace.all()
+       spaces: ClassVar[tuple[Space, ...]] = Space.all()
        degree = 1
 
        def _compute(self, array: ArrayF) -> ArrayF:

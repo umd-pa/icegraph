@@ -56,7 +56,7 @@ class HistogramPlotter(
         for i, (key, item) in enumerate(data.items()):
             color = PLOT_STYLE.theme_sequence[i % len(PLOT_STYLE.theme_sequence)]
 
-            self._plot_trace(fig, item, str(key), color=color)
+            self._plot_trace(fig, item, str(key), color=color, **kwargs)
 
     @abstractmethod
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:

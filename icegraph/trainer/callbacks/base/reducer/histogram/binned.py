@@ -6,41 +6,69 @@ from __future__ import annotations
 from typing import Callable
 
 from abc import abstractmethod
-from functools import cached_property
 
 import torch
 from torch import Tensor
 
 # local package
 from icegraph.common.histogram import Histogram
-from icegraph.common.tensors import DualResidentTensor
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
+from icegraph.common.mapping import MemoMap
 
 # local subpackage
 from .base import HistogramReducer
-from .types import Binning
+from .grid import Grid
 from .context import BoundsConstructorContext
 
 __all__ = ["BHistogramReducer"]
 
 
-_TRANSFORMS: dict[TransformSpace, Callable[[Tensor], Tensor]] = {
-    TransformSpace.LOG: torch.log10,
-    TransformSpace.ASINH: torch.asinh,
-    TransformSpace.LINEAR: lambda t: t,
+_TRANSFORMS: dict[Space, Callable[[Tensor], Tensor]] = {
+    Space.LOG: torch.log10,
+    Space.ASINH: torch.asinh,
+    Space.LINEAR: lambda t: t,
 }
 
 
 class BHistogramReducer(HistogramReducer):
     """Histogram reducer over continuous rows, binned uniformly in each axis' transform space."""
 
-    @cached_property
-    def transforms(self) -> tuple[Callable[[Tensor], Tensor], ...]:
-        return tuple(_TRANSFORMS[space] for space in self.scale)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
-    def transform(self, t: Tensor, /) -> Tensor:
-        transforms = self.transforms
+        self.grid: MemoMap[str, MemoMap[torch.device, Grid]] = MemoMap(self._get_grid)
 
+    def _get_grid(self, label: str) -> MemoMap[torch.device, Grid]:
+        mins, maxs = self.build_bounds(
+            BoundsConstructorContext(self._ctx.engine.decode), label
+        )
+
+        if any(t.ndim != 1 for t in (mins, maxs)):
+            raise ValueError(
+                f"{type(self).__name__}: build_bounds must return tensors of shape "
+                f"[{type(self).ndim},], got shapes {mins.shape}, {maxs.shape}."
+            )
+
+        # transform into bin space, keeping min <= max (e.g. for decreasing transforms)
+        mins, maxs = self.transform(mins, label), self.transform(maxs, label)
+        mins, maxs = torch.minimum(mins, maxs), torch.maximum(mins, maxs)
+
+        # apply margins
+        pad = (maxs - mins) * self.margins[label]
+        mins, maxs = mins - pad, maxs + pad
+
+        grid = Grid(
+            mins=mins,
+            maxs=maxs,
+            scale=self.bins[label][torch.device("cpu")] / (maxs - mins).clamp_min(1e-12)
+        )
+
+        return MemoMap(lambda d: grid.to(d))
+
+    def transform(self, t: Tensor, /, label: str) -> Tensor:
+        transforms = tuple(_TRANSFORMS[space] for space in self.axis_layout[label].spaces)
+
+        # all the same transform
         if all(f is transforms[0] for f in transforms):
             return transforms[0](t)
 
@@ -52,70 +80,24 @@ class BHistogramReducer(HistogramReducer):
             dim=-1,
         )
 
-    @cached_property
-    def _binnings(self) -> dict[str, Binning]:
-        return {}
-
-    def binning(self, label: str) -> Binning:
-        """Bounds and bin scale for ``label`` in transformed space, built on first use."""
-        binning = self._binnings.get(label)
-
-        if binning is None:
-            binning = self._binnings[label] = self._build_binning(label)
-
-        return binning
-
-    def _build_binning(self, label: str) -> Binning:
-        ctx = BoundsConstructorContext(self._ctx.engine.decode)
-
-        mins, maxs = self._build_bounds(ctx, label)
-
-        # transform into bin space, keeping min <= max (e.g. for decreasing transforms)
-        mins, maxs = self.transform(mins), self.transform(maxs)
-        mins, maxs = torch.minimum(mins, maxs), torch.maximum(mins, maxs)
-
-        mins, maxs = self._apply_margin(mins, maxs)
-
-        return Binning(
-            mins=DualResidentTensor(mins),
-            maxs=DualResidentTensor(maxs),
-            scale=DualResidentTensor(self.bins.on("cpu") / (maxs - mins).clamp_min(1e-12)),
-        )
-
-    def _apply_margin(self, mins: Tensor, maxs: Tensor) -> tuple[Tensor, Tensor]:
-        margin = self._kwargs.get("margin")
-        if margin is None:
-            return mins, maxs
-
-        span = maxs - mins  # [d]
-
-        margin = torch.as_tensor(margin, dtype=span.dtype, device=span.device)
-
-        if margin.numel() != 2 * span.numel():
-            raise ValueError(f"Expected {2 * span.numel()} margin values, got {margin.numel()}.")
-
-        lower, upper = margin.view(span.numel(), 2).T  # [d] each
-
-        return mins - span * lower, maxs + span * upper
-
     def encode(self, rows: Tensor, label: str) -> Tensor:
-        rows = self.transform(rows)
-
-        mins, maxs, scale = self.binning(label).on(rows.device)
+        rows = self.transform(rows, label)
+        grid = self.grid[label][rows.device]
+        bins = self.bins[label][rows.device]
 
         # keep rows within bounds, including the upper edge
-        rows = rows[((rows >= mins) & (rows <= maxs)).all(dim=-1)]
+        rows = rows[((rows >= grid.mins) & (rows <= grid.maxs)).all(dim=-1)]
 
         # continuous -> discrete bin indices
-        indices = torch.floor((rows - mins) * scale).to(torch.int64)
-        indices = indices.clamp(min=0).minimum(self.bins.on(rows.device) - 1)
+        indices = torch.floor((rows - grid.mins) * grid.scale).to(torch.int64)
+        indices = indices.clamp(min=0).minimum(bins - 1)
 
-        return self._count(indices)
+        return self.count(indices, label)
 
-    def _histogram(self, t: Tensor, label: str) -> Histogram:
-        mins, maxs, _ = self.binning(label).on("cpu")
-        return Histogram(histogram=t.cpu().numpy(), bounds=torch.stack((mins, maxs)).numpy())
+    def histogram(self, t: Tensor, label: str) -> Histogram:
+        grid = self.grid[label][torch.device("cpu")]
+        return Histogram(histogram=t.cpu().numpy(), bounds=torch.stack((grid.mins, grid.maxs)).numpy())
 
     @abstractmethod
-    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
+    def build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         ...

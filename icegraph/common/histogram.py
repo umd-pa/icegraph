@@ -162,6 +162,6 @@ class Histogram:
                 None
                 if struct.get("overflow") is None
                 else np.asarray(struct["overflow"], dtype=np.float32)
-            ),
+            )
         )
 

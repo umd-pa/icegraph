@@ -9,7 +9,7 @@ import copy
 
 import numpy as np
 
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.typing.common import ArrayF, ArrayI, ArrayB
 
 from .statistic import Statistic
@@ -168,7 +168,7 @@ class StatisticService:
 
     ### RAW AND DERIVED STATISTIC ACCESS
 
-    def get(self, kind: str, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10) -> ArrayF:
+    def get(self, kind: str, *, space: Space = Space.LINEAR, base: int = 10) -> ArrayF:
         """
        Return a raw statistic from the underlying bundle.
 
@@ -183,7 +183,7 @@ class StatisticService:
 
         # translate to correct base for log and asinh (this should apply to asinh, changing the "base"
         # of asinh(x) correlates to changing the base of the log-like behavior of asinh at the tails)
-        if space in (TransformSpace.LOG, TransformSpace.ASINH):
+        if space in (Space.LOG, Space.ASINH):
             if base <= 0 or base == 1:
                 raise ValueError("Requested base must be > 0 and != 1 for LOG/ASINH spaces.")
             return array / (np.log(base) ** statistic.degree)
@@ -191,7 +191,7 @@ class StatisticService:
         # if not log or asinh (linear), return raw
         return array
 
-    def valid_count(self, space: TransformSpace) -> ArrayF:
+    def valid_count(self, space: Space) -> ArrayF:
         """
         Derived statistic: requires FINITE_COUNT and POSITIVE_COUNT. Returns columnwise effective count of
         valid samples for the given transform space.
@@ -199,12 +199,12 @@ class StatisticService:
         Args:
             space: Transform space for which to compute the effective valid sample count.
         """
-        if space in (TransformSpace.LINEAR, TransformSpace.ASINH):
-            return self.get("finite_count", space=TransformSpace.LINEAR)
-        elif space == TransformSpace.LOG:
-            return self.get("positive_count", space=TransformSpace.LINEAR)
+        if space in (Space.LINEAR, Space.ASINH):
+            return self.get("finite_count", space=Space.LINEAR)
+        elif space == Space.LOG:
+            return self.get("positive_count", space=Space.LINEAR)
         else:
-            raise TypeError(f"Parameter 'space' must be a TransformSpace, got {type(space).__name__}.")
+            raise TypeError(f"Parameter 'space' must be a Space, got {type(space).__name__}.")
 
     def geometric_mean(self, *, base: int = 10) -> ArrayF:
         """
@@ -214,12 +214,12 @@ class StatisticService:
             base: Log base used for computing the geometric mean.
         """
         # only defined in log space, so only provided in log space
-        mean_log = self.get("mean", space=TransformSpace.LOG, base=base)
+        mean_log = self.get("mean", space=Space.LOG, base=base)
 
         # geo_mean = base ** mean(log_base(x))
         return base ** mean_log
 
-    def variance(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
+    def variance(self, *, space: Space = Space.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
         """
         Derived statistic: requires M2 and valid_count. Returns columnwise variance.
 
@@ -237,7 +237,7 @@ class StatisticService:
         # variance = m2 / n
         return np.where(denom > 0, m2 / denom, np.nan)
 
-    def std(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
+    def std(self, *, space: Space = Space.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
         """
         Derived statistic: requires variance. Returns columnwise standard deviation.
 
@@ -251,7 +251,7 @@ class StatisticService:
         # std = sqrt(variance)
         return np.sqrt(variance)
 
-    def range(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10) -> ArrayF:
+    def range(self, *, space: Space = Space.LINEAR, base: int = 10) -> ArrayF:
         """
         Derived statistic: requires MIN and MAX. Returns columnwise range.
 
@@ -265,7 +265,7 @@ class StatisticService:
         # range = max - min
         return maximum - minimum
 
-    def sem(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
+    def sem(self, *, space: Space = Space.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
         """
         Derived statistic: requires std and valid_count. Returns columnwise standard error of the mean (SEM).
 
@@ -280,7 +280,7 @@ class StatisticService:
         # SEM = std / sqrt(n)
         return np.where(valid_count > 0, std / np.sqrt(valid_count), np.nan)
 
-    def cv(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
+    def cv(self, *, space: Space = Space.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
         """
         Derived statistic: requires std and MEAN. Returns columnwise coefficient of variation (CV).
 
@@ -295,7 +295,7 @@ class StatisticService:
         # CV = std / mean
         return np.where(mean != 0, std / mean, np.nan)
 
-    def rms(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
+    def rms(self, *, space: Space = Space.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
         """
         Derived statistic: requires variance and MEAN. Returns columnwise root-mean-square (RMS).
 
@@ -310,7 +310,7 @@ class StatisticService:
         # RMS = sqrt(variance + mean ** 2)
         return np.sqrt(variance + np.square(mean))
 
-    def snr(self, *, space: TransformSpace = TransformSpace.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
+    def snr(self, *, space: Space = Space.LINEAR, base: int = 10, biased: bool = False) -> ArrayF:
         """
         Derived statistic: requires std and MEAN. Returns columnwise signal-to-noise ratio (SNR).
 

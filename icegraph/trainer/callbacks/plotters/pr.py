@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from typing_extensions import override
 from collections.abc import Mapping
 
@@ -15,7 +15,7 @@ from icegraph.renderer import Line2D
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer, BoundsConstructorContext
+from ..base import BHistogramReducer, BoundsConstructorContext, AxisLayout
 from ._ovr import project_ovr, iter_ovr, bin_curve
 
 if TYPE_CHECKING:
@@ -30,16 +30,17 @@ logger = logging.getLogger(__name__)
 
 
 class PrecisionRecallPlotter(BHistogramReducer):
+    has_trailing_count_axis: ClassVar[bool] = False
 
     @override
-    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
+    def default_axis_layout(self) -> AxisLayout:
+        return AxisLayout(margins=(0.,), bins=(5000,))
+
+    @override
+    def build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         mins = torch.as_tensor([0], dtype=torch.float32)
         maxs = torch.as_tensor([1], dtype=torch.float32)
         return mins, maxs
-
-    @override
-    def _build_bins(self) -> Tensor:
-        return torch.tensor([5000])
 
     @override
     def project(self, batch: GraphBatch, out: Tensor, label: str) -> tuple[Tensor, Tensor]:

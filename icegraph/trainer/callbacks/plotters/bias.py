@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from typing_extensions import override
 from collections.abc import Mapping
 
@@ -12,12 +12,12 @@ from torch import Tensor
 
 # local package
 from icegraph.common.data import DataRole
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.renderer import Histogram2D, MedianQuantileBand
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer, BoundsConstructorContext
+from ..base import BHistogramReducer, BoundsConstructorContext, AxisLayout
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -31,16 +31,21 @@ logger = logging.getLogger(__name__)
 
 
 class BiasPlotter(BHistogramReducer):
+    ndim: ClassVar[int] = 2
 
     @override
-    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
+    def default_axis_layout(self) -> AxisLayout:
+        return AxisLayout(margins=(0.1,), bins=(150,))
+
+    @override
+    def build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         # target stats, and the label's column within them
         stats = ctx.get_stats(DataRole.TARGETS)
         index = ctx.physical_index(label, DataRole.TARGETS)
 
         # a log axis starts at the smallest positive value, the linear min may be <= 0 and send the bound to -inf
-        if self.scale[0] == TransformSpace.LOG:
-            lo = 10 ** stats.get("min", space=TransformSpace.LOG)[index]
+        if self.axis_layout[label].spaces[0] == Space.LOG:
+            lo = 10 ** stats.get("min", space=Space.LOG)[index]
         else:
             lo = stats.get("min")[index]
 
@@ -49,10 +54,6 @@ class BiasPlotter(BHistogramReducer):
         maxs = torch.as_tensor([stats.get("max")[index], 5], dtype=torch.float32)
 
         return mins, maxs
-
-    @override
-    def _build_bins(self) -> Tensor:
-        return torch.tensor([150, 150])
 
     @override
     def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor:
@@ -81,13 +82,17 @@ class BiasPlotter(BHistogramReducer):
         plot.set_title(title)
 
         # update axis labels
-        xlabel = r"$\mathrm{Target}\;%s$" % self.scale[0].format_repr(r"\mathrm{%s}" % label.replace("_", r"\_"))
-        ylabel = r"$\mathrm{(Predicted - Target)/Target}\;%s$" % self.scale[1].format_repr(r"\mathrm{%s}" % label.replace("_", r"\_"))
+        scale = self.axis_layout[label].spaces
+        xlabel = r"$\mathrm{Target}\;%s$" % scale[0].format_repr(r"\mathrm{%s}" % label.replace("_", r"\_"))
+        ylabel = r"$\mathrm{(Predicted - Target)/Target}\;%s$" % scale[1].format_repr(r"\mathrm{%s}" % label.replace("_", r"\_"))
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)
 
+        # set count label
+        plot.set_zlabel(self.get_count_label(label))
+
         # plot
         path = trainer.plotdir / "bias" / f"{label}.bias.{trainer.current_epoch + 1}.html"
-        plot.plot(artifacts, path)
+        plot.plot(artifacts, path, log_count=self.axis_layout[label].log_count)
         logger.info(f"new bias plot saved: %s", str(path))

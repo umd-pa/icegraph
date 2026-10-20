@@ -19,7 +19,7 @@ from icegraph.data.extractor import Extractor
 from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
-from .modules import is_sub_event_stream, DropCounter, event_selector, muongun_labels, rebuild_mctree
+from .modules import is_sub_event_stream, DropCounter, event_selector, muongun_labels, rebuild_mctree, charge_cut
 
 __all__ = ["I3Extractor"]
 
@@ -59,10 +59,14 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
 
             tray.Add("I3Reader", Filenamelist=files)
 
-            # selection, add first so nothing downstream ever processes a dropped event
-            drop_counter: DropCounter | None = None
+            # cuts and selection, add first so nothing downstream ever processes a dropped event
+            drop_counter = DropCounter()
+            
+            # do charge cut if required
+            if self.config.charge_cut is not None:
+                tray.Add(charge_cut(self.config.charge_cut, drop_counter, self.config.sub_event_stream))
+
             if self.config.selection is not None:
-                drop_counter = DropCounter.from_config(self.config.selection)
                 tray.Add(event_selector(self.config.selection, drop_counter, self.config.sub_event_stream))
 
             # rebuild the propagated tree where it was discarded, after the selection so dropped events are skipped
@@ -129,6 +133,9 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
         # padding should be the same across all files so the muongun labels are equivalent for each
         if self.config.muongun is not None:
             env.set_global_attr("muongun", self.config.muongun.model_dump(include={"padding"}))
+
+        if self.config.charge_cut is not None:
+            env.set_global_attr("charge_cut", self.config.charge_cut.model_dump(include={"max_pe", "min_pe"}))
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext

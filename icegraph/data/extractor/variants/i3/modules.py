@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 from typing import Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 
 import numpy as np
 
 from icegraph.utils.stdout import suppress_output
 
-from .config import SelectionConfig, MuonGunConfig, RebuildMCTreeConfig
+from .config import SelectionConfig, MuonGunConfig, RebuildMCTreeConfig, ChargeCutConfig
 
 __all__ = ["is_sub_event_stream", "DropCounter", "event_selector", "muongun_labels", "rebuild_mctree"]
 
@@ -37,13 +37,7 @@ def is_sub_event_stream(frame: Any, sub_event_stream: str) -> bool:
 
 @dataclass
 class DropCounter:
-    dropped:    dict[str, dict[str, int]]
-
-    @classmethod
-    def from_config(cls, config: SelectionConfig) -> DropCounter:
-        # one entry per enabled rule, a rule never set is left out rather than counted as zero
-        rules = {"coincident": config.drop_coincident, "oversplit": config.drop_oversplit}
-        return cls(dropped={rule: {"daq": 0, "physics": 0} for rule, on in rules.items() if on})
+    dropped: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 def event_selector(config: SelectionConfig, tally: DropCounter, sub_event_stream: str) -> type:
@@ -80,6 +74,12 @@ def event_selector(config: SelectionConfig, tally: DropCounter, sub_event_stream
             return None
 
         def FramePacket(self, frames):
+            # make sure tally is set
+            for reason in ("coincident", "oversplit"):
+                d = tally.dropped.setdefault(reason, {})
+                for frame_type in ("daq", "physics"):
+                    d.setdefault(frame_type, 0)
+
             daq, *rest = frames
             events = sum(1 for frame in rest if is_sub_event_stream(frame, sub_event_stream))
 
@@ -94,6 +94,38 @@ def event_selector(config: SelectionConfig, tally: DropCounter, sub_event_stream
             tally.dropped[reason]["physics"] += events
 
     return EventSelector
+
+
+def charge_cut(config: ChargeCutConfig, tally: DropCounter, sub_event_stream: str) -> type:
+    with suppress_output():
+        from icecube import icetray, dataclasses  # pyright: ignore[reportMissingImports]
+
+    class ChargeCutter(icetray.I3Module):
+        def __init__(self, context):
+            icetray.I3Module.__init__(self, context)
+
+        def _get_total_charge(self, frame: Any) -> float:
+            pulses = dataclasses.I3RecoPulseSeriesMap.from_frame(frame, config.pulse_series)
+            return float(sum(pulse.charge for series in pulses.values() for pulse in series))
+
+        def Physics(self, frame: Any):
+            if not is_sub_event_stream(frame, sub_event_stream):
+                self.PushFrame(frame)
+                return
+            
+            # make sure tally is set
+            tally.dropped.setdefault("charge", {}).setdefault("physics", 0)
+
+            total_charge = self._get_total_charge(frame)
+
+            # check if within set bounds
+            if config.min_pe <= total_charge <= config.max_pe:
+                self.PushFrame(frame)
+                return
+
+            tally.dropped["charge"]["physics"] += 1
+
+    return ChargeCutter
 
 
 def muongun_labels(config: MuonGunConfig) -> type:

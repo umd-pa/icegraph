@@ -1,11 +1,11 @@
 outdir: /data/i3store/users/tstjean/BSN
-run: '1'
+run: '6'
 
-amp: true
+amp: false
 
 # epochs and val interval
 max_epochs: 10000
-val_interval: 5
+val_interval: 10
 
 services:
   state:
@@ -14,7 +14,7 @@ services:
   data:
     # batch size controls how many samples are passed at a time in each
     # training batch (see torch DataLoader batch_size argument)
-    batch_size: 8192
+    batch_size: 256
 
     # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
@@ -63,9 +63,10 @@ services:
 
   record:
     source:
-      - /scratch/users/tstjean/processed-sim/23016
-      - /scratch/users/tstjean/processed-sim/22803
-      - /scratch/users/tstjean/processed-sim/23123
+      - /scratch/users/tstjean/processed-sim/sim/23016
+      - /scratch/users/tstjean/processed-sim/sim/22803
+      - /scratch/users/tstjean/processed-sim/sim/23123
+      - /scratch/users/tstjean/processed-sim/sim/22686
 
     reader:
       name: zarr
@@ -88,13 +89,15 @@ components:
   transformer:
     name: standard
     kwargs:
-      transforms: { }
+      transforms:
+        bundle_multiplicity: { space: asinh, base: 10 }
 
   model:
-    name: gcn
+    name: gine
     kwargs:
       hidden_layers: 4
-      hidden_channels: 256
+      hidden_channels: 768
+      checkpoint: true
 
   normalizer:
     name: zscore
@@ -103,7 +106,7 @@ components:
   edges:
     name: gaussian
     kwargs:
-      k: 10
+      k: 8
 
       # logical feature column groups
       neighbor_cols: [ dom_x, dom_y, dom_z ]

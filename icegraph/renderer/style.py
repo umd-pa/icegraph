@@ -42,11 +42,12 @@ class PlotStyle:
         "#5B3A9E",  # deep purple
     )
 
-    # colorbar: low-saturation steel blue
+    # colorbar: low-saturation steel blue + yellow
     colorbar: tuple[tuple[float, str], ...] = (
         (0.0, "rgba(0, 0, 0, 0)"),
         (0.0001, "#B5CAE6"),
-        (1.0, "#08519C"),
+        (0.5, "#08519C"),
+        (1.0, "#FFF41F")
     )
 
 

@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .gcn import GCN
+from .gine import GINE
 
-__all__ = ["GCN"]
+__all__ = ["GCN", "GINE"]

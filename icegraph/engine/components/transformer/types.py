@@ -5,12 +5,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 
 __all__ = ["TransformerSpec"]
 
 
 @dataclass(frozen=True)
 class TransformerSpec:
-    space:  TransformSpace
+    space:  Space
     base:   int

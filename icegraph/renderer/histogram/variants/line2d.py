@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing_extensions import override
 
 import plotly.graph_objects as go
+import numpy as np
 
 from icegraph.common.histogram import Histogram
 
@@ -18,6 +19,10 @@ class Line2D(HistogramPlotter1D):
 
     @override
     def _plot_trace(self, fig: go.Figure, data: Histogram, label: str, **kwargs) -> None:
+        histogram = data.histogram
+        if kwargs.get("log_count"):
+            histogram = np.log10(histogram)
+
         fig.add_trace(
             go.Scatter(
                 x=data.centers[0],
@@ -31,7 +36,7 @@ class Line2D(HistogramPlotter1D):
         )
 
     @override
-    def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:
+    def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         fig.update_yaxes(
             type="linear",
             autorange=True

@@ -66,14 +66,18 @@ class Histogram2D(HistogramPlotter2D):
         centers = (np.arange(data.bins[0]), np.arange(data.bins[1])) if data.bounds is None else data.centers
 
         # in exclusive mode, only the first heatmap starts visible
-        first = not any(trace.type == "heatmap" for trace in fig.data)
+        first = not any(trace.type == "heatmap" for trace in fig.data)  # pyright: ignore[reportAttributeAccessIssue]
         visible = True if first or not self._exclusive else "legendonly"
+
+        histogram = data.histogram
+        if kwargs.get("log_count"):
+            histogram = np.log10(histogram)
 
         fig.add_trace(
             go.Heatmap(  # histogram
                 x=centers[0],
                 y=centers[1],
-                z=data.histogram.T,  # histogram is [x, y], plotly wants z rows as y
+                z=histogram.T,  # histogram is [x, y], plotly wants z rows as y
                 zauto=False,
                 zmin=0,
                 coloraxis="coloraxis",
@@ -87,7 +91,7 @@ class Histogram2D(HistogramPlotter2D):
         )
 
     @override
-    def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:
+    def _apply_layout(self, fig: go.Figure, data: dict[str | int, Histogram], **kwargs) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         if list(data.values())[0].bounds is not None:
             # get mins and maxs, find most min and most max among all histograms
             mins = np.minimum.reduce([h.mins for h in data.values()])
@@ -114,6 +118,9 @@ class Histogram2D(HistogramPlotter2D):
         # get max value across all histograms, or just the initially visible one if exclusive
         peaks = [float(h.peak_value) for h in data.values()]
         max_value = peaks[0] if self._exclusive else max(peaks)
+
+        if kwargs.get("log_count"):
+            max_value = np.log10(max_value)
 
         # colorbar
         fig.update_layout(

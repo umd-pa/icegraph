@@ -7,7 +7,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, FilePath, model_validator
 
-__all__ = ["I3ExtractorConfig", "SelectionConfig", "MuonGunConfig", "RebuildMCTreeConfig"]
+__all__ = ["I3ExtractorConfig", "SelectionConfig", "MuonGunConfig", "RebuildMCTreeConfig", "ChargeCutConfig"]
 
 
 class SelectionConfig(BaseModel):
@@ -21,6 +21,12 @@ class SelectionConfig(BaseModel):
             raise ValueError("Selection was enabled but no rules were set.")
 
         return self
+
+
+class ChargeCutConfig(BaseModel):
+    pulse_series:   str     = "SplitInIcePulses"
+    min_pe:         float   = Field(default=0., ge=0)
+    max_pe:         float   = Field(default=float("inf"), ge=0)
 
 
 class MuonGunConfig(BaseModel):
@@ -46,17 +52,18 @@ class RebuildMCTreeConfig(BaseModel):
 
 
 class I3ExtractorConfig(BaseModel):
-    gcd_path:       FilePath
-    include:        list[str]
-    ml_suite:       dict[str, Any]  # validation is up to ml_suite
-    mclabeler:      dict[str, Any] | None = None  # validation is up to MCLabeler, only run if set
-    selection:      SelectionConfig | None = None  # only run if set
-    muongun:        MuonGunConfig | None = None  # only run if set
-    rebuild_missing_mctree: RebuildMCTreeConfig | None = None  # only run if set
-    sub_event_stream: str           = "InIceSplit"
-    event_header: str               = "I3EventHeader"
-    skip_missing:   bool            = False  # skip files with events that lack an included key
-    suppress_icetray_output: bool   = True
+    gcd_path:               FilePath
+    include:                list[str]
+    ml_suite:               dict[str, Any]  # validation is up to ml_suite
+    mclabeler:              dict[str, Any]      | None  = None  # validation is up to MCLabeler, only run if set
+    selection:              SelectionConfig     | None  = None  # only run if set
+    muongun:                MuonGunConfig       | None  = None  # only run if set
+    charge_cut:             ChargeCutConfig     | None  = None  # only run if set
+    rebuild_missing_mctree: RebuildMCTreeConfig | None  = None  # only run if set
+    sub_event_stream:       str                         = "InIceSplit"
+    event_header:           str                         = "I3EventHeader"
+    skip_missing:           bool                        = False  # skip files with events that lack an included key
+    suppress_icetray_output: bool                       = True
 
     # columns identifying an event, the index columns the table writer books with every table
     ids:            list[str]       = Field(default=["Run", "Event", "SubEvent", "SubEventStream"], min_length=1)

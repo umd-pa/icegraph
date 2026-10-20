@@ -11,12 +11,12 @@ import torch
 from torch import Tensor
 
 # local package
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.renderer import Histogram1D
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer, BoundsConstructorContext
+from ..base import BHistogramReducer, BoundsConstructorContext, AxisLayout
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
@@ -32,16 +32,16 @@ logger = logging.getLogger(__name__)
 class BinaryPPositivePlotter(BHistogramReducer):
 
     @override
-    def _build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
+    def default_axis_layout(self) -> AxisLayout:
+        return AxisLayout(margins=(0.,), bins=(100,))
+
+    @override
+    def build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         # mins/maxs
         mins = torch.as_tensor([0], dtype=torch.float32)
         maxs = torch.as_tensor([1], dtype=torch.float32)
 
         return mins, maxs
-
-    @override
-    def _build_bins(self) -> Tensor:
-        return torch.tensor([100])
 
     @override
     def project(self, batch: GraphBatch, out: Tensor, label: str) -> tuple[Tensor, Tensor]:
@@ -81,12 +81,11 @@ class BinaryPPositivePlotter(BHistogramReducer):
 
         # update axis labels
         plot.set_xlabel(r"$p_\theta(y = 1 \mid x)$")
-        if self._kwargs.get("log_count", False):
-            plot.set_ylabel("$%s$" % TransformSpace.LOG.format_repr(r'\mathrm{Count}'))
-        else:
-            plot.set_ylabel("Count")
+
+        # set count label
+        plot.set_ylabel(self.get_count_label(label))
 
         # plot
         path = trainer.plotdir / "p_positive" / f"{label}.p_positive.{epoch + 1}.html"
-        plot.plot(artifacts, path)
+        plot.plot(artifacts, path, log_count=self.axis_layout[label].log_count)
         logger.info(f"new positive-class probability plot saved: %s", str(path))

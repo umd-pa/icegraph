@@ -17,6 +17,7 @@ from .inspect import Inspector
 from .fill import Filler
 from .unique import Unique
 from .simulation import I3Simulation
+from .filter import Filter
 
 __all__ = [
     "Committer",
@@ -33,6 +34,7 @@ __all__ = [
     "Stats",
     "Inspector",
     "Filler",
+    "Filter",
     "Unique",
     "I3Simulation"
 ]
