@@ -3,13 +3,11 @@
 
 from __future__ import annotations
 
-from pydantic import Field
-
-from ...config import Config
+from pydantic import BaseModel, Field
 
 __all__ = ["SumInQuadratureConfig"]
 
 
-class SumInQuadratureConfig(Config):
+class SumInQuadratureConfig(BaseModel):
     # logical feature column groups summed in quadrature to form the edge weight
-    weight_cols: list[str] = Field(min_length=1)
+    cols: list[str] = Field(min_length=1)

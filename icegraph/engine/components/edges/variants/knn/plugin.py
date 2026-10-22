@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
-from abc import ABC
+from typing import Any, ClassVar
 
 from torch import Tensor
 from torch_geometric.nn import knn_graph
@@ -13,7 +12,7 @@ from icegraph.common.tensors import SegmentedTensor
 
 from icegraph.engine.components.edges import EdgeBuilder
 
-from .config import Config
+from .config import KNNConfig
 
 __all__ = ["KNNEdgeBuilder"]
 
@@ -22,17 +21,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-C = TypeVar("C", bound=Config)
-
-
-class KNNEdgeBuilder(EdgeBuilder[C], ABC):
+class KNNEdgeBuilder(EdgeBuilder[KNNConfig]):
     """Connect every node to its ``k`` nearest neighbours within its own graph.
 
-    The neighbour search is shared by the whole family, so a subclass supplies
-    only the edge weight. Edges follow the message-passing orientation used by
-    ``torch_geometric``: ``edge_index[0]`` is the neighbour a message travels
-    from and ``edge_index[1]`` is the node it arrives at.
+    The edge attributes come from the weight modules in the config. Edges follow
+    the message-passing orientation used by ``torch_geometric``: ``edge_index[0]``
+    is the neighbour a message travels from and ``edge_index[1]`` is the node it
+    arrives at.
     """
+    name: ClassVar[str] = "knn"
+    version: ClassVar[int] = 1
+
+    @classmethod
+    def validate_config(cls, config: dict[str, Any]) -> KNNConfig:
+        return KNNConfig(**config)
 
     def build(self) -> None:
         return

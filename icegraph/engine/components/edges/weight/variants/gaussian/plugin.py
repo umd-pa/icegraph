@@ -10,14 +10,14 @@ from torch import Tensor
 
 from icegraph.common.tensors import SegmentedTensor
 
-from ...plugin import KNNEdgeBuilder
+from ...weight import EdgeWeight
 
 from .config import GaussianConfig
 
 __all__ = ["Gaussian"]
 
 
-class Gaussian(KNNEdgeBuilder[GaussianConfig]):
+class Gaussian(EdgeWeight[GaussianConfig]):
     """Weight each edge using a gaussian."""
     name: ClassVar[str] = "gaussian"
     version: ClassVar[int] = 1
@@ -27,7 +27,7 @@ class Gaussian(KNNEdgeBuilder[GaussianConfig]):
         return GaussianConfig(**config)
 
     def build_attr(self, t: SegmentedTensor, edge_index: Tensor) -> Tensor:
-        values = t.block(self.config.weight_cols)
+        values = t.block(self.config.cols)
 
         # squared distance across each edge
         difference = values[edge_index[0]] - values[edge_index[1]]

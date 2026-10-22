@@ -104,16 +104,20 @@ components:
     kwargs: { }
 
   edges:
-    name: gaussian
+    name: knn
     kwargs:
       k: 8
 
       # logical feature column groups
       neighbor_cols: [ dom_x, dom_y, dom_z ]
-      weight_cols: [ dom_x, dom_y, dom_z ]
 
-      # approx dist between strings in m
-      sigma: 125
+      weights:
+        - name: gaussian
+          kwargs:
+            cols: [ dom_x, dom_y, dom_z ]
+
+            # approx dist between strings in m
+            sigma: 125
 
   optimizer:
     name: adam

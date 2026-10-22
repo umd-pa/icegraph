@@ -1,6 +1,6 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .variants import SumInQuadrature, Gaussian
+from .plugin import KNNEdgeBuilder
 
-__all__ = ["SumInQuadrature", "Gaussian"]
+__all__ = ["KNNEdgeBuilder"]

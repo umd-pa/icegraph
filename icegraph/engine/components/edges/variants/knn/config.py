@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-__all__ = ["Config"]
+from icegraph.engine.components.edges.config import EdgeBuilderConfig
+
+__all__ = ["KNNConfig"]
 
 
-class Config(BaseModel):
+class KNNConfig(EdgeBuilderConfig):
     # number of nearest neighbours to connect each node to
     k: int = Field(ge=1)
 

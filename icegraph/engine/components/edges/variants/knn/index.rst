@@ -1,14 +1,13 @@
-KNN Edge Builders
-=================
+KNN
+===
 
-The **k-nearest-neighbour edge builders** are the family of
-:doc:`edge builders <../../index>` that connect every node to the ``k`` nodes
+:doc:`Edge builder <../../index>` that connects every node to the ``k`` nodes
 closest to it within its own graph.
 
 How it works
 ------------
 
-The family resolves ``neighbor_cols`` against the feature block to obtain the
+The builder resolves ``neighbor_cols`` against the feature block to obtain the
 coordinates each node occupies, then runs a batched neighbour search that uses the
 batch vector to keep every edge inside a single graph. Where a graph holds fewer
 than ``k + 1`` nodes, that graph simply contributes fewer edges.
@@ -18,8 +17,15 @@ Edges follow the orientation ``torch_geometric`` uses for message passing:
 is the node it arrives at. Under the default ``source_to_target`` flow, each node
 therefore aggregates over its own ``k`` nearest neighbours.
 
+The edge attributes come from the :doc:`edge weights <../../weight/index>` listed
+under ``weights``. The columns those weights read are set per weight, separately
+from ``neighbor_cols``, so an edge may be weighted in a different space from the
+one its endpoints were selected in.
+
 Configuration
 -------------
+
+Selected as ``name: knn``.
 
 .. list-table::
    :header-rows: 1
@@ -38,69 +44,28 @@ Configuration
        in. Must name at least one group.
      - list[str]
      - required
+   * - ``weights``
+     - Edge weights to run on the edge index, each given as ``name`` and
+       ``kwargs``. Their outputs are concatenated in this order.
+     - list[EdgeWeightSelection]
+     - ``[]``
 
-Subclasses accept these options in addition to any of their own.
+.. code-block:: yaml
 
-Variants
---------
+   components:
+     edges:
+       name: knn
+       kwargs:
+         k: 10
+         neighbor_cols: [ dom_x, dom_y, dom_z ]
+         weights:
+           - name: sum-in-quadrature
+             kwargs:
+               cols: [ dom_x, dom_y, dom_z ]
+           - name: gaussian
+             kwargs:
+               cols: [ dom_x, dom_y, dom_z ]
+               sigma: 50.0
 
-* :doc:`Sum in Quadrature <variants/sum_in_quadrature/index>`: weight each edge by
-  the quadrature sum of its endpoint differences.
-* :doc:`Gaussian <variants/gaussian/index>`: weight each edge by a gaussian of the
-  distance between its endpoints.
-
-Registering a new KNN edge builder
-----------------------------------
-
-A KNN edge builder is a subclass of ``KNNEdgeBuilder`` that declares a ``name``
-and ``version`` and supplies the weight for an already-computed edge index. The
-base implements ``build_index``, so a subclass implements only:
-
-``build_attr(self, t, edge_index) -> Tensor``
-   Return one attribute row per edge, with shape ``[E, ATTR]``.
-
-A subclass that needs options beyond ``k`` and ``neighbor_cols`` declares a config
-that extends the family's and overrides ``validate_config``.
-
-.. code-block:: python
-
-   # config.py
-   from pydantic import Field
-
-   from icegraph.engine.components.edges.variants.knn.config import Config
-
-   class MyConfig(Config):
-       ...
-
-.. code-block:: python
-
-   # plugin.py
-   from typing import Any, ClassVar
-
-   from torch import Tensor
-
-   from icegraph.common.tensors import SegmentedTensor
-   from icegraph.engine.components.edges import EdgeBuilderFactory
-   from icegraph.engine.components.edges.variants.knn.plugin import KNNEdgeBuilder
-
-   from .config import MyConfig
-
-   class MyKNNVariant(KNNEdgeBuilder[MyConfig]):
-       name: ClassVar[str] = "gaussian"
-       version: ClassVar[int] = 1
-
-       @classmethod
-       def validate_config(cls, config: dict[str, Any]) -> MyConfig:
-           return MyConfig(**config)
-
-       def build_attr(self, t: SegmentedTensor, edge_index: Tensor) -> Tensor:
-           ...  # per-edge weight, with shape [E, ATTR]
-
-   EdgeBuilderFactory.register(MyKNNVariant)
-
-
-.. toctree::
-   :hidden:
-
-   variants/sum_in_quadrature/index
-   variants/gaussian/index
+The attributes produced in this example have shape ``[E, 2]``: column 0 is the
+sum-in-quadrature weight and column 1 is the gaussian weight.

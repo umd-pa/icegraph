@@ -2,6 +2,7 @@
 # Developed by Taylor St Jean
 
 from .edges import EdgeBuilder
+from .config import EdgeBuilderConfig
 from .factory import EdgeBuilderFactory
 
-__all__ = ["EdgeBuilder", "EdgeBuilderFactory"]
+__all__ = ["EdgeBuilder", "EdgeBuilderConfig", "EdgeBuilderFactory"]

@@ -1,7 +1,7 @@
 Sum in Quadrature
 =================
 
-KNN :doc:`edge builder <../../index>` that weights each edge by the quadrature sum of
+:doc:`Edge weight <../../index>` that weights each edge by the quadrature sum of
 the differences between its two endpoints, taken over a configurable set of
 feature columns. For a position triplet this is the Euclidean distance between the
 two nodes.
@@ -9,10 +9,6 @@ two nodes.
 .. code-block:: text
 
    weight = sqrt( sum_i (a_i - b_i)^2 )
-
-The columns summed for the weight are configured separately from those spanning
-the neighbour search, so an edge may be weighted in a different space from the one
-its endpoints were selected in.
 
 Configuration
 -------------
@@ -27,16 +23,7 @@ Selected as ``name: sum-in-quadrature``.
      - Description
      - Type
      - Default
-   * - ``k``
-     - Number of nearest neighbours connected per node.
-     - int
-     - required
-   * - ``neighbor_cols``
-     - Logical feature column groups spanning the space the neighbour search runs
-       in.
-     - list[str]
-     - required
-   * - ``weight_cols``
+   * - ``cols``
      - Logical feature column groups summed in quadrature to form the edge weight.
      - list[str]
      - required
@@ -45,10 +32,13 @@ Selected as ``name: sum-in-quadrature``.
 
    components:
      edges:
-       name: sum-in-quadrature
+       name: knn
        kwargs:
          k: 10
          neighbor_cols: [ dom_x, dom_y, dom_z ]
-         weight_cols: [ dom_x, dom_y, dom_z ]
+         weights:
+           - name: sum-in-quadrature
+             kwargs:
+               cols: [ dom_x, dom_y, dom_z ]
 
 The attribute produced has shape ``[E, 1]``.
