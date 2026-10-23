@@ -21,7 +21,7 @@ class DataConfig(BaseModel):
     num_workers:                int
     prefetch_factor:            int
     mp_context:                 Literal["spawn", "forkserver"]
-    persistent_workers:         int
+    persistent_workers:         bool
     buffer_refill_threshold:    float   = 0.25
     max_chunks_per_epoch:       int     = -1
 
