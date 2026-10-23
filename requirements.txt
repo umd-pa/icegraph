@@ -19,7 +19,9 @@ h5py==3.14.0
 
 # simweights, used by the simweight processor to read generation surfaces and by
 # the standard i3 record decoder to weight them on load
+# nuflux if required
 simweights==0.1.3
+nuflux==2.0.7  # optional, needed if weighting a neutrino spectrum
 
 # data
 numpy==1.26.4

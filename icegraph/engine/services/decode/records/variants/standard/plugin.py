@@ -88,7 +88,7 @@ class StandardI3Decoder(RecordDecoder[StandardI3DecoderConfig]):
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        self.__dict__.update(state)
+        vars(self).update(state)
         self._groups = self._build_groups()
 
     ### WEIGHTS

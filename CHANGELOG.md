@@ -1,5 +1,20 @@
 # Changelog
 
+### Version [0.12.0] --- October 23rd, 2026:
+- Many pipeline memoory and speed optimizations.
+- Added `Collector` to the pipeline.
+- Added `EdgeBuilder` as a component for building edges at runtime instead of storing on disk.
+- Added a pipeline GUI.
+- Many dataloader IO optimizations.
+- Added many `I3Extractor` functionalities, including MCLabeler support, frame selection, built-in charge cuts and MCTree repropagation.
+- Added various plotters.
+- Cleaned up reducer logic.
+- Added status tracking for observability.
+- Added basic AMP support.
+- Added dynamic simweight support.
+- Updated install script and requirements.txt.
+- Mny other small feature changes/additions and bug fixes.
+
 #### Version [0.11.2] --- July 6th, 2026:
 - Fixed a minor NaN bug in the M2 statistic.
 - Added statistics tests (this module is most prone to silent bugs).
