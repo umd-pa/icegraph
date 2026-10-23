@@ -38,5 +38,4 @@ Downstream usage example:
    - name: copy
      kwargs:
        to: truth
-       by: event_id
        cols: position  # equivalent to passing [x, y, z]

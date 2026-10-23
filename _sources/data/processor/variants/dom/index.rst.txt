@@ -17,18 +17,28 @@ Selected as ``name: domproc``.
      - Description
      - Type
      - Default
-   * - ``cols``
-     - Columns holding the DOM identifiers. Expects 3 columns ordered as [string, OM, PMT].
-     - column(s)
+   * - ``string``
+     - Column holding the DOM string IDs.
+     - str
+     - required
+   * - ``om``
+     - Column holding the DOM OM IDs.
+     - str
+     - required
+   * - ``pmt``
+     - Column holding the DOM PMT IDs.
+     - str
      - required
    * - ``out``
      - Columns the resulting positions are written to.
-     - column(s)
-     - required
+     - str | list[str]
+     - ["x", "y", "z"]
 
 .. code-block:: yaml
 
    - name: domproc
      kwargs:
-       cols: [ string, om, pmt ]
+       string: string
+       om: om
+       pmt: pmt
        out: [ x, y, z ]

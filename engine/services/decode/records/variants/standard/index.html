@@ -57,16 +57,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../../../../../index.html">Engine</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../../../../status/index.html">Status</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../../../index.html">Services</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../../../../state/index.html">State</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../data/index.html">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../../../record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="../../../../record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +81,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +113,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../../components/index.html">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../components/model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../../components/model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../../../components/model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../components/transformer/index.html">Transformer</a><ul>
@@ -111,12 +121,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../components/normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../components/optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +174,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/extractor/variants/i3/index.html">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../data/collector/index.html">Collector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../../data/processor/index.html">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/commit/index.html">Commit</a></li>
@@ -165,23 +185,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../../../../data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../../../data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../../../data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../../data/writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -231,19 +245,147 @@
              
   <section id="standard">
 <h1>Standard<a class="headerlink" href="#standard" title="Link to this heading"></a></h1>
-<p><a class="reference internal" href="../../index.html"><span class="doc">Record decoder</span></a> variant that extracts node features, targets,
-graph connectivity, and auxiliary columns from records written by the data
-pipeline in the standard schema. It is the counterpart to the standard attribute
-decoder and the default choice for datasets produced by IceGraph.</p>
+<p><a class="reference internal" href="../../index.html"><span class="doc">Record decoder</span></a> variant that decodes node features, targets,
+graph connectivity, and auxiliary columns from blocks written by the data
+pipeline in the standard columnar schema: each key is one column of the block,
+ragged columns carry per-record row offsets. It is the counterpart to the
+standard attribute decoder and the default choice for datasets produced by
+IceGraph.</p>
+<p>It is also the decoder for IceCube simulation, and is the only part of the engine
+that knows about <code class="docutils literal notranslate"><span class="pre">simweights</span></code>: the weights role is decoded by building the
+generation surface and weighting each record against a flux.</p>
+<section id="weighting">
+<h2>Weighting<a class="headerlink" href="#weighting" title="Link to this heading"></a></h2>
+<p>The <a class="reference internal" href="../../../../../../data/processor/variants/simulation/index.html"><span class="doc">i3-simulation</span></a>
+processor does not store a weight. It stores the per-event generation quantities
+as a column and the shard’s simulation metadata as a local attribute, so the
+mixture is chosen when the data is read rather than when it is written.</p>
+<p>On load this decoder:</p>
+<ul class="simple">
+<li><p>Builds the surface of each simulation set with simweights, treating the set’s
+loaded shards as one.</p>
+<ul>
+<li><p>Counts the input files each shard records under <code class="docutils literal notranslate"><span class="pre">nfiles</span></code>, including files
+without events.</p></li>
+</ul>
+</li>
+<li><p>Sums the surfaces of the sets of each type.</p></li>
+<li><p>Weights each block’s generation columns against those sums.</p></li>
+<li><p>Returns the final weights, one per record.</p></li>
+</ul>
+<p>Shards without a simulation are inferred to be real data and get no weights.</p>
+<p>The weights role reads the generation column through the decode service’s
+<code class="docutils literal notranslate"><span class="pre">keymap.weights</span></code>, which defaults to <code class="docutils literal notranslate"><span class="pre">generation</span></code>.</p>
+<section id="mixed-simulation">
+<h3>Mixed simulation<a class="headerlink" href="#mixed-simulation" title="Link to this heading"></a></h3>
+<p>A source may mix simulation types, for instance CORSIKA files alongside NuGen
+ones. The sets of each type are summed into their own surface,
+each surface is weighted against its own flux, and each record is routed to one of
+them. Configure one flux per type.</p>
+<p>Routing is per record because a block spans shards. The <code class="docutils literal notranslate"><span class="pre">i3-simulation</span></code> processor
+writes a sim code naming the set into the generation columns of every event and
+declares, in the same shard’s attributes, what type that code stands for and which
+column carries it, so the decoder learns the mapping from the data rather than from
+a convention shared with the writer.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Real data and simulation cannot be loaded together.</p>
+</div>
+</section>
+</section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-<p>Selected as <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">standard</span></code>. Takes no options.</p>
+<p>Selected as <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">standard</span></code>.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 57.0%" />
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flux</span></code></p></td>
+<td><p>Flux model each simulation type is weighted against, keyed by the simulation
+that generated it (<code class="docutils literal notranslate"><span class="pre">corsika</span></code>, <code class="docutils literal notranslate"><span class="pre">nugen</span></code>). One entry is needed per type
+present in the data.</p></td>
+<td><p>mapping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{}</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Each entry selects a model from one of the two packages that ship them:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 57.0%" />
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">source</span></code></p></td>
+<td><p>Package the model comes from: <code class="docutils literal notranslate"><span class="pre">simweights</span></code> for the cosmic ray fluxes,
+<code class="docutils literal notranslate"><span class="pre">nuflux</span></code> for the atmospheric neutrino fluxes.</p></td>
+<td><p>str</p></td>
+<td><p>required</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Model name as that package spells it, e.g. <code class="docutils literal notranslate"><span class="pre">GaisserH4a</span></code> or
+<code class="docutils literal notranslate"><span class="pre">honda2006</span></code>.</p></td>
+<td><p>str</p></td>
+<td><p>required</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">kwargs</span></code></p></td>
+<td><p>Constructor arguments for a <code class="docutils literal notranslate"><span class="pre">simweights</span></code> model, property assignments for
+a <code class="docutils literal notranslate"><span class="pre">nuflux</span></code> one.</p></td>
+<td><p>mapping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{}</span></code></p></td>
+</tr>
+</tbody>
+</table>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">services</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">decode</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">records</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">standard</span>
-<span class="w">      </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">      </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">flux</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">corsika</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">simweights</span>
+<span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GaisserH4a</span>
+<span class="w">            </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </pre></div>
+</div>
+<p>A source mixing CORSIKA and NuGen files (for example) configures both, and each is weighted
+against its own model:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">flux</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">corsika</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">simweights</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GaisserH4a</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="p p-Indicator">}</span>
+
+<span class="w">  </span><span class="nt">nugen</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nuflux</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">honda2006</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">nuflux</span></code> is not a pip dependency; it comes from the IceTray environment on
+CVMFS, and is imported only when a <code class="docutils literal notranslate"><span class="pre">nuflux</span></code> model is configured.</p>
 </div>
 </section>
 </section>

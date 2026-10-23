@@ -15,11 +15,10 @@ themselves selectable plugins.
    services:
      decode:
        features: []
-       targets:  [ bundle ]
+       targets:  [ sim ]
        auxiliary: []
        keymap:
          truth: targets
-         edge_attr: edge_weight
        attrs:
          name: standard
          kwargs: {}
@@ -32,8 +31,9 @@ How it works
 
 Two decoders divide the work. The :doc:`attribute decoder <attrs/index>` reads
 dataset-level metadata, such as column names, per-column statistics, and the set of
-observed label values. The :doc:`record decoder <records/index>` reads an
-individual record and extracts relevant tensors (such as ``features``, ``targets``, etc).
+observed label values. The :doc:`record decoder <records/index>` reads a columnar
+block of records and decodes its columns (such as ``features``, ``targets``, etc)
+into flat tensors.
 
 Configuration
 -------------
@@ -73,8 +73,10 @@ Configuration
      - required
 
 The ``keymap`` accepts the keys ``truth`` (the source of both targets and
-auxiliary), ``features``, ``edge_index``, ``edge_attr``, and ``simweights``; each
-defaults to its own name.
+auxiliary), ``features``, and ``weights``. ``truth`` and ``features`` default to
+their own names, while ``weights`` defaults to ``generation``, since the weights role
+reads whatever its decoder needs, and for simulation by default that is the per-event
+generation data.
 
 Sub-slots
 ---------

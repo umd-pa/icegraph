@@ -21,7 +21,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Services" href="services/index.html" />
+    <link rel="next" title="Status" href="status/index.html" />
     <link rel="prev" title="Factory" href="../common/factory/index.html" /> 
 </head>
 
@@ -57,16 +57,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="status/index.html">Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="services/index.html">Services</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="services/state/index.html">State</a></li>
 <li class="toctree-l3"><a class="reference internal" href="services/data/index.html">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="services/record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="services/record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="services/record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="services/record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +81,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="services/metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="services/metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="services/metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="services/metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="services/metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="services/metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="services/metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +113,6 @@
 <li class="toctree-l2"><a class="reference internal" href="components/index.html">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="components/model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="components/model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="components/model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="components/transformer/index.html">Transformer</a><ul>
@@ -111,12 +121,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="components/normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="components/edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="components/optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +174,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../data/extractor/variants/i3/index.html">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../data/collector/index.html">Collector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../data/processor/index.html">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/commit/index.html">Commit</a></li>
@@ -165,23 +185,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/processor/variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -230,18 +244,25 @@
 <p>The <strong>engine</strong> is the subsystem that executes a run. The two currently implemented concrete engines are the <a class="reference internal" href="../trainer/index.html"><span class="doc">trainer</span></a>, which fits a model, and the <a class="reference internal" href="../inference/index.html"><span class="doc">batch inference engine</span></a>, which applies a trained model to new data. Both share the
 structure described here.</p>
 <p>An engine is constructed from a configuration file (YAML, JSON, or TOML). From its
-configuration it lazily assembles four subsystems:</p>
+configuration it assembles five subsystems:</p>
 <ul class="simple">
+<li><p><strong>Status</strong> records tasks and their progress, throughput, and handles logs.</p></li>
 <li><p><strong>Services</strong> supply shared, run-scoped capabilities and data.</p></li>
 <li><p><strong>Policy</strong> defines the task and the contracts each component must satisfy.</p></li>
 <li><p><strong>Components</strong> are the configurable building blocks of the model.</p></li>
 <li><p><strong>Callbacks</strong> observe and extend the run through lifecycle hooks.</p></li>
 </ul>
-<p>A run is started by calling <code class="docutils literal notranslate"><span class="pre">execute</span></code>. Engines can be wrapped for distributed,
-multi-rank execution without changing their configuration.</p>
+<p>A run is started by calling <code class="docutils literal notranslate"><span class="pre">execute</span></code>. Engines can be
+wrapped for distributed, multi-rank execution without changing their configuration.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Engine Subsystems</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="status/index.html">Status</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="status/index.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="status/index.html#how-it-works">How it works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="status/index.html#configuration">Configuration</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="services/index.html">Services</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="services/index.html#how-it-works">How it Works</a></li>
 <li class="toctree-l2"><a class="reference internal" href="services/index.html#registering-a-new-service">Registering a new service</a></li>
@@ -258,6 +279,7 @@ multi-rank execution without changing their configuration.</p>
 <li class="toctree-l2"><a class="reference internal" href="components/model/index.html">Model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/transformer/index.html">Transformer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/normalizer/index.html">Normalizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="components/edges/index.html">Edges</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/optimizer/index.html">Optimizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/loss/index.html">Loss</a></li>
 </ul>
@@ -272,7 +294,7 @@ multi-rank execution without changing their configuration.</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../common/factory/index.html" class="btn btn-neutral float-left" title="Factory" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="services/index.html" class="btn btn-neutral float-right" title="Services" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="status/index.html" class="btn btn-neutral float-right" title="Status" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

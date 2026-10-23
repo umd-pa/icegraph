@@ -57,16 +57,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../../engine/index.html">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../engine/status/index.html">Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../engine/services/index.html">Services</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/services/state/index.html">State</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/services/data/index.html">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/services/record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../engine/services/record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../../engine/services/record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="../../../engine/services/record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +81,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/services/metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../engine/services/metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../engine/services/metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +113,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../engine/components/index.html">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/components/model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../engine/components/model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../engine/components/model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/components/transformer/index.html">Transformer</a><ul>
@@ -111,12 +121,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/components/normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../engine/components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../engine/components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../engine/components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../../engine/components/edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../engine/components/optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +174,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../data/extractor/variants/i3/index.html">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data/collector/index.html">Collector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../data/processor/index.html">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/commit/index.html">Commit</a></li>
@@ -165,23 +185,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -251,13 +265,46 @@ positive-class probability for binary tasks.</p></li>
 <li><p><strong>ROC</strong> (<code class="docutils literal notranslate"><span class="pre">ROCPlotter</span></code>): receiver operating characteristic curve.</p></li>
 <li><p><strong>Precision-Recall</strong> (<code class="docutils literal notranslate"><span class="pre">PrecisionRecallPlotter</span></code>): precision against recall across
 thresholds.</p></li>
+<li><p><strong>P(class) vs. auxiliary</strong> (<code class="docutils literal notranslate"><span class="pre">PPositiveAuxPlotter</span></code>): 2D heatmap of each class’s
+one-vs-rest probability against an auxiliary column, one heatmap per class.</p></li>
 </ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.trainer.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackSpec</span><span class="p">,</span> <span class="n">ParityPlotter</span><span class="p">,</span> <span class="n">ROCPlotter</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.trainer.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackSpec</span><span class="p">,</span> <span class="n">ParityPlotter</span><span class="p">,</span> <span class="n">ROCPlotter</span><span class="p">,</span> <span class="n">PPositiveAuxPlotter</span>
 
 <span class="n">trainer</span><span class="o">.</span><span class="n">register_callback</span><span class="p">(</span><span class="n">CallbackSpec</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">ParityPlotter</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{}))</span>
 <span class="n">trainer</span><span class="o">.</span><span class="n">register_callback</span><span class="p">(</span><span class="n">CallbackSpec</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">ROCPlotter</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{}))</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">register_callback</span><span class="p">(</span><span class="n">CallbackSpec</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">PPositiveAuxPlotter</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"column"</span><span class="p">:</span> <span class="s2">"bundle_multiplicity"</span><span class="p">}))</span>
 </pre></div>
 </div>
+<section id="writing-a-plotter">
+<h2>Writing a plotter<a class="headerlink" href="#writing-a-plotter" title="Link to this heading"></a></h2>
+<p>Plotters are reducers. On each evaluation batch, the base class calls <code class="docutils literal notranslate"><span class="pre">project</span></code>
+once per output head to map that head’s batch to rows, bins the rows into
+histograms, and at the end of the split calls <code class="docutils literal notranslate"><span class="pre">emit</span></code> with the finished histograms
+for each head. A new plotter subclasses <code class="docutils literal notranslate"><span class="pre">BHistogramReducer</span></code> (continuous axes) or
+<code class="docutils literal notranslate"><span class="pre">CHistogramReducer</span></code> (axes that are already class indices), both from
+<code class="docutils literal notranslate"><span class="pre">icegraph.trainer.callbacks.base</span></code>, and implements:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">project(batch,</span> <span class="pre">out,</span> <span class="pre">label)</span></code>: <code class="docutils literal notranslate"><span class="pre">out</span></code> is the output of head <code class="docutils literal notranslate"><span class="pre">label</span></code> and
+<code class="docutils literal notranslate"><span class="pre">batch</span></code> is the full <code class="docutils literal notranslate"><span class="pre">GraphBatch</span></code>. The head’s target is
+<code class="docutils literal notranslate"><span class="pre">batch.targets.block([label])</span></code>, and auxiliary columns are read the same way from
+<code class="docutils literal notranslate"><span class="pre">batch.auxiliary</span></code>. Returns rows <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">D]</span></code>, one column per histogram axis,
+optionally with a group key per row <code class="docutils literal notranslate"><span class="pre">[B]</span></code>; each group becomes its own series.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_build_bins()</span></code>: the bin count per axis.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_build_bounds(ctx,</span> <span class="pre">label)</span></code>: the axis ranges in linear space
+(<code class="docutils literal notranslate"><span class="pre">BHistogramReducer</span></code> only). <code class="docutils literal notranslate"><span class="pre">ctx</span></code> is a <code class="docutils literal notranslate"><span class="pre">BoundsConstructorContext</span></code> giving the
+training statistics for a role (<code class="docutils literal notranslate"><span class="pre">ctx.get_stats(role)</span></code>) and a column’s index
+within them (<code class="docutils literal notranslate"><span class="pre">ctx.physical_index(column,</span> <span class="pre">role)</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">emit(trainer,</span> <span class="pre">artifacts,</span> <span class="pre">label)</span></code>: render the named histograms for <code class="docutils literal notranslate"><span class="pre">label</span></code>.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">block</span><span class="p">([</span><span class="n">label</span><span class="p">])</span>       <span class="c1"># this head's target</span>
+    <span class="n">aux</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">auxiliary</span><span class="o">.</span><span class="n">block</span><span class="p">([</span><span class="s2">"my_column"</span><span class="p">])</span>  <span class="c1"># an auxiliary column</span>
+
+    <span class="c1"># residual against the auxiliary column, rows [B, 2]</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">aux</span><span class="p">,</span> <span class="n">out</span> <span class="o">-</span> <span class="n">target</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 

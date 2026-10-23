@@ -107,7 +107,7 @@ output location is taken from the writer's configuration.
    if __name__ == "__main__":
        main()
 
-The matching configuration names the three stages:
+The matching configuration names the stages:
 
 .. code-block:: yaml
 
@@ -118,21 +118,25 @@ The matching configuration names the three stages:
        include: [ features ]
        ml_suite: { ... }
 
+   collector:  # packs whole input files into shards of at least this size
+     min_bytes: 100_000_000
+
    processors:
      - name: select
        kwargs: { key: features }
      - name: knn
-       kwargs: { by: event_ids, col: dom_pos, out: [ edge_index, edge_attr ], k: 8 }
+       kwargs: { col: dom_pos, out: [ edge_index, edge_attr ], k: 8 }
      - name: commit
-       kwargs: { ids: event_ids, cols: [ features, edge_index, edge_attr ] }
+       kwargs: { cols: [ features, edge_index, edge_attr ] }
 
    writer:
-     name: lmdb
-     kwargs:
-       outdir: /path/to/output
+     name: zarr
+     kwargs: { chunk_size: 8 }
 
 Processing is independent per input file, so a large dataset can be processed by
-launching the script as several parallel jobs.
+launching the script as several parallel jobs. Shards are numbered from 0 in every run, so
+jobs writing to one directory should each set a different writer ``prefix``. Overlapping names
+will be overwritten.
 
 Training
 --------
@@ -176,7 +180,7 @@ The configuration assembles the run from :doc:`services <engine/services/index>`
      state:   { seed: 2747 }
      data:    { batch_size: 2048, chunk_size: 4096, buffer_size: 16384, num_workers: 8,
                 prefetch_factor: 8, mp_context: fork, persistent_workers: true }
-     decode:  { targets: [ bundle ], attrs: { name: standard, kwargs: {} },
+     decode:  { targets: [ sim ], attrs: { name: standard, kwargs: {} },
                 records: { name: standard, kwargs: {} } }
      record:  { source: [ /path/to/dataset ], reader: { name: lmdb, kwargs: {} },
                 store: { name: lru-shard, kwargs: { cache_size: 32 } } }

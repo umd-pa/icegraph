@@ -22,7 +22,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Select" href="variants/select/index.html" />
-    <link rel="prev" title="I3" href="../extractor/variants/i3/index.html" /> 
+    <link rel="prev" title="Collector" href="../collector/index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -57,16 +57,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../engine/index.html">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../engine/status/index.html">Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../engine/services/index.html">Services</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/services/state/index.html">State</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/services/data/index.html">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/services/record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../engine/services/record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../engine/services/record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="../../engine/services/record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +81,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/services/metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../engine/services/metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/services/metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/services/metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/services/metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../engine/services/metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +113,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../engine/components/index.html">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/components/model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../engine/components/model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../engine/components/model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/components/transformer/index.html">Transformer</a><ul>
@@ -111,12 +121,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/components/normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../engine/components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../engine/components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../engine/components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../engine/components/edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../engine/components/optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +174,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../extractor/variants/i3/index.html">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../collector/index.html">Collector</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/commit/index.html">Commit</a></li>
@@ -165,23 +185,17 @@
 <li class="toctree-l3"><a class="reference internal" href="variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -254,6 +268,21 @@ which frame is active, most processors transform that frame in place, and the
 <a class="reference internal" href="variants/commit/index.html"><span class="doc">commit</span></a> processor writes finished columns into the
 output that the writer persists. Columns can be addressed individually or through
 named groups defined by the <a class="reference internal" href="variants/alias/index.html"><span class="doc">alias</span></a> processor.</p>
+<p>The envelope a processor receives is a <a class="reference internal" href="../collector/index.html"><span class="doc">collected</span></a> block of
+one or more input files, processed as if it were one file.</p>
+</section>
+<section id="event-ids">
+<h2>Event ids<a class="headerlink" href="#event-ids" title="Link to this heading"></a></h2>
+<p>The extractor sets the columns identifying an event on the envelope. Every option
+naming them defaults to the ID columns defined here.
+<code class="docutils literal notranslate"><span class="pre">__ids__</span></code> can be used to reference them anywhere columns are requested:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pivot</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">index</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">__ids__</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">string</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">om</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">pmt</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">col</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vector_index</span>
+<span class="w">    </span><span class="nt">values</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">item</span>
+</pre></div>
+</div>
 </section>
 <section id="variants">
 <h2>Variants<a class="headerlink" href="#variants" title="Link to this heading"></a></h2>
@@ -271,6 +300,8 @@ named groups defined by the <a class="reference internal" href="variants/alias/i
 <li><p><a class="reference internal" href="variants/fill/index.html"><span class="doc">fill</span></a>: add or overwrite a column with a constant.</p></li>
 <li><p><a class="reference internal" href="variants/unique/index.html"><span class="doc">unique</span></a>: record the distinct values of columns.</p></li>
 <li><p><a class="reference internal" href="variants/stats/index.html"><span class="doc">stats</span></a>: compute per-column statistics.</p></li>
+<li><p><a class="reference internal" href="variants/simulation/index.html"><span class="doc">i3-simulation</span></a>: store the simulation a file
+was generated with and the per-event quantities to weight it.</p></li>
 </ul>
 <p>Graph construction:</p>
 <ul class="simple">
@@ -278,10 +309,6 @@ named groups defined by the <a class="reference internal" href="variants/alias/i
 <li><p><a class="reference internal" href="variants/knn/index.html"><span class="doc">knn</span></a>: build k-nearest-neighbor graph edges.</p></li>
 <li><p><a class="reference internal" href="variants/compress/index.html"><span class="doc">compress</span></a>: stack rows into per-event arrays.</p></li>
 <li><p><a class="reference internal" href="variants/pivot/index.html"><span class="doc">pivot</span></a>: reshape long-form data to wide.</p></li>
-</ul>
-<p>Weighting and splitting:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="variants/simweights/index.html"><span class="doc">simweights</span></a>: compute event weights.</p></li>
 <li><p><a class="reference internal" href="variants/splitmap/index.html"><span class="doc">splitmap</span></a>: assign train/validation/test splits.</p></li>
 </ul>
 <p>Debugging:</p>
@@ -305,7 +332,7 @@ and implements the transformation:</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyProcessorConfig</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">[</span><span class="n">MyProcessorConfig</span><span class="p">]):</span>
-    <span class="n">name</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;my-processor&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"my-processor"</span>
     <span class="n">version</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
 
     <span class="nd">@classmethod</span>
@@ -330,7 +357,7 @@ and implements the transformation:</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../extractor/variants/i3/index.html" class="btn btn-neutral float-left" title="I3" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../collector/index.html" class="btn btn-neutral float-left" title="Collector" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="variants/select/index.html" class="btn btn-neutral float-right" title="Select" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

@@ -32,6 +32,24 @@ which frame is active, most processors transform that frame in place, and the
 output that the writer persists. Columns can be addressed individually or through
 named groups defined by the :doc:`alias <variants/alias/index>` processor.
 
+The envelope a processor receives is a :doc:`collected <../collector/index>` block of
+one or more input files, processed as if it were one file.
+
+Event ids
+---------
+
+The extractor sets the columns identifying an event on the envelope. Every option
+naming them defaults to the ID columns defined here.
+``__ids__`` can be used to reference them anywhere columns are requested:
+
+.. code-block:: yaml
+
+   - name: pivot
+     kwargs:
+       index: [ __ids__, string, om, pmt ]
+       col: vector_index
+       values: item
+
 Variants
 --------
 
@@ -49,6 +67,8 @@ Columns and values:
 * :doc:`fill <variants/fill/index>`: add or overwrite a column with a constant.
 * :doc:`unique <variants/unique/index>`: record the distinct values of columns.
 * :doc:`stats <variants/stats/index>`: compute per-column statistics.
+* :doc:`i3-simulation <variants/simulation/index>`: store the simulation a file
+  was generated with and the per-event quantities to weight it.
 
 Graph construction:
 
@@ -56,10 +76,6 @@ Graph construction:
 * :doc:`knn <variants/knn/index>`: build k-nearest-neighbor graph edges.
 * :doc:`compress <variants/compress/index>`: stack rows into per-event arrays.
 * :doc:`pivot <variants/pivot/index>`: reshape long-form data to wide.
-
-Weighting and splitting:
-
-* :doc:`simweights <variants/simweights/index>`: compute event weights.
 * :doc:`splitmap <variants/splitmap/index>`: assign train/validation/test splits.
 
 Debugging:
@@ -112,10 +128,10 @@ and implements the transformation:
    variants/fill/index
    variants/unique/index
    variants/stats/index
+   variants/simulation/index
    variants/dom/index
    variants/knn/index
    variants/compress/index
    variants/pivot/index
-   variants/simweights/index
    variants/splitmap/index
    variants/inspect/index

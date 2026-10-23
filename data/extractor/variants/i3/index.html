@@ -21,7 +21,7 @@
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Processor" href="../../../processor/index.html" />
+    <link rel="next" title="Collector" href="../../../collector/index.html" />
     <link rel="prev" title="Extractor" href="../../index.html" /> 
 </head>
 
@@ -57,16 +57,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../../../engine/index.html">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../engine/status/index.html">Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../engine/services/index.html">Services</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/services/state/index.html">State</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/services/data/index.html">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/services/record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../engine/services/record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="../../../../engine/services/record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +81,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/services/metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../engine/services/metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../../../engine/services/metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +113,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../engine/components/index.html">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/components/model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../engine/components/model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../../engine/components/model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/components/transformer/index.html">Transformer</a><ul>
@@ -111,12 +121,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/components/normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../engine/components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../engine/components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../engine/components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../engine/components/edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../engine/components/optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +174,7 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../collector/index.html">Collector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../processor/index.html">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/commit/index.html">Commit</a></li>
@@ -165,23 +185,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../processor/variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../processor/variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -269,10 +283,45 @@ through the framework-provided IceTray-enabled Python shim (see <cite>&lt;../../
 <td><p>mapping</p></td>
 <td><p>required</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mclabeler</span></code></p></td>
+<td><p>Options forwarded to the IceTray <code class="docutils literal notranslate"><span class="pre">MCLabeler</span></code> (validated by <code class="docutils literal notranslate"><span class="pre">MCLabeler</span></code>
+itself), see <a class="reference internal" href="#mc-labels">MC labels</a>. Only runs if set.</p></td>
+<td><p>mapping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">selection</span></code></p></td>
+<td><p>Drop simulated events that cannot be given a single truth, see <a class="reference internal" href="#selection">Selection</a>.
+Only runs if set.</p></td>
+<td><p>mapping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">muongun</span></code></p></td>
+<td><p>Labels computed using with MuonGun, see <a class="reference internal" href="#muongun-labels">MuonGun labels</a>. Only runs if set.</p></td>
+<td><p>mapping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rebuild_missing_mctree</span></code></p></td>
+<td><p>Rebuild the propagated <code class="docutils literal notranslate"><span class="pre">I3MCTree</span></code> where it was discarded, see <a class="reference internal" href="#rebuilding-the-mc-tree">Rebuilding the
+MC tree</a>. Only runs if set.</p></td>
+<td><p>mapping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">skip_missing</span></code></p></td>
-<td><p>Skip files that contain no usable frames instead of failing.</p></td>
+<td><p>Skip a file that holds events but lacks one of the <code class="docutils literal notranslate"><span class="pre">include</span></code> keys, instead of
+failing. A skipped file is not counted toward its set, see <a class="reference internal" href="#files-without-events">Files without events</a>.</p></td>
 <td><p>bool</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">suppress_icetray_output</span></code></p></td>
+<td><p>Suppress any output from IceTray.</p></td>
+<td><p>bool</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ids</span></code></p></td>
+<td><p>Columns identifying an event. They must be index columns the table writer books
+with every table. Processors key on them by default, see <a class="reference internal" href="../../../processor/index.html"><span class="doc">Processor</span></a>.</p></td>
+<td><p>list[str]</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[Run,</span> <span class="pre">Event,</span> <span class="pre">SubEvent,</span> <span class="pre">SubEventStream]</span></code></p></td>
 </tr>
 </tbody>
 </table>
@@ -286,6 +335,237 @@ through the framework-provided IceTray-enabled Python shim (see <cite>&lt;../../
 </pre></div>
 </div>
 </section>
+<section id="files-without-events">
+<h2>Files without events<a class="headerlink" href="#files-without-events" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">I3EventHeader</span></code> is always booked, so the ids of every event written are read off it
+into the envelope.</p>
+<p>A file that holds no events, before or after the <a class="reference internal" href="#selection">Selection</a>, is still passed downstream
+with whatever tables it does hold. The
+<a class="reference internal" href="../../../collector/index.html"><span class="doc">collector</span></a> adds it to a shard so it still counts toward its
+set for file-count sensitive operations, like weighting.</p>
+<p><code class="docutils literal notranslate"><span class="pre">skip_missing</span></code> only applies to files that actually hold events.</p>
+</section>
+<section id="mc-labels">
+<h2>MC labels<a class="headerlink" href="#mc-labels" title="Link to this heading"></a></h2>
+<p>When <code class="docutils literal notranslate"><span class="pre">mclabeler</span></code> is set, <code class="docutils literal notranslate"><span class="pre">sim_services.label_events.MCLabeler</span></code> is added to the
+tray. It writes <code class="docutils literal notranslate"><span class="pre">classification</span></code>, <code class="docutils literal notranslate"><span class="pre">coincident_muons</span></code>, <code class="docutils literal notranslate"><span class="pre">bg_muon_mcpe</span></code> and
+<code class="docutils literal notranslate"><span class="pre">bg_muon_mcpe_charge</span></code> (plus any <code class="docutils literal notranslate"><span class="pre">key_postfix</span></code>) to each DAQ frame.</p>
+<p>Exactly one of <code class="docutils literal notranslate"><span class="pre">event_properties_name</span></code>, <code class="docutils literal notranslate"><span class="pre">weight_dict_name</span></code> and
+<code class="docutils literal notranslate"><span class="pre">corsika_weight_map_name</span></code> must be set for <code class="docutils literal notranslate"><span class="pre">MCLabeler</span></code>.</p>
+<p>Brief example on using the MCLabeler during processing:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">extractor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">i3</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="nt">mclabeler</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">mctree_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">I3MCTree_preMuonProp</span>
+<span class="w">      </span><span class="nt">corsika_weight_map_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CorsikaWeightMap</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="nt">include</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">features</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">classification</span><span class="w"> </span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># 'classification' comes from MCLabeler</span>
+
+<span class="nt">processors</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># ... other processing as usual ...</span>
+
+<span class="w">  </span><span class="c1"># move to the table with MCLabeler 'classification' output</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">classification</span>
+
+<span class="w">  </span><span class="c1"># rename the 'value' column to 'classification'</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rename</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">map</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">classification</span>
+
+<span class="w">  </span><span class="c1"># copy to the main truth table under construction</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">copy</span><span class="w">  </span><span class="c1"># left joined on the event ids, so only events that kept features are labeled</span>
+<span class="w">    </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_truth_table</span><span class="w">  </span><span class="c1"># whatever table truth is being constructed in</span>
+<span class="w">      </span><span class="nt">cols</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">classification</span>
+
+<span class="w">  </span><span class="c1"># ... further processing as usual ...</span>
+
+<span class="nt">writer</span><span class="p">:</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</pre></div>
+</div>
+</section>
+<section id="selection">
+<h2>Selection<a class="headerlink" href="#selection" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">selection</span></code> provides basic tools to drop undesired frames from the stream.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 60.0%" />
+<col style="width: 10.0%" />
+<col style="width: 8.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">drop_coincident</span></code></p></td>
+<td><p>Drop Q frames holding more than one primary (coincident events).</p></td>
+<td><p>bool</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">drop_oversplit</span></code></p></td>
+<td><p>Drop Q frames holding one primary that was split into more than one
+<code class="docutils literal notranslate"><span class="pre">InIceSplit</span></code> event.</p></td>
+<td><p>bool</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mctree</span></code></p></td>
+<td><p>The tree the primaries are counted in.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">I3MCTree_preMuonProp</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>At least one rule must be set.</p>
+<p>A file whose every event is dropped is still kept, see <a class="reference internal" href="#files-without-events">Files without events</a>.</p>
+<p>The number dropped by each enabled rule is recorded per file under <code class="docutils literal notranslate"><span class="pre">attrs.LOCAL.dropped</span></code>,
+as Q frames (<code class="docutils literal notranslate"><span class="pre">daq</span></code>) and the <code class="docutils literal notranslate"><span class="pre">InIceSplit</span></code> events split from them (<code class="docutils literal notranslate"><span class="pre">physics</span></code>). The
+<a class="reference internal" href="../../../collector/index.html"><span class="doc">collector</span></a> keeps it under the file in <code class="docutils literal notranslate"><span class="pre">attrs.LOCAL.sources</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sources</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">/path/to/file.i3.zst</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">dropped</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">coincident</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> daq</span><span class="p">:</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="nt"> physics</span><span class="p">:</span><span class="w"> </span><span class="nv">4</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="nt">oversplit</span><span class="p">:</span><span class="w">  </span><span class="p p-Indicator">{</span><span class="nt"> daq</span><span class="p">:</span><span class="w"> </span><span class="nv">7</span><span class="p p-Indicator">,</span><span class="nt"> physics</span><span class="p">:</span><span class="w"> </span><span class="nv">15</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</section>
+<section id="rebuilding-the-mc-tree">
+<h2>Rebuilding the MC tree<a class="headerlink" href="#rebuilding-the-mc-tree" title="Link to this heading"></a></h2>
+<p>Simulation often discards the propagated <code class="docutils literal notranslate"><span class="pre">I3MCTree</span></code> to save space. When
+<code class="docutils literal notranslate"><span class="pre">rebuild_missing_mctree</span></code> is set, each Q frame that does not hold the propagated tree but does
+hold saved state has it rebuilt with <code class="docutils literal notranslate"><span class="pre">I3PropagatorModule</span></code>, using PROPOSAL for muons and
+CMC for showers. The <code class="docutils literal notranslate"><span class="pre">MMCTrackList</span></code> is written along with the tree, so if the frame already has one
+it will be deleted and replaced.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 60.0%" />
+<col style="width: 10.0%" />
+<col style="width: 8.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mctree</span></code></p></td>
+<td><p>The propagated tree, rebuilt when the Q frame does not hold it.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">I3MCTree</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">raw_mctree</span></code></p></td>
+<td><p>The un-propagated tree it is rebuilt from.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">I3MCTree_preMuonProp</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rng_state</span></code></p></td>
+<td><p>The saved state of the random number generator.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">I3MCTree_preMuonProp_RNGState</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">random_service</span></code></p></td>
+<td><p>Type of the random number generator, one of <code class="docutils literal notranslate"><span class="pre">SPRNG</span></code>, <code class="docutils literal notranslate"><span class="pre">GSL</span></code> or <code class="docutils literal notranslate"><span class="pre">MT</span></code>. It must
+match the type the state was saved from.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SPRNG</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>The tree is rebuilt after the <a class="reference internal" href="#selection">Selection</a>, so dropped events are never propagated.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">extractor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">i3</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="nt">rebuild_missing_mctree</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">raw_mctree</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">I3MCTree_preMuonProp</span>
+</pre></div>
+</div>
+</section>
+<section id="muongun-labels">
+<h2>MuonGun labels<a class="headerlink" href="#muongun-labels" title="Link to this heading"></a></h2>
+<p>When <code class="docutils literal notranslate"><span class="pre">muongun</span></code> is set, the muons entering the detector are found with MuonGun’s
+<code class="docutils literal notranslate"><span class="pre">muons_at_surface</span></code>, and labels of the bundle they form are written to each Q frame:</p>
+<ul class="simple">
+<li><p>the <strong>multiplicity</strong>, the number of muons that enter, and</p></li>
+<li><p>the <strong>prominence</strong>, the share of the bundle’s energy at the surface carried by its
+leading muon, <code class="docutils literal notranslate"><span class="pre">max(E)</span> <span class="pre">/</span> <span class="pre">sum(E)</span></code>. It is 1 for a single muon, falls toward 0 as the energy
+is spread over more muons, and is NaN when no muon enters.</p></li>
+</ul>
+<p>The surface is the convex hull of the strings in the GCD’s geometry, padded by <code class="docutils literal notranslate"><span class="pre">padding</span></code>
+meters. A muon counts only if it reaches the surface from outside with energy left, so a
+muon starting inside the detector does not count. Its energy is the energy it has as it
+reaches the surface.</p>
+<p>Each label is computed only if the frame key it is written to is set, and at least one must
+be.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 60.0%" />
+<col style="width: 10.0%" />
+<col style="width: 8.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">padding</span></code></p></td>
+<td><p>Meters added around the detector hull.</p></td>
+<td><p>float</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">multiplicity</span></code></p></td>
+<td><p>Frame key the multiplicity is written to.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prominence</span></code></p></td>
+<td><p>Frame key the prominence is written to.</p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">muons_at_surface</span></code> reads the propagated <code class="docutils literal notranslate"><span class="pre">I3MCTree</span></code> and the <code class="docutils literal notranslate"><span class="pre">MMCTrackList</span></code>, so both
+must be present in the files. The labels cover every muon in the Q frame, so <code class="docutils literal notranslate"><span class="pre">muongun</span></code>
+requires <code class="docutils literal notranslate"><span class="pre">selection</span></code> with both <code class="docutils literal notranslate"><span class="pre">drop_coincident</span></code> and <code class="docutils literal notranslate"><span class="pre">drop_oversplit</span></code> set to true for accurate counts.</p>
+<p>The padding is stored under <code class="docutils literal notranslate"><span class="pre">attrs.GLOBAL.muongun</span></code> as this must be consistent across loaded shards.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">extractor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">i3</span>
+<span class="w">  </span><span class="nt">kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="nt">selection</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">drop_coincident</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">drop_oversplit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">muongun</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">padding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">      </span><span class="nt">multiplicity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bundle_multiplicity</span>
+<span class="w">      </span><span class="nt">prominence</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prominence</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="nt">include</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">features</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">bundle_multiplicity</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">prominence</span><span class="w"> </span><span class="p p-Indicator">]</span>
+
+<span class="nt">processors</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># select each table, rename 'value' to its label if desired and copy it to the truth</span>
+<span class="w">  </span><span class="c1"># table under construction, same as the MC labels above</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -293,7 +573,7 @@ through the framework-provided IceTray-enabled Python shim (see <cite>&lt;../../
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../../index.html" class="btn btn-neutral float-left" title="Extractor" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../../../processor/index.html" class="btn btn-neutral float-right" title="Processor" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../../../collector/index.html" class="btn btn-neutral float-right" title="Collector" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

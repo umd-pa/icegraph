@@ -18,6 +18,7 @@
       <script src="../../../_static/documentation_options.js?v=60336169"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -57,16 +58,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Engine</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../status/index.html">Status</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../index.html">Services</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../state/index.html">State</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="../record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +82,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +114,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../components/index.html">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../components/model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../components/model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../components/model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../components/transformer/index.html">Transformer</a><ul>
@@ -111,12 +122,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../components/normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../components/edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../components/optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +175,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../data/extractor/variants/i3/index.html">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data/collector/index.html">Collector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../data/processor/index.html">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/commit/index.html">Commit</a></li>
@@ -165,23 +186,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../../data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../../data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/processor/variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../data/writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../data/writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -243,7 +258,7 @@ batching, shuffling, and worker parallelism.</p>
 <span class="w">    </span><span class="nt">chunk_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4096</span>
 <span class="w">    </span><span class="nt">num_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 <span class="w">    </span><span class="nt">prefetch_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
-<span class="w">    </span><span class="nt">mp_context</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fork</span>
+<span class="w">    </span><span class="nt">mp_context</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spawn</span>
 <span class="w">    </span><span class="nt">persistent_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
@@ -283,8 +298,7 @@ to reduce I/O latency. The service builds and caches one loader per requested sp
 <td><p>required</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">buffer_size</span></code></p></td>
-<td><p>Size of the shuffle buffer, in samples. Chunks are mixed within it; aim for
-a buffer-to-chunk ratio above 10:1.</p></td>
+<td><p>Size of the shuffle buffer, in chunks. Chunks are mixed within it; aim for &gt;10 if memory allows.</p></td>
 <td><p>int</p></td>
 <td><p>required</p></td>
 </tr>
@@ -292,6 +306,24 @@ a buffer-to-chunk ratio above 10:1.</p></td>
 <td><p>Whether to shuffle whole chunks as blocks.</p></td>
 <td><p>bool</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">buffer_refill_threshold</span></code></p></td>
+<td><p>Fraction of the buffer size at which a refill is triggered.</p></td>
+<td><p>float</p></td>
+<td><p>0.25</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_chunks_per_epoch</span></code></p></td>
+<td><p>Maximum number of chunks drawn per epoch. Chunk order is reshuffled each
+epoch, so the full dataset is still covered after roughly
+<span class="math notranslate nohighlight">\(E \approx \frac{C}{K}\left(\ln C + \gamma\right)\)</span> epochs, where
+<span class="math notranslate nohighlight">\(C = \lfloor N / S \rfloor\)</span> is the total chunk count for <span class="math notranslate nohighlight">\(N\)</span>
+samples of <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> <span class="math notranslate nohighlight">\(S\)</span>, <span class="math notranslate nohighlight">\(K = \lfloor C_{\max} / W
+\rfloor \cdot W\)</span> is the per-epoch budget rounded down to a multiple of
+the world size <span class="math notranslate nohighlight">\(W\)</span>, and <span class="math notranslate nohighlight">\(\gamma \approx 0.577\)</span>. Requires
+<code class="docutils literal notranslate"><span class="pre">shuffle_chunks</span></code>, without it the same subset is selected every epoch.
+Pass <code class="docutils literal notranslate"><span class="pre">-1</span></code> to use every chunk each epoch.</p></td>
+<td><p>int</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-1</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code></p></td>
 <td><p>Number of worker processes loading data.</p></td>
@@ -304,12 +336,12 @@ a buffer-to-chunk ratio above 10:1.</p></td>
 <td><p>required</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mp_context</span></code></p></td>
-<td><p>Multiprocessing start method.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">fork</span></code> | <code class="docutils literal notranslate"><span class="pre">spawn</span></code> | <code class="docutils literal notranslate"><span class="pre">forkserver</span></code></p></td>
+<td><p>Multiprocessing start method, ‘fork’ is not supported.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">spawn</span></code> | <code class="docutils literal notranslate"><span class="pre">forkserver</span></code></p></td>
 <td><p>required</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">persistent_workers</span></code></p></td>
-<td><p>Keep worker processes alive between epochs.</p></td>
+<td><p>Keep worker processes alive between epochs. Highly recommended for performance.</p></td>
 <td><p>bool</p></td>
 <td><p>required</p></td>
 </tr>

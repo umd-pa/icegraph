@@ -57,16 +57,13 @@
 <p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">Engine</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../status/index.html">Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../services/index.html">Services</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../services/state/index.html">State</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../services/data/index.html">Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../services/record/index.html">Record</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../services/record/reader/index.html">Reader</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../services/record/reader/variants/lmdb/index.html">LMDB</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="../services/record/store/index.html">Store</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../services/record/store/variants/lrustore/index.html">LRU Shard</a></li>
 </ul>
 </li>
 </ul>
@@ -84,10 +81,24 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../services/metrics/index.html">Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../services/metrics/metric/index.html">Metric</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../services/metrics/metric/variants/mae/index.html">MAE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../services/metrics/metric/variants/mse/index.html">MSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../services/metrics/metric/variants/rmse/index.html">RMSE</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../services/metrics/metric/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../services/metrics/metric/variants/regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../services/metrics/metric/variants/classification/index.html">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../services/metrics/metric/variants/classification/variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -102,7 +113,6 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Components</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="model/index.html">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="model/variants/gcn/index.html">GCN</a></li>
-<li class="toctree-l4"><a class="reference internal" href="model/variants/gravnet/index.html">GravNet</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="transformer/index.html">Transformer</a><ul>
@@ -111,12 +121,21 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="normalizer/index.html">Normalizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/zscore.html">ZScore</a></li>
-<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/unit_variance.html">Unit Variance</a></li>
-<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/mean_centering.html">Mean Centering</a></li>
-<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/minmax.html">MinMax</a></li>
+<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="edges/variants/knn/index.html">KNN</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="optimizer/index.html">Optimizer</a><ul>
@@ -155,6 +174,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../data/extractor/variants/i3/index.html">I3</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../data/collector/index.html">Collector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data/processor/index.html">Processor</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/select/index.html">Select</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/commit/index.html">Commit</a></li>
@@ -165,23 +185,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/fill/index.html">Fill</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/unique/index.html">Unique</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/simulation/index.html">Simulation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/dom/index.html">DOM Processor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/knn/index.html">KNN</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/compress/index.html">Compress</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/pivot/index.html">Pivot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/simweights/index.html">Simweights</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../data/processor/variants/simweights/model/index.html">Flux Model</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="../../data/processor/variants/simweights/model/variants/gaisser_h4a/index.html">Gaisser H4a</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../data/processor/variants/simweights/model/variants/power_law/index.html">Power Law</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/splitmap/index.html">SplitMap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/processor/variants/inspect/index.html">Inspect</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../data/writer/variants/zarr/index.html">Zarr</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../data/writer/variants/lmdb/index.html">LMDB</a></li>
 </ul>
 </li>
@@ -236,7 +250,9 @@ engine configuration, one per kind:</p>
 <li><p><strong>transformer</strong>, which applies per-feature value transforms such as a
 logarithmic or inverse-hyperbolic-sine mapping,</p></li>
 <li><p><strong>normalizer</strong>, which rescales feature and target tensors into a conditioned
-range.</p></li>
+range,</p></li>
+<li><p><strong>edges</strong>, which builds graph connectivity on the accelerator from node feature
+columns,</p></li>
 <li><p><strong>optimizer</strong>, the optimization algorithm that updates model weights, and</p></li>
 <li><p><strong>loss</strong>, the objective minimized during training.</p></li>
 </ul>
@@ -269,6 +285,16 @@ be checked against any contract issued by the <a class="reference internal" href
 <li class="toctree-l2"><a class="reference internal" href="normalizer/index.html#subclasses">Subclasses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="normalizer/index.html#variants">Variants</a></li>
 <li class="toctree-l2"><a class="reference internal" href="normalizer/index.html#registering-a-new-normalizer">Registering a new normalizer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="edges/index.html">Edges</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#how-it-works">How it Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#sub-slots">Sub-slots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#subclasses">Subclasses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#variants">Variants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edges/index.html#registering-a-new-edge-builder">Registering a new edge builder</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="optimizer/index.html">Optimizer</a><ul>

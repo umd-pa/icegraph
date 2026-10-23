@@ -1,0 +1,388 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classification Metrics &mdash; IceGraph 0.11.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/custom.css?v=a6a68382" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/fonts.css?v=5583d106" />
+
+  
+      <script src="../../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../../_static/documentation_options.js?v=60336169"></script>
+      <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" />
+    <link rel="next" title="Top-K Accuracy" href="variants/top_k_acc/index.html" />
+    <link rel="prev" title="RMSE" href="../regression/variants/rmse/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../../../index.html">
+            
+              <img src="../../../../../../_static/logo-dark.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../home.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../usage.html">Usage</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Core Objects</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../common/plugins/index.html">Plugin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../common/factory/index.html">Factory</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../../../../index.html">Engine</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../../../../status/index.html">Status</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../../../index.html">Services</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../../../state/index.html">State</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../data/index.html">Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../record/index.html">Record</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../record/reader/index.html">Reader</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../record/reader/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../decode/index.html">Decode</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../decode/attrs/index.html">Attribute Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../decode/attrs/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../decode/records/index.html">Record Decoder</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../decode/records/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="reference internal" href="../../../index.html">Metrics</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="../../index.html">Metric</a><ul class="current">
+<li class="toctree-l5"><a class="reference internal" href="../regression/index.html">Regression Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../regression/variants/mae/index.html">MAE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../regression/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l6"><a class="reference internal" href="../regression/variants/rmse/index.html">RMSE</a></li>
+</ul>
+</li>
+<li class="toctree-l5 current"><a class="current reference internal" href="#">Classification Metrics</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="variants/top_k_acc/index.html">Top-K Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/macro_f1/index.html">Macro-F1</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/macro_recall/index.html">Macro-Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/balanced_acc/index.html">Balanced Accuracy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/per_class_recall/index.html">Per-Class Recall</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/cohen_kappa/index.html">Cohen’s Kappa</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/cross_entropy/index.html">Cross-Entropy</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/ece/index.html">Expected Calibration Error</a></li>
+<li class="toctree-l6"><a class="reference internal" href="variants/auprc/index.html">AUPRC</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../policy/index.html">Policy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../policy/variants/multiclass/index.html">Multiclass</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../policy/variants/regression/index.html">Regression</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../components/index.html">Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/model/index.html">Model</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/model/variants/gcn/index.html">GCN</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/transformer/index.html">Transformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/transformer/variants/standard/index.html">Standard</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/normalizer/index.html">Normalizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/index.html">Affine Normalizers</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/zscore/index.html">ZScore</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/unit_variance/index.html">Unit Variance</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/mean_centering/index.html">Mean Centering</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/normalizer/variants/affine/variants/minmax/index.html">MinMax</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/edges/index.html">Edges</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/edges/weight/index.html">Edge Weight</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/edges/weight/variants/sum_in_quadrature/index.html">Sum in Quadrature</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../../../../components/edges/weight/variants/gaussian/index.html">Gaussian</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/edges/variants/knn/index.html">KNN</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/optimizer/index.html">Optimizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/optimizer/variants/adam/index.html">Adam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/optimizer/variants/sgd/index.html">SGD</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../components/loss/index.html">Loss</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/loss/variants/cross_entropy/index.html">Cross Entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/loss/variants/nll/index.html">NLL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/loss/variants/mse/index.html">MSE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../components/loss/variants/l1/index.html">L1</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../callbacks/index.html">Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../trainer/index.html">Trainer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../trainer/callbacks/index.html">Trainer Callbacks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../trainer/callbacks/console/index.html">Console</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../trainer/callbacks/exporters/index.html">Export</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../trainer/callbacks/tensorboard/index.html">TensorBoard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../trainer/callbacks/plotters/index.html">Plotters</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../inference/index.html">Inference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../inference/callbacks/index.html">Inference Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../data/index.html">Pipeline</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../data/extractor/index.html">Extractor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/extractor/variants/i3/index.html">I3</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../data/collector/index.html">Collector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../data/processor/index.html">Processor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/select/index.html">Select</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/commit/index.html">Commit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/copy/index.html">Copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/alias/index.html">Alias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/rename/index.html">Rename</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/map/index.html">Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/fill/index.html">Fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/unique/index.html">Unique</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/stats/index.html">Stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/simulation/index.html">Simulation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/dom/index.html">DOM Processor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/knn/index.html">KNN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/compress/index.html">Compress</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/pivot/index.html">Pivot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/splitmap/index.html">SplitMap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/processor/variants/inspect/index.html">Inspect</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../data/writer/index.html">Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/writer/variants/zarr/index.html">Zarr</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../data/writer/variants/lmdb/index.html">LMDB</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../statistics/index.html">Statistics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/mean.html">Mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/m2.html">M2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/minimum.html">Min</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/maximum.html">Max</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/total_count.html">Total Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/finite_count.html">Finite Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/nan_count.html">NaN Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/zero_count.html">Zero Count</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../statistics/variants/positive_count.html">Positive Count</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../../index.html">IceGraph</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../../index.html">Engine</a></li>
+          <li class="breadcrumb-item"><a href="../../../../index.html">Services</a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Metrics</a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Metric</a></li>
+      <li class="breadcrumb-item active">Classification Metrics</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../../../../_sources/engine/services/metrics/metric/variants/classification/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="classification-metrics">
+<h1>Classification Metrics<a class="headerlink" href="#classification-metrics" title="Link to this heading"></a></h1>
+<p>The <strong>classification metrics</strong> are the family of <a class="reference internal" href="../../index.html"><span class="doc">metrics</span></a> for
+categorical targets. They read each head’s columns as scores over that head’s
+classes and its single target column as a class index, which is the layout the
+<a class="reference internal" href="../../../../../policy/variants/multiclass/index.html"><span class="doc">multiclass</span></a> policy produces.</p>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<p>Heads are ragged so the family walks them one
+at a time rather than working across the packed row, pairing a head’s scores with
+its labels and rejecting a target block that is not one column per head.</p>
+<p>The metrics here range from a confusion matrix to a binned score histogram,
+and each declares its own state.
+What they share is how the model output is read, and that splits them in two:</p>
+<ul class="simple">
+<li><p><strong>Arg-max metrics</strong> look only at which class scored highest. They are invariant
+to whether the model emits logits, log-probabilities or probabilities, and take
+no configuration for it.</p></li>
+<li><p><strong>Distribution metrics</strong> read the predicted probabilities themselves. These take
+a <code class="docutils literal notranslate"><span class="pre">from_logits</span></code> option, <code class="docutils literal notranslate"><span class="pre">true</span></code> by default.</p></li>
+</ul>
+</section>
+<section id="confusion-matrix-metrics">
+<h2>Confusion-matrix metrics<a class="headerlink" href="#confusion-matrix-metrics" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ConfusionMetric</span></code> pins the accumulator to one <code class="docutils literal notranslate"><span class="pre">[K,</span> <span class="pre">K]</span></code> matrix per head, indexed
+<code class="docutils literal notranslate"><span class="pre">[true,</span> <span class="pre">predicted]</span></code>. Counting over two batches and adding is counting over their
+union, so the monoid is trivial and folding across batches or merging across
+processes is exact.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="variants/macro_f1/index.html"><span class="doc">Macro-F1</span></a>: F1 averaged with equal weight per class.</p></li>
+<li><p><a class="reference internal" href="variants/macro_recall/index.html"><span class="doc">Macro-Recall</span></a>: recall averaged with equal
+weight per class.</p></li>
+<li><p><a class="reference internal" href="variants/balanced_acc/index.html"><span class="doc">Balanced Accuracy</span></a>: accuracy as if every
+class were equally represented, optionally adjusted so chance scores <code class="docutils literal notranslate"><span class="pre">0</span></code>. In
+its default form this is the same quantity as macro-recall.</p></li>
+<li><p><a class="reference internal" href="variants/per_class_recall/index.html"><span class="doc">Per-Class Recall</span></a>: recall reported one
+value per class rather than one per head.</p></li>
+<li><p><a class="reference internal" href="variants/cohen_kappa/index.html"><span class="doc">Cohen’s Kappa</span></a>: agreement against what the
+class marginals would reach by chance.</p></li>
+</ul>
+<p>A class the evaluation set never contains has an undefined score. These metrics
+report it as <code class="docutils literal notranslate"><span class="pre">nan</span></code> per class and leave it out of any macro average, rather than
+counting it as a zero that would drag the average down.</p>
+</section>
+<section id="other-metrics">
+<h2>Other metrics<a class="headerlink" href="#other-metrics" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="variants/top_k_acc/index.html"><span class="doc">Top-K Accuracy</span></a>: fraction of samples whose true
+class is within the top <code class="docutils literal notranslate"><span class="pre">k</span></code> scores. Arg-max style, but a rank count rather
+than a confusion matrix, and it runs across the whole packed row at once.</p></li>
+<li><p><a class="reference internal" href="variants/cross_entropy/index.html"><span class="doc">Cross-Entropy</span></a>: mean negative
+log-probability of the true class.</p></li>
+<li><p><a class="reference internal" href="variants/ece/index.html"><span class="doc">Expected Calibration Error</span></a>: gap between stated
+confidence and observed accuracy, over binned confidences.</p></li>
+<li><p><a class="reference internal" href="variants/auprc/index.html"><span class="doc">AUPRC</span></a>: macro-averaged area under the
+precision-recall curve, over binned scores.</p></li>
+</ul>
+</section>
+<section id="registering-a-new-classification-metric">
+<h2>Registering a new classification metric<a class="headerlink" href="#registering-a-new-classification-metric" title="Link to this heading"></a></h2>
+<p>A metric that is a pure function of the confusion matrix subclasses
+<code class="docutils literal notranslate"><span class="pre">ConfusionMetric</span></code> and implements only <code class="docutils literal notranslate"><span class="pre">reduce</span></code>, the function from one head’s
+matrix to that head’s 1-D value. <code class="docutils literal notranslate"><span class="pre">recall</span></code>, which returns per-class recall
+alongside the support to mask undefined classes with, is available on the base.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># plugin.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.engine.services.metrics.metric</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricFactory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.engine.services.metrics.metric.variants.classification.confusion</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfusionMetric</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">icegraph.engine.services.metrics.metric.variants.classification.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Specificity</span><span class="p">(</span><span class="n">ConfusionMetric</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"specificity"</span>
+    <span class="n">version</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">optimum</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">1.0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"specificity"</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">confusion</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="o">...</span>  <span class="c1"># 1-D value for this head, from its [K, K] matrix</span>
+
+<span class="n">MetricFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Specificity</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Anything else subclasses <code class="docutils literal notranslate"><span class="pre">ClassificationMetric</span></code> directly, declaring its own
+accumulator type and the full monoid over it.
+The family still supplies the shared readers:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">heads(out,</span> <span class="pre">target)</span></code></dt><dd><p>Walk the heads, yielding <code class="docutils literal notranslate"><span class="pre">(head,</span> <span class="pre">scores</span> <span class="pre">[B,</span> <span class="pre">K],</span> <span class="pre">labels</span> <span class="pre">[B])</span></code>, with the
+one-target-column-per-head invariant checked.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">probabilities(scores,</span> <span class="pre">*,</span> <span class="pre">from_logits)</span></code></dt><dd><p>Class probabilities for one head’s scores.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">macro(values,</span> <span class="pre">mask)</span></code></dt><dd><p>Mean over the selected entries as a 1-element tensor, dropping the rest rather
+than counting them as zero.</p>
+</dd>
+</dl>
+<p>A metric that takes no options inherits the family’s empty <code class="docutils literal notranslate"><span class="pre">Config</span></code>. One that
+does declares its own config model and overrides <code class="docutils literal notranslate"><span class="pre">validate_config</span></code> alongside its
+binding of the config type.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../regression/variants/rmse/index.html" class="btn btn-neutral float-left" title="RMSE" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="variants/top_k_acc/index.html" class="btn btn-neutral float-right" title="Top-K Accuracy" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, University of Maryland and the IceCube Collaboration.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
