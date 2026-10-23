@@ -1,4 +1,4 @@
-# Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
+ # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
 from __future__ import annotations
@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import ClassVar, Any
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
@@ -15,6 +15,14 @@ from icegraph.common.data import AttributeDomain
 from .config import CompressorConfig
 
 __all__ = ["Compressor"]
+
+
+def _dtype_name(dtype: pl.DataType | np.dtype) -> str:
+    """Numpy name of a source dtype, which may be polars or numpy."""
+    if isinstance(dtype, np.dtype):
+        return dtype.name
+
+    return pl.Series(dtype=dtype).to_numpy().dtype.name
 
 
 class Compressor(Processor[CompressorConfig]):
@@ -43,9 +51,14 @@ class Compressor(Processor[CompressorConfig]):
         # grab from config
         by = item.resolve_cols(self.config.by)
         to = self.config.to
-        out = self.config.out
-        cols = item.resolve_cols(self.config.cols)
+        out = str(self.config.out)
         dtype = self.config.dtype
+
+        match self.config.cols:
+            case "__all__":
+                cols = [c for c in main.columns if c not in set(by)]
+            case _:
+                cols = item.resolve_cols(self.config.cols)
 
         # ensure to is not the active frame
         if to == item.active:
@@ -58,16 +71,18 @@ class Compressor(Processor[CompressorConfig]):
         # hstack phase: materialize each col as [R, N_i], concat to [R, sum N_i]
         parts = []
         widths = []
+        sources = []
         for c in cols:
-            series = main[c]
+            series = main.get_column(c)
 
             # convert series to numpy
-            if np.ndim(series.iloc[0]) == 0:
-                arr = series.to_numpy(dtype=dtype).reshape(-1, 1)
-            else:
+            if isinstance(series.dtype, (pl.List, pl.Array)):
+                # the cast below erases the inner type, so take it from the schema
+                sources.append(_dtype_name(series.dtype.inner))
+
                 # raise if column is ragged
                 try:
-                    arr = np.asarray(series.tolist(), dtype=dtype)
+                    arr = np.asarray(series.to_list(), dtype=dtype)
                 except ValueError as e:
                     raise ValueError(
                         f"Column {c!r} has inconsistent cell shapes: {e}"
@@ -77,6 +92,15 @@ class Compressor(Processor[CompressorConfig]):
                         f"Column {c!r} has inconsistent cell shapes (got {arr.ndim}D object "
                         f"array, expected 2D). All rows must share the same shape."
                     )
+            else:
+                arr = series.to_numpy()
+
+                # captured before the cast, so the reader can put the column back
+                sources.append(_dtype_name(arr.dtype))
+
+                if dtype is not None:
+                    arr = arr.astype(dtype, copy=False)
+                arr = arr.reshape(-1, 1)
 
             # store array and width
             parts.append(arr)
@@ -85,22 +109,39 @@ class Compressor(Processor[CompressorConfig]):
         # hstack
         values = np.hstack(parts)
 
+        # one dtype per source column. the pack holds a single type, so overriding
+        # reports what the values now are rather than what they were
+        dtypes = [_dtype_name(values.dtype)] * len(cols) if self.config.override_dtypes else sources
+
         # build offset
         offset = np.concatenate(([0], np.cumsum(widths)))
 
         # vstack phase: group by key cols, gather rows of `values` per group
-        grouped = main.groupby(by, sort=False, observed=True).indices
-        keys = [k if isinstance(k, tuple) else (k,) for k in grouped.keys()]
-        packed = [values[idx] for idx in grouped.values()]
+        grouped = (
+            main
+            .with_row_index("__row_idx__")
+            .group_by(by, maintain_order=True)
+            .agg(pl.col("__row_idx__"))
+        )
+        packed = [
+            values[np.asarray(idx, dtype=np.int64)]
+            for idx in grouped.get_column("__row_idx__").to_list()
+        ]
 
         # build the output frame
-        result = pd.DataFrame(keys, columns=by)
-        # this is fine at runtime, just stubs being strict
-        result[out] = packed  # pyright: ignore[reportArgumentType, reportCallIssue]
+        inner = pl.Series(values=values.reshape(-1)[:0]).dtype  # numpy dtype -> polars dtype
+        col_dtype = pl.List(pl.Array(inner, values.shape[1]))
+        result = grouped.drop("__row_idx__").with_columns(
+            pl.Series(out, packed, dtype=col_dtype)
+        )
 
         # record the compression
         if self.config.record_names:
             item.set_column_attr(out, "names", cols, domain=AttributeDomain.GLOBAL)
+
+            # a dtype means nothing without the column it belongs to, so it rides
+            # with the names
+            item.set_column_attr(out, "dtypes", dtypes, domain=AttributeDomain.GLOBAL)
         if self.config.record_offset:
             item.set_column_attr(out, "offset", offset, domain=AttributeDomain.GLOBAL)
 

@@ -21,7 +21,7 @@ Selected as ``name: knn``.
    * - ``by``
      - Columns identifying the per-event grouping the graph is built within.
      - column(s)
-     - required
+     - the event ids
    * - ``col``
      - Column holding the per-node coordinates used for neighbor search.
      - str | int
@@ -39,7 +39,6 @@ Selected as ``name: knn``.
 
    - name: knn
      kwargs:
-       by: event_id
        col: position
        out: [ edge_index, edge_attr ]
        k: 8

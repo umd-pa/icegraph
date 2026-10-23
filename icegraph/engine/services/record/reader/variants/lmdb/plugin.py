@@ -3,15 +3,21 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from dataclasses import dataclass
 from functools import cached_property
+from collections.abc import Collection
 from typing_extensions import Buffer
 
 import lmdb
 from typing import Any, ClassVar
 import msgpack
+import numpy as np
 
-from icegraph.common.data import AttributeDomain
-from icegraph.common.record import Record, Attributes
+from icegraph.common.record import RecordBlock, Column
+from icegraph.typing.common import ArrayI
+from icegraph.common.data import restore
 
 from ...reader import Reader
 
@@ -24,7 +30,19 @@ m.patch()  # allow msgpack to work with numpy objects
 __all__ = ["LMDB"]
 
 
-class LMDB(Reader[Config]):
+@dataclass(frozen=True)
+class Handle:
+    env: lmdb.Environment
+    dbs: dict[str, lmdb._Database]
+
+    def close(self) -> None:
+        vars(self).pop("dbs", None)
+        env = vars(self).pop("env", None)
+        if env is not None:
+            env.close()
+
+
+class LMDB(Reader[Config, Handle]):
     name: ClassVar[str] = "lmdb"
     version: ClassVar[int] = 1
 
@@ -37,13 +55,8 @@ class LMDB(Reader[Config]):
     def validate_config(cls, config: dict[str, Any]) -> Config:
         return Config(**config)
 
-    def record_count(self) -> int:
-        with self.env.begin(db=self.dbs["data"]) as txn:
-            # this is correct, likely stub issue with lmdb
-            return int(txn.stat()["entries"])  # pyright: ignore[reportCallIssue]
-
     def validate_file(self) -> None:
-        with self.env.begin(db=self.dbs["data"]) as txn, txn.cursor() as cur:
+        with self.handle.env.begin(db=self.handle.dbs["data"]) as txn, txn.cursor() as cur:
             if not cur.first():
                 raise KeyError("Database is empty, cannot find first key.")
             first = int.from_bytes(cur.key(), "big", signed=False)
@@ -57,10 +70,10 @@ class LMDB(Reader[Config]):
                 "Database failed first/last sanity check. All records must be contiguous, indexed from 0 to N-1."
             )
 
-    @cached_property
-    def env(self) -> lmdb.Environment:
-        return lmdb.open(
-            str(self._path),
+    def _open(self, path: Path) -> Handle:
+        # open file handle
+        env = lmdb.open(
+            str(path),
             readonly=True,
             lock=False,
             subdir=False,
@@ -68,54 +81,65 @@ class LMDB(Reader[Config]):
             readahead=True
         )
 
-    @cached_property
-    def dbs(self) -> dict[str, lmdb._Database]:
-        return {key: self.env.open_db(key.encode()) for key in ["data", "attr"]}
+        # open database specific handles
+        dbs = {key: env.open_db(key.encode()) for key in ["data", "attr"]}
+
+        return Handle(env, dbs)
+
+    def _close(self, handle: Handle) -> None:
+        handle.close()
 
     @staticmethod
     def _unpack(value: Buffer, **kwargs) -> Any:
         """Unpack a byte value using msgpack."""
         return msgpack.unpackb(value, object_hook=m.decode, raw=False, **kwargs)
 
-    def _build_attrs(self) -> Attributes:
+    @cached_property
+    def _attrs_dict(self) -> dict[str, Any]:
         """Build an Attributes object."""
-        attrs: dict[AttributeDomain, Any] = {}
-        with self.env.begin(db=self.dbs["attr"]) as txn:
-            for domain in AttributeDomain.all():
-                # load attrs from file
-                attrs_bytes = txn.get(domain.name.encode())
+        attrs: dict[str, Any] = {}
+        with self.handle.env.begin(db=self.handle.dbs["attr"]) as txn:
+            for key, value in txn.cursor():
+                attrs[key.decode()] = self._unpack(value)
 
-                if attrs_bytes is None:
-                    # key not found, raise
-                    raise KeyError(f"Key '{domain.name}' not found in LMDB file {self._path}.")
+        return attrs
 
-                attrs[domain] = self._unpack(attrs_bytes)
+    def _get(self, indices: ArrayI, columns: Collection[str] | None = None) -> RecordBlock:
+        rows: list[dict[str, Any]] = []
+        with self.handle.env.begin(db=self.handle.dbs["data"]) as txn:
+            for index in indices:
+                # np ints lack .to_bytes, coerce to plain int
+                key = int(index).to_bytes(4, "big", signed=False)
+                data = txn.get(key)
 
-        return Attributes(attrs)
+                if data is None:
+                    raise KeyError(f"Index {index} not found in file {self._ctx.path}")
 
-    def get(self, index: int) -> Record:
-        # pack to unsigned 4 byte big-endian
-        key = index.to_bytes(4, "big", signed=False)
+                rows.append(self._unpack(data))
 
-        with self.env.begin(db=self.dbs["data"]) as txn:
-            data = txn.get(key)
+        return self._to_block(rows, columns)
 
-        # ensure data exists
-        if data is None:
-            raise KeyError(f"Index {index} not found in file {self._path}")
+    @staticmethod
+    def _to_block(rows: list[dict[str, Any]], columns: Collection[str] | None = None) -> RecordBlock:
+        """Stack row-oriented records into a columnar block.
 
-        # build sample
-        record = Record(
-            index=index,
-            shard_id=self.attrs.shard_id,
-            data=self._unpack(data)
-        )
+        A record is stored whole, so unwanted columns cannot be skipped on read;
+        restricting them still avoids stacking and copying what nothing decodes.
+        """
+        height = len(rows)
 
-        return record
+        stored = rows[0] if rows else {}
+        selected = stored if columns is None else [n for n in stored if n in columns]
 
-    def sleep(self) -> None:
-        # close the environment and remove all references
-        vars(self).pop("dbs", None)
-        env = vars(self).pop("env", None)
-        if env is not None:
-            env.close()
+        block: dict[str, Column] = {}
+        for name in selected:
+            values = [np.asarray(row[name]) for row in rows]
+
+            lengths = np.fromiter((v.shape[0] for v in values), dtype=np.int64)
+
+            offsets = np.zeros(height + 1, np.int64)
+            np.cumsum(lengths, out=offsets[1:])
+
+            block[name] = Column(np.concatenate(values, axis=0), offsets)
+
+        return RecordBlock(height=height, columns=block)

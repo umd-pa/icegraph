@@ -11,7 +11,7 @@ import time
 import numpy as np
 
 # local package
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.typing.common import ArrayF, ArrayB, ArrayI
 
 # local subpackage
@@ -33,20 +33,20 @@ class Statistic(ABC):
     name: ClassVar[str]
 
     # spaces the statistic is to be tracked in
-    spaces: ClassVar[tuple[TransformSpace, ...]] = tuple(TransformSpace)
+    spaces: ClassVar[tuple[Space, ...]] = tuple(Space)
 
     # degree of the statistic under linear rescaling of transformed values
     degree: ClassVar[int]
 
     # for transforms to correct space
-    transform: ClassVar[Mapping[TransformSpace, Callable[[ArrayF], ArrayF]]] = {
-        TransformSpace.LINEAR:  linear_transform,
-        TransformSpace.LOG:     log_transform,
-        TransformSpace.ASINH:   asinh_transform
+    transform: ClassVar[Mapping[Space, Callable[[ArrayF], ArrayF]]] = {
+        Space.LINEAR:  linear_transform,
+        Space.LOG:     log_transform,
+        Space.ASINH:   asinh_transform
     }
 
     def __init__(self) -> None:
-        self._values: dict[TransformSpace, ArrayF] = {}
+        self._values: dict[Space, ArrayF] = {}
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -74,15 +74,15 @@ class Statistic(ABC):
             raise ValueError("Class variable 'spaces' must be non-empty.")
 
         # ensure elements of spaces are of correct type
-        if not all(isinstance(space, TransformSpace) for space in spaces):
-            raise TypeError(f"Elements of class variable 'spaces' must be of type {TransformSpace.__name__}.")
+        if not all(isinstance(space, Space) for space in spaces):
+            raise TypeError(f"Elements of class variable 'spaces' must be of type {Space.__name__}.")
 
         # ensure spaces has no duplicates
         if len(set(spaces)) != len(spaces):
             raise ValueError("Class variable 'spaces' must not contain duplicates.")
 
 
-    def value(self, space: TransformSpace) -> ArrayF:
+    def value(self, space: Space) -> ArrayF:
         """
         Return the statistic values.
 
@@ -156,7 +156,7 @@ class Statistic(ABC):
 
     @classmethod
     @abstractmethod
-    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
+    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: Space) -> ArrayF:
         """
         Internal implementation of statistic merging logic.
 
@@ -250,7 +250,7 @@ class Statistic(ABC):
 
         # rebuild from saved struct
         for space_value, data in struct.items():
-            space = TransformSpace(space_value)
+            space = Space(space_value)
             if space not in cls.spaces:
                 raise ValueError(f"{cls.__name__}.from_struct: struct contains unsupported space {space}")
 

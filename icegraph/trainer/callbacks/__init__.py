@@ -11,7 +11,10 @@ from .callback import TrainerCallback
 from .console import ConsoleCallback
 from .exporters import ExportCallback
 from .tensorboard import TensorBoardCallback
-from .plotters import ParityPlotter, BiasPlotter, CMPlotter, PTruePlotter, ROCPlotter, BinaryPPositivePlotter, PrecisionRecallPlotter
+from .plotters import ParityPlotter, BiasPlotter, CMPlotter, PTruePlotter, ROCPlotter, BinaryPPositivePlotter, PPositiveAuxPlotter, PrecisionRecallPlotter, MetricsPlotter
+
+# reexport for convenience
+from .base import Reducer, HistogramReducer, BHistogramReducer, CHistogramReducer, BoundsConstructorContext, AxisLayout
 
 __all__ = [
     "CallbackSpec",
@@ -25,5 +28,13 @@ __all__ = [
     "PTruePlotter",
     "ROCPlotter",
     "BinaryPPositivePlotter",
-    "PrecisionRecallPlotter"
+    "PPositiveAuxPlotter",
+    "PrecisionRecallPlotter",
+    "MetricsPlotter",
+    "Reducer",
+    "HistogramReducer",
+    "BHistogramReducer",
+    "CHistogramReducer",
+    "BoundsConstructorContext",
+    "AxisLayout"
 ]

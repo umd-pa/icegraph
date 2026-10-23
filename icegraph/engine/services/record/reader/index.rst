@@ -33,25 +33,25 @@ with ``ReaderFactory``.
 
 ``build(self) -> None``
    One-time setup.
-``record_count(self) -> int``
-   Return the number of records in the file.
-``get(self, index) -> Record``
-   Return the record at the given index.
-``_build_attrs(self) -> Attributes``
-   Read the file's attributes.
-``sleep(self) -> None``
-   Release any open file handles until the reader is next used.
+``_open(self, path) -> Handle``
+   Open the file and return an opaque handle.
+``_close(self, handle) -> None``
+   Release the handle's resources.
+``_attrs_dict(self) -> dict``
+   Read the file's raw attributes.
+``_get(self, indices) -> RecordBlock``
+   Read the given rows (ascending) as one columnar block.
 
 .. code-block:: python
 
    from typing import Any, ClassVar
 
-   from icegraph.common.record import Attributes, Record
+   from icegraph.common.record import RecordBlock
    from icegraph.engine.services.record.reader import Reader, ReaderFactory
 
    from .config import MyReaderConfig
 
-   class MyReader(Reader[MyReaderConfig]):
+   class MyReader(Reader[MyReaderConfig, MyHandle]):
        name: ClassVar[str] = "my-reader"
        version: ClassVar[int] = 1
        file_ext: ClassVar[str] = ".myext"
@@ -63,16 +63,17 @@ with ``ReaderFactory``.
        def build(self) -> None:
            ...
 
-       def record_count(self) -> int:
+       def _open(self, path) -> MyHandle:
            ...
 
-       def get(self, index: int) -> Record:
+       def _close(self, handle: MyHandle) -> None:
            ...
 
-       def _build_attrs(self) -> Attributes:
+       @cached_property
+       def _attrs_dict(self) -> dict[str, Any]:
            ...
 
-       def sleep(self) -> None:
+       def _get(self, indices) -> RecordBlock:
            ...
 
    ReaderFactory.register(MyReader)

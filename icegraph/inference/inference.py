@@ -4,10 +4,8 @@
 from __future__ import annotations
 
 from typing import Any
-from torch_geometric import edge_index
 from typing_extensions import override
 from pathlib import Path
-from functools import cached_property
 import time
 
 import torch
@@ -71,50 +69,20 @@ class BatchInference(Engine[InferenceConfig]):
 
         return cls(InferenceConfig(**config), state_dicts=state["states"])
 
-    # services
-
-    @cached_property
-    def state(self):
-        return self.services.require("state", required_by=type(self))
-
-    @cached_property
-    def decode(self):
-        return self.services.require("decode", required_by=type(self))
-
-    @cached_property
-    def record(self):
-        return self.services.require("record", required_by=type(self))
-
-    @cached_property
-    def data(self):
-        return self.services.require("data", required_by=type(self))
-
-    # components
-
-    @cached_property
-    def model(self):
-        return self.components.require(ComponentKind.MODEL, required_by=type(self))
-
-    @cached_property
-    def normalizer(self):
-        return self.components.require(ComponentKind.NORMALIZER, required_by=type(self))
-
-    @cached_property
-    def transformer(self):
-        return self.components.require(ComponentKind.TRANSFORMER, required_by=type(self))
-
     @torch.no_grad()
     def _process_batch(self, batch: GraphBatch) -> Tensor:
         # pull from batch
-        features = batch.features
+        features    = batch.features
         index       = batch.batch
-        edge_index  = batch.edge_index
-        edge_attr   = batch.edge_attr
+        num_graphs  = batch.num_graphs
+
+        # build connectivity while the feature block still holds raw values
+        edge_index, edge_attr = self.edges(features, batch=index, num_graphs=num_graphs)
 
         features = self.transformer(features, DataRole.FEATURES)
         features = self.normalizer(features, DataRole.FEATURES)
 
-        out = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index)
+        out = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index, num_graphs=num_graphs)
 
         out = self.normalizer(out, DataRole.TARGETS, inverse=True)
         out = self.transformer(out, DataRole.TARGETS, inverse=True)
@@ -127,18 +95,19 @@ class BatchInference(Engine[InferenceConfig]):
         # get dataloader
         dataloader = self.get_dataloader()
 
-        # iterate over each batch
-        for b in dataloader:
-            # move to device
-            raw_batch = b.to_device(self.state.device, non_blocking=True)
+        # measures batch throughput
+        throughput = self.status.throughput("predict")
 
-            # convert to graph batch
-            graph_batch = GraphBatch.from_raw_batch(raw_batch, self.decode.get_segment_layout)
+        # iterate over each batch
+        for batch in throughput.iterate(dataloader):
+            # move to device
+            batch = batch.to(self.state.device, non_blocking=True)
 
             # process batch
             start_time = time.perf_counter()
 
-            _ = self._process_batch(graph_batch)
+            with throughput.step(batch):
+                _ = self._process_batch(batch)
 
             # time the execution
             elapsed = time.perf_counter() - start_time
@@ -153,7 +122,7 @@ class BatchInference(Engine[InferenceConfig]):
         keys = np.arange(len(self.record), dtype=np.int64)
 
         # no need for targets in inference
-        # technically edges, simweights, auxiliary not needed as well, but allow them if user wants
+        # technically weights, auxiliary not needed as well, but allow them if user wants
         # to include for plotting, inference with edges, etc
         exclude_roles = [DataRole.TARGETS]
 
@@ -162,8 +131,28 @@ class BatchInference(Engine[InferenceConfig]):
         return self.data.dataloader(spec)
 
     @override
+    def _setup(self) -> None:
+        super()._setup()
+
+        self.state          = self.services.require("state",    required_by=type(self))
+        self.decode         = self.services.require("decode",   required_by=type(self))
+        self.record         = self.services.require("record",   required_by=type(self))
+        self.data           = self.services.require("data",     required_by=type(self))
+
+        self.model          = self.components.require(ComponentKind.MODEL,          required_by=type(self))
+        self.normalizer     = self.components.require(ComponentKind.NORMALIZER,     required_by=type(self))
+        self.transformer    = self.components.require(ComponentKind.TRANSFORMER,    required_by=type(self))
+        self.edges          = self.components.require(ComponentKind.EDGES,          required_by=type(self))
+
+        # build the loader now, which also sets up the decoders it reads with
+        with self.status.task("Building dataloader"):
+            self.get_dataloader()
+
+    @override
     def execute(self) -> None:
         """Execute inference."""
+        self.setup()
+
         logger.info("executing inference")
 
         # fire on_execute callback hook
@@ -180,4 +169,4 @@ class BatchInference(Engine[InferenceConfig]):
             ctx = context.TeardownContext(self)
             self.callbacks.fire("on_teardown", ctx)
         finally:
-            self.services.close()
+            super().close()

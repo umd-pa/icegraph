@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from icegraph.engine.components import Component
 
+    from icegraph.engine.components.edges import EdgeBuilder
     from icegraph.engine.components.loss import LossFunction
     from icegraph.engine.components.model import Model
     from icegraph.engine.components.transformer import Transformer
@@ -43,6 +44,7 @@ class Policy(Plugin[C, PolicyContext], ABC):
             ComponentKind.MODEL: self.model_contract,
             ComponentKind.NORMALIZER: self.normalizer_contract,
             ComponentKind.TRANSFORMER: self.transformer_contract,
+            ComponentKind.EDGES: self.edges_contract,
             ComponentKind.OPTIMIZER: self.optimizer_contract,
             ComponentKind.LOSS: self.loss_contract
         }[kind]()
@@ -117,6 +119,21 @@ class Policy(Plugin[C, PolicyContext], ABC):
     def normalizer_forward_validator(self, t: Tensor, /, debug: bool) -> None:
         return None
 
+    def edges_contract(self) -> ComponentContract:
+        contract = ComponentContract(
+            kwargs=dict(),
+            validator=self.edges_validator,
+            forward_validator=self.edges_forward_validator
+        )
+
+        return contract
+
+    def edges_validator(self, edges: EdgeBuilder[Any]) -> None:
+        return None
+
+    def edges_forward_validator(self, t: Tensor, /, debug: bool) -> None:
+        return None
+
     def transformer_contract(self) -> ComponentContract:
         contract = ComponentContract(
             kwargs=dict(
@@ -137,7 +154,7 @@ class Policy(Plugin[C, PolicyContext], ABC):
     def optimizer_contract(self) -> ComponentContract:
         contract = ComponentContract(
             kwargs=dict(),
-            validator=self.transformer_validator,
+            validator=self.optimizer_validator,
             forward_validator=None
         )
 

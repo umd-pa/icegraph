@@ -11,7 +11,7 @@ from torch import Tensor
 
 # local package
 from icegraph.statistics import StatisticService
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.common.data import DataRole, Split, ColumnarRole
 from icegraph.common.engine import ComponentKind
 from icegraph.common.tensors import SegmentedTensor
@@ -77,7 +77,7 @@ class AffineNormalizer(Normalizer[Config], ABC):
     def _resolve(
             self,
             role: ColumnarRole,
-            build: Callable[[StatisticService, TransformSpace, int, int], float],
+            build: Callable[[StatisticService, Space, int, int], float],
     ) -> Tensor:
         # decoder service
         decoder = self._ctx.services.require("decode", required_by=type(self))
@@ -105,11 +105,11 @@ class AffineNormalizer(Normalizer[Config], ABC):
         return torch.tensor(params, dtype=torch.float32, device=self.device)
 
     @abstractmethod
-    def _build_scale(self, stats: StatisticService, space: TransformSpace, base: int, column_index: int) -> float:
+    def _build_scale(self, stats: StatisticService, space: Space, base: int, column_index: int) -> float:
         ...
 
     @abstractmethod
-    def _build_offset(self, stats: StatisticService, space: TransformSpace, base: int, column_index: int) -> float:
+    def _build_offset(self, stats: StatisticService, space: Space, base: int, column_index: int) -> float:
         ...
 
     def normalize(self, t: SegmentedTensor, /, role: ColumnarRole, *, inverse: bool = False) -> Tensor:

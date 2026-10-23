@@ -8,7 +8,7 @@ from typing_extensions import override
 
 import numpy as np
 
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.typing.common import ArrayF
 
 from ..statistic import Statistic
@@ -22,7 +22,7 @@ __all__ = ["NANCount"]
 class NANCount(Statistic):
     name: ClassVar[str] = "nan_count"
     degree = 0
-    spaces = (TransformSpace.LINEAR,)
+    spaces = (Space.LINEAR,)
 
     @override
     def _compute(self, array: ArrayF) -> ArrayF:
@@ -30,6 +30,6 @@ class NANCount(Statistic):
 
     @classmethod
     @override
-    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
+    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: Space) -> ArrayF:
         # simple add for merge
         return a.get(cls.name).value(space) + b.get(cls.name).value(space)

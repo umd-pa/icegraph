@@ -3,9 +3,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from typing_extensions import override
-from pathlib import Path
 from collections.abc import Mapping
 
 import torch
@@ -16,11 +15,11 @@ from icegraph.renderer import Histogram2D, Labels
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import CHistogramReducer, HistogramAccumulator
+from ..base import CHistogramReducer, AxisLayout
 
 if TYPE_CHECKING:
-    from .. import context
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["CMPlotter"]
 
@@ -30,22 +29,24 @@ logger = logging.getLogger(__name__)
 
 
 class CMPlotter(CHistogramReducer):
+    ndim: ClassVar[int] = 2
 
     @override
-    def _build_bins(self) -> Tensor:
-        return torch.tensor([2, 2])
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor:
+        target = batch.targets.block([label])  # this head's target
 
-    @override
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor:
         # stack data by axis
         return torch.cat((target, out.argmax(dim=-1, keepdim=True)), dim=1)
 
-    @override
-    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
-        return {"Data": list(data.values())[0]}  # only one so this is fine
+    def bin_count_override(self) -> tuple[int, ...] | None:
+        return (2,)
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        return {"Data": counts[0]}  # single group
+
+    @override
+    def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
         epoch = trainer.current_epoch
 
         # building a 2d histogram
@@ -59,13 +60,16 @@ class CMPlotter(CHistogramReducer):
         plot.set_title(title)
 
         # update axis labels
-        ylabel = r"$\mathrm{Predicted}\;\mathrm{%s}$" % label
-        xlabel = r"$\mathrm{Target}\;\mathrm{%s}$" % label
+        ylabel = r"$\mathrm{Predicted}\;\mathrm{%s}$" % label.replace("_", r"\_")
+        xlabel = r"$\mathrm{Target}\;\mathrm{%s}$" % label.replace("_", r"\_")
 
         plot.set_xlabel(xlabel)
         plot.set_ylabel(ylabel)
 
+        # set count label
+        plot.set_zlabel(self.get_count_label(label))
+
         # plot
-        path = save_dir / "confusion_matrix" / f"{label}.CM.{epoch + 1}.html"
-        plot.plot(data, path)
+        path = trainer.plotdir / "confusion_matrix" / f"{label}.CM.{epoch + 1}.html"
+        plot.plot(artifacts, path, log_count=self.axis_layout[label].log_count)
         logger.info(f"new CM plot saved: %s", str(path))

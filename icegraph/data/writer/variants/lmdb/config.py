@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, DirectoryPath
+from ...config import WriterConfig
 
 __all__ = ["LMDBWriterConfig"]
 
 
-class LMDBWriterConfig(BaseModel):
-    outdir: DirectoryPath
+class LMDBWriterConfig(WriterConfig):
+    pass

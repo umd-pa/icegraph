@@ -7,18 +7,18 @@ from typing import TypeAlias, Literal
 
 from enum import Enum
 
-__all__ = ["TransformSpace", "TransformSpaceType"]
+__all__ = ["Space", "SpaceType"]
 
 
-TransformSpaceType: TypeAlias = Literal["linear", "log", "asinh"]
+SpaceType: TypeAlias = Literal["linear", "log", "asinh"]
 
-class TransformSpace(Enum):
+class Space(Enum):
     LINEAR = "linear"
     LOG = "log"
     ASINH = "asinh"
 
     @classmethod
-    def all(cls) -> tuple[TransformSpace, ...]:
+    def all(cls) -> tuple[Space, ...]:
         return tuple(cls)
 
     @classmethod
@@ -30,14 +30,14 @@ class TransformSpace(Enum):
         return [space.name for space in cls.all()]
 
     @classmethod
-    def non_linear(cls) -> list[TransformSpace]:
+    def non_linear(cls) -> list[Space]:
         return [space for space in cls.all() if space != cls.LINEAR]
 
     def format_repr(self, s: str, /, base: int = 10) -> str:
         """Convenience to wrap a value with a latex representation of the space."""
-        if self == TransformSpace.LOG:
+        if self == Space.LOG:
             return r"\log_{%d}(%s)" % (base, s)
-        elif self == TransformSpace.ASINH:
+        elif self == Space.ASINH:
             return r"\mathrm{asinh_{%d}}(%s)"  % (base, s)
 
         # if linear, just return str

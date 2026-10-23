@@ -3,19 +3,19 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Any
+from typing import ClassVar, Any, TYPE_CHECKING
 from functools import cached_property
 
 import numpy as np
-
-from icecube import dataio                  # pyright: ignore[reportMissingImports]
-from icecube.icetray import OMKey           # pyright: ignore[reportMissingImports]
-from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
+import polars as pl
 
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
 from .config import DOMConfig
+
+if TYPE_CHECKING:
+    from icecube.dataclasses import I3Geometry  # pyright: ignore[reportMissingImports]
 
 __all__ = ["DOMProcessor"]
 
@@ -49,20 +49,28 @@ class DOMProcessor(Processor[DOMConfig]):
             self._geometry = self._get_geometry(gcd_path)
 
         # get string, om, pmt cols
-        cols = item.resolve_cols(self.config.cols)
+        cols = [self.config.string, self.config.om, self.config.pmt]
         out = item.resolve_cols(self.config.out)
 
+        # ensure out resolves to three col names
+        if len(out) != 3:
+            raise RuntimeError(
+                f"DOMProcessor: expected 'out' to resolve to three column names (one for each of x, y, z), got '{out}'"
+            )
+
         # get list of all unique dom ids in frame
-        lut = main[cols].drop_duplicates(subset=cols).copy()
+        lut = main.select(cols).unique(maintain_order=True)
 
         # compute positions from ids
-        dom_ids = lut.to_numpy(dtype=np.int64, copy=False)
+        dom_ids = lut.to_numpy().astype(np.int64, copy=False)
         pos = np.empty((len(lut), 3), dtype=np.float64)  # allocate empty array
         for i, (s, om, pmt) in enumerate(dom_ids):
             pos[i] = self._id_to_position(int(s), int(om), int(pmt))
 
         # add back to lut as new columns
-        lut[out] = pos
+        lut = lut.with_columns(
+            pl.Series(name, pos[:, i]) for i, name in enumerate(out)
+        )
 
         # merge to tmp and return
         return item.merge(lut, to=active, on=cols, validate="m:1")
@@ -74,12 +82,16 @@ class DOMProcessor(Processor[DOMConfig]):
         return self._geometry
 
     def _id_to_position(self, string: int, om: int, pmt: int) -> tuple[float, float, float]:
+        from icecube.icetray import OMKey  # pyright: ignore[reportMissingImports]
+
         # get position and return as tuple
         p = self.geometry.omgeo[OMKey(string, om, pmt)].position
         return p.x, p.y, p.z
 
     @staticmethod
     def _get_geometry(path: str) -> I3Geometry:
+        from icecube import dataio  # pyright: ignore[reportMissingImports]
+
         for frame in dataio.I3File(path):
             if "I3Geometry" in frame:
                 return frame["I3Geometry"]

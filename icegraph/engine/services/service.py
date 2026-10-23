@@ -26,3 +26,9 @@ class Service(Plugin[C, ServiceContext], ABC):
         # these isinstance checks are to ensure subclasses dont write something other than a tuple
         if not isinstance(cls.deps, tuple) or not all(isinstance(d, str) for d in cls.deps):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise RuntimeError(f"Dependencies for service {cls.__name__} must be a tuple of str.")
+
+    def setup(self) -> None:
+        """
+        Build any heavy state up front. Engines call this during their own setup in dependency order.
+        """
+        return

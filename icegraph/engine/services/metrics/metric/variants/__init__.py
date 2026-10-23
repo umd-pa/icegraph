@@ -1,9 +1,14 @@
 # Copyright (c) 2025 University of Maryland and the IceCube Collaboration.
 # Developed by Taylor St Jean
 
-from .mse import MSE
-from .mae import MAE
-from .rmse import RMSE
-from .top_k_acc import TopKAccuracy
+from .regression import MAE, MSE, RMSE
+from .classification import (
+    TopKAccuracy, MacroF1, MacroRecall, BalancedAccuracy, PerClassRecall,
+    CohenKappa, CrossEntropy, ExpectedCalibrationError, AUPRC,
+)
 
-__all__ = ["MSE", "MAE", "RMSE", "TopKAccuracy"]
+__all__ = [
+    "MAE", "MSE", "RMSE",
+    "TopKAccuracy", "MacroF1", "MacroRecall", "BalancedAccuracy", "PerClassRecall",
+    "CohenKappa", "CrossEntropy", "ExpectedCalibrationError", "AUPRC",
+]

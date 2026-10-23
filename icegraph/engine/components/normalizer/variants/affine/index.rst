@@ -22,13 +22,14 @@ transform.
 Variants
 --------
 
-* :doc:`ZScore <variants/zscore>`: offset by the mean, scale by the inverse
+* :doc:`ZScore <variants/zscore/index>`: offset by the mean, scale by the inverse
   standard deviation.
-* :doc:`Unit Variance <variants/unit_variance>`: no offset, scale by the inverse
-  standard deviation.
-* :doc:`Mean Centering <variants/mean_centering>`: offset by the mean, no scaling.
-* :doc:`MinMax <variants/minmax>`: offset by the minimum, scale by the inverse
-  range.
+* :doc:`Unit Variance <variants/unit_variance/index>`: no offset, scale by the
+  inverse standard deviation.
+* :doc:`Mean Centering <variants/mean_centering/index>`: offset by the mean, no
+  scaling.
+* :doc:`MinMax <variants/minmax/index>`: offset by the minimum, scale by the
+  inverse range.
 
 Registering a new affine normalizer
 -----------------------------------
@@ -46,9 +47,10 @@ subclass implements only:
 
 .. code-block:: python
 
+   # plugin.py
    from typing import ClassVar
 
-   from icegraph.common.transforms import TransformSpace
+   from icegraph.common.transforms import Space
    from icegraph.statistics import StatisticService
    from icegraph.engine.components.normalizer import NormalizerFactory
    from icegraph.engine.components.normalizer.variants.affine.plugin import AffineNormalizer
@@ -57,10 +59,10 @@ subclass implements only:
        name: ClassVar[str] = "robust-scale"
        version: ClassVar[int] = 1
 
-       def _build_offset(self, stats: StatisticService, space: TransformSpace, base: int, column_index: int) -> float:
+       def _build_offset(self, stats: StatisticService, space: Space, base: int, column_index: int) -> float:
            ...  # per-column offset from statistics
 
-       def _build_scale(self, stats: StatisticService, space: TransformSpace, base: int, column_index: int) -> float:
+       def _build_scale(self, stats: StatisticService, space: Space, base: int, column_index: int) -> float:
            ...  # per-column scale from statistics
 
    NormalizerFactory.register(RobustScale)
@@ -69,7 +71,7 @@ subclass implements only:
 .. toctree::
    :hidden:
 
-   variants/zscore
-   variants/unit_variance
-   variants/mean_centering
-   variants/minmax
+   variants/zscore/index
+   variants/unit_variance/index
+   variants/mean_centering/index
+   variants/minmax/index

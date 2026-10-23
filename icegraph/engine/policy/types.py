@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import torch
 from torch import Tensor
 
 from icegraph.common.plugins import PluginContext
 
-from ..services import ServiceManager
+if TYPE_CHECKING:
+    from ..services import ServiceManager
+    from ..status import Status
 
 __all__ = ["PolicyContext", "TaskSpec"]
 
@@ -18,6 +21,7 @@ __all__ = ["PolicyContext", "TaskSpec"]
 @dataclass(frozen=True)
 class PolicyContext(PluginContext):
     services: ServiceManager
+    status: Status
 
 
 @dataclass(frozen=True)

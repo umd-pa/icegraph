@@ -3,18 +3,19 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Any, Literal, cast
+from typing import ClassVar, Any, Literal, cast, Iterator
 from pathlib import Path
 import msgpack
 from datetime import datetime
 import lmdb
 
-import pandas as pd
+import numpy as np
+import polars as pl
 
 from icegraph import __version__
 from icegraph.data.envelope import Envelope
 from icegraph.data.writer import Writer
-from icegraph.utils.hashutils import stable_hash_blake2b
+from icegraph.utils.hashutils import CBORBlake2B
 from icegraph.common.data import AttributeDomain
 
 from .config import LMDBWriterConfig
@@ -22,16 +23,6 @@ from .config import LMDBWriterConfig
 # allow msgpack to pack numpy objects
 import msgpack_numpy as m
 m.patch()
-
-# register faulthandler
-import faulthandler
-import signal
-import sys
-
-faulthandler.enable()
-
-# dump all thread stacks on Ctrl+\ (SIGQUIT)
-faulthandler.register(signal.SIGQUIT, file=sys.stderr, all_threads=True)
 
 __all__ = ["LMDB"]
 
@@ -42,9 +33,11 @@ logger = logging.getLogger(__name__)
 
 _MB = 1 << 20
 
+
 class LMDB(Writer[LMDBWriterConfig]):
     name: ClassVar[str] = "lmdb"
     version: ClassVar[int] = 1
+    suffix = ".lmdb"
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> LMDBWriterConfig:
@@ -55,16 +48,7 @@ class LMDB(Writer[LMDBWriterConfig]):
 
     def _process(self, item: Envelope) -> Envelope | None:
         # build output file path
-        origin = Path(item.get_local_attr("origin"))
-        path = self.config.outdir / origin.with_suffix(".lmdb").name
-
-        # add id and set id to attrs
-        _id = stable_hash_blake2b(item.main.to_numpy())
-        _set_id = stable_hash_blake2b(item.attrs[AttributeDomain.GLOBAL.name])
-
-        # register ids
-        item.set_local_attr("id", _id)
-        item.set_global_attr("set_id", _set_id)
+        path = self._path(item)
 
         # ensure no stale keys
         if path.exists():
@@ -81,7 +65,7 @@ class LMDB(Writer[LMDBWriterConfig]):
         environ, dbs = self.handle(path, map_size)
 
         try:
-            self.write(item, environ, dbs)
+            self.write(item, environ, dbs, hasher="name")
         finally:
             environ.close()
 
@@ -112,7 +96,34 @@ class LMDB(Writer[LMDBWriterConfig]):
         # this does return bytes despite warning
         return msgpack.packb(value, use_bin_type=True)  # pyright: ignore[reportReturnType]
 
-    def estimate_map_size(self, main: pd.DataFrame, attrs: dict[str, Any]) -> int:
+    @staticmethod
+    def _records(main: pl.DataFrame) -> Iterator[dict[str, Any]]:
+        """Yield per-row dicts."""
+        columns = main.columns
+        schema = main.schema
+
+        nested_cols = [n for n, dt in schema.items() if isinstance(dt, (pl.List, pl.Array))]
+        scalar_cols = [n for n in columns if n not in nested_cols]
+
+        # one dtype-correct numpy array per nested column
+        # an object array of typed arrays for List columns, or a single typed ND array for
+        # fixed-width Array columns
+        nested = {n: main.get_column(n).to_numpy() for n in nested_cols}
+
+        # scalars are iterated natively, nested cells are pulled from nested,
+        # so the large graph payloads are materialized only once
+        scalar_iter = main.select(scalar_cols).iter_rows(named=True) if scalar_cols else None
+
+        for i in range(len(main)):
+            scal = next(scalar_iter) if scalar_iter is not None else {}
+
+            row: dict[str, Any] = {}
+            for name in columns:
+                row[name] = nested[name][i] if name in nested else scal[name]
+
+            yield row
+
+    def estimate_map_size(self, main: pl.DataFrame, attrs: dict[str, Any]) -> int:
         # determine size of packed attrs
         # we can ignore ids and info as those are orders of magnitude smaller size and
         # the 3x for headroom will suffice to include them
@@ -121,16 +132,10 @@ class LMDB(Writer[LMDBWriterConfig]):
         # determine size of packed data frame
         sample_count = min(256, len(main))
         if sample_count:
-            sample = main.head(sample_count)
-
             sample_size = 0
-            cols = list(sample.columns)
-            for row_tuple in sample.itertuples(index=False, name=None):
-                # pack the row
-                row = dict(zip(cols, row_tuple))
-
-                # record size (4 bytes for uint32be key)
-                sample_size += len(self._pack(row)) + 4
+            for record in self._records(main.head(sample_count)):
+                # pack the row exactly as write() will (4 bytes for uint32be key)
+                sample_size += len(self._pack(record)) + 4
 
             average_size = sample_size / sample_count
 
@@ -141,7 +146,8 @@ class LMDB(Writer[LMDBWriterConfig]):
         size = ((size + _MB - 1) // _MB) * _MB  # round up to nearest MB
         return size
 
-    def write(self, env: Envelope, environ: lmdb.Environment, dbs: dict[Literal['data', 'attr'], Any]) -> None:
+    def write(self, env: Envelope, environ: lmdb.Environment, dbs: dict[Literal['data', 'attr'], Any], hasher: str) -> None:
+
         # first write attrs
         with environ.begin(db=dbs["attr"], write=True) as txn:
             # write timestamp and icegraph version info
@@ -159,7 +165,7 @@ class LMDB(Writer[LMDBWriterConfig]):
                     "attr": "utf-8"
                 },
                 "packer": "msgpack-numpy",
-                "hasher": stable_hash_blake2b.name  # type: ignore
+                "hasher": hasher
             }
             txn.put("info".encode(), self._pack(info))
 
@@ -169,19 +175,15 @@ class LMDB(Writer[LMDBWriterConfig]):
 
         # write data in chunks
         chunk_size = 1000
-        columns = list(env.main.columns)
 
-        for j, start in enumerate(range(0, len(env.main), chunk_size)):
+        for start in range(0, len(env.main), chunk_size):
             # set next stop checkpoint
-            end = min(start + chunk_size, len(env.main))
+            length = min(chunk_size, len(env.main) - start)
 
             with environ.begin(db=dbs["data"], write=True) as txn:
-                for i, row_tuple in enumerate(env.main.iloc[start:end].itertuples(index=False, name=None), start=start):
-                    # normalize to dict
-                    row = dict(zip(columns, row_tuple))
-
+                for offset, record in enumerate(self._records(env.main.slice(start, length))):
                     # use 4 byte big-endian integer as the key for numeric ordering
-                    key = i.to_bytes(4, "big", signed=False)
-                    txn.put(key, self._pack(row))
+                    key = (start + offset).to_bytes(4, "big", signed=False)
+                    txn.put(key, self._pack(record))
 
         environ.sync()

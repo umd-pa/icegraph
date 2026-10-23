@@ -6,9 +6,10 @@
 set -Eeuo pipefail
 trap 'echo "[ERROR] line $LINENO: $BASH_COMMAND exited with status $?"; exit 1' ERR
 
-# CVMFS python interpreter, passed in by the user, for example:
-#   /cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/Ubuntu_20.04_x86_64/bin/python
-PY_BIN="${1:?Usage: $0 /path/to/cvmfs/py3-vX/<OS_arch>/bin/python}"
+# CVMFS python interpreter, passed in by the user, and optionally the IceTray release, for example:
+#   /cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/Ubuntu_22.04_x86_64/bin/python3 v1.12.1
+PY_BIN="${1:?Usage: $0 /path/to/cvmfs/py3-vX/<OS_arch>/bin/python [icetray version, default v1.12.1]}"
+ICETRAY="${2:-v1.12.1}"
 
 if [[ ! -x "$PY_BIN" ]]; then
   echo "[ERROR] '$PY_BIN' is not an executable file" >&2
@@ -40,6 +41,17 @@ echo "Activating IceTray and sourcing from virtual environment..."
 eval "$("$CVMFS_ROOT/setup.sh")"
 : "${SROOT:?SROOT should be set by IceTray setup}"
 
+# newer IceTray releases launch through bin/icetray-shell, older ones through env-shell.sh
+metaproject="metaprojects/icetray/$ICETRAY"
+if [[ -x "$SROOT/$metaproject/bin/icetray-shell" ]]; then
+  launcher="$metaproject/bin/icetray-shell"
+elif [[ -x "$SROOT/$metaproject/env-shell.sh" ]]; then
+  launcher="$metaproject/env-shell.sh"
+else
+  echo "[ERROR] No IceTray $ICETRAY launcher found under '$SROOT/$metaproject'" >&2
+  exit 1
+fi
+
 # source venv
 source "$venv/bin/activate"
 export PYTHONPATH="$venv/lib/$pyver/site-packages:${PYTHONPATH:-}"
@@ -49,10 +61,11 @@ which python
 python -V
 pip -V
 echo "SROOT=$SROOT"
+echo "IceTray launcher: $SROOT/$launcher"
 
 # install dependencies (verbose pip)
 echo "Installing dependencies, this may take a while..."
-"$SROOT/metaprojects/icetray/v1.12.1/env-shell.sh" \
+"$SROOT/$launcher" \
   "$venv/bin/$pyver" -m pip install -v --progress-bar on -r requirements.txt
 
 echo "Generating initicetray.sh..."
@@ -69,7 +82,7 @@ source "\$venv/bin/activate"
 # Force Python to prioritize virtual environment
 export PYTHONPATH="\$venv/lib/$pyver/site-packages:\${PYTHONPATH:-}"
 
-"\$SROOT/metaprojects/icetray/v1.12.1/env-shell.sh" "\$venv/bin/$pyver" "\$@"
+"\$SROOT/$launcher" "\$venv/bin/$pyver" "\$@"
 EOF
 
 chmod +x initicetray.sh

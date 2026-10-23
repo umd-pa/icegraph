@@ -5,11 +5,12 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .components.config import _ComponentGroup
 from .services.config import _ServiceGroup
 from .policy.config import PolicyConfig
+from .status.config import StatusConfig
 
 __all__ = ["EngineConfig"]
 
@@ -25,6 +26,9 @@ class EngineConfig(BaseModel, Generic[_SG, _CG]):
 
     # static shape
     policy: PolicyConfig | None
+
+    # always built, every option has a default
+    status: StatusConfig = Field(default_factory=StatusConfig)
 
     # debug mode
     debug: bool = False

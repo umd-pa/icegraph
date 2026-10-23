@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.typing.common import ArrayF
 
 from ..statistic import Statistic
@@ -33,14 +33,14 @@ class Mean(Statistic):
 
     @classmethod
     @override
-    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
-        linear = TransformSpace.LINEAR
+    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: Space) -> ArrayF:
+        linear = Space.LINEAR
 
         # space is guaranteed to be one of log, asinh or linear, so we can skip checks
         count_a = a.get("finite_count").value(linear)
         count_b = b.get("finite_count").value(linear)
 
-        if space == TransformSpace.LOG:
+        if space == Space.LOG:
             # log is computed over positive finite values only
             count_a = a.get("positive_count").value(linear)
             count_b = b.get("positive_count").value(linear)

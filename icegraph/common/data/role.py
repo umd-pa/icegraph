@@ -14,9 +14,7 @@ class DataRole(StrEnum):
     FEATURES    = "features"
     TARGETS     = "targets"
     AUXILIARY   = "auxiliary"
-    EDGE_INDEX  = "edge_index"
-    EDGE_ATTR   = "edge_attr"
-    SIMWEIGHT   = "simweights"
+    WEIGHTS     = "weights"
     BATCH       = "batch"
 
     @classmethod

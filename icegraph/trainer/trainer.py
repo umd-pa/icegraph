@@ -8,7 +8,7 @@ from typing_extensions import override
 from pathlib import Path
 from contextlib import nullcontext
 import time
-from functools import cached_property, lru_cache
+from functools import lru_cache, cached_property
 
 # torch imports
 import torch
@@ -16,12 +16,11 @@ from torch import Tensor
 from torch_geometric.seed import seed_everything
 
 # data container
-from icegraph.common.data import GraphBatch, ProcessedGraphBatch
-
-from icegraph.common.data import Split, DataRole
+from icegraph.common.data import Split, DataRole, GraphBatch
 from icegraph.common.tensors import SegmentedTensor
 from icegraph.common.engine import ComponentKind
 
+from ..engine.components.model import Model
 from ..engine import Engine
 
 # callbacks
@@ -39,10 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer(Engine[TrainerConfig]):
-    """
-    Engine responsible for managing the training, validation, and testing
-    lifecycle of a PyTorch model.
-    """
+    """Engine responsible for managing the training, validation, and testing lifecycle of a PyTorch model."""
 
     def __init__(self, config: TrainerConfig) -> None:
         """Initialize the Trainer."""
@@ -51,7 +47,16 @@ class Trainer(Engine[TrainerConfig]):
 
         # stash outdir and derive logdir
         self.outdir: Path = Path(self.config.outdir)
+
+        if self.config.run:
+            self.outdir /= "named-runs"
+            self.outdir /= self.config.run
+
+        # make sure dir exists
+        self.outdir.mkdir(parents=True, exist_ok=True)
+
         self.logdir: Path = self.outdir / "logs"
+        self.plotdir: Path = self.outdir / "plots"
 
         # global access to current epoch
         self.current_epoch: int = 0
@@ -59,62 +64,29 @@ class Trainer(Engine[TrainerConfig]):
         # global access to current split
         self.split: Split = Split.TRAIN  # first split is always train
 
-        # set global seed for reproducibility
-        self._set_seed(self.state.seed + self.state.rank)
-
     @classmethod
     @override
     def from_config(cls, config: dict[str, Any]) -> Trainer:
         return cls(config=TrainerConfig(**config))
 
-    # cached properties for potentially very slightly faster hot path access, but mostly convenience
-    # going to allow each to derive return type to avoid a bunch of garbo imports
-
-    # built in services
-
-    @cached_property
-    def state(self):
-        return self.services.require("state", required_by=type(self))
-
-    @cached_property
-    def decode(self):
-        return self.services.require("decode", required_by=type(self))
-
-    @cached_property
-    def record(self):
-        return self.services.require("record", required_by=type(self))
-
-    @cached_property
-    def metrics(self):
-        return self.services.require("metrics", required_by=type(self))
-
-    @cached_property
-    def data(self):
-        return self.services.require("data", required_by=type(self))
-
-    # components
-
-    @cached_property
-    def model(self):
-        return self.components.require(ComponentKind.MODEL, required_by=type(self))
-
-    @cached_property
-    def optimizer(self):
-        return self.components.require(ComponentKind.OPTIMIZER, required_by=type(self))
-
-    @cached_property
-    def loss(self):
-        return self.components.require(ComponentKind.LOSS, required_by=type(self))
-
-    @cached_property
-    def normalizer(self):
-        return self.components.require(ComponentKind.NORMALIZER, required_by=type(self))
-
-    @cached_property
-    def transformer(self):
-        return self.components.require(ComponentKind.TRANSFORMER, required_by=type(self))
-
     # training algo
+
+    @cached_property
+    def _amp(self) -> bool:
+        """Whether the model forward runs under bfloat16 autocast."""
+        model_supports_amp = self.model.supports_amp() if isinstance(self.model, Model) else self.model.module.supports_amp()
+        if not self.config.amp or not model_supports_amp:
+            return False
+
+        if self.state.device.type != "cuda":
+            logger.warning("amp only applies on cuda, training on %s runs in float32", self.state.device)
+            return False
+
+        if not torch.cuda.is_bf16_supported():
+            raise RuntimeError("amp runs the model in bfloat16, which this GPU does not support.")
+
+        logger.info("amp enabled, model forward runs in bfloat16")
+        return True
 
     @staticmethod
     def _set_seed(seed: int) -> None:
@@ -140,8 +112,13 @@ class Trainer(Engine[TrainerConfig]):
         features    = batch.features
         targets     = batch.targets
         index       = batch.batch
-        edge_index  = batch.edge_index
-        edge_attr   = batch.edge_attr
+        weights     = batch.weights
+        num_graphs  = batch.num_graphs
+
+        # build connectivity while the feature block still holds raw values:
+        # the transformer and normalizer rescale columns independently, which
+        # would distort the space the neighbour search runs in
+        edge_index, edge_attr = self.edges(features, batch=index, num_graphs=num_graphs)
 
         # transform and normalize features on accelerator
         features = self.transformer(features, DataRole.FEATURES)
@@ -152,10 +129,17 @@ class Trainer(Engine[TrainerConfig]):
         targets = self.normalizer(targets, DataRole.TARGETS)
 
         # forward pass
-        out: SegmentedTensor = self.model(features, edge_index=edge_index, edge_attr=edge_attr, batch=index)
+        with torch.autocast(self.state.device.type, dtype=torch.bfloat16, enabled=self._amp):
+            out: SegmentedTensor = self.model(
+                features, edge_index=edge_index, edge_attr=edge_attr, batch=index, num_graphs=num_graphs
+            )
+
+        # autocast leaves the output in bfloat16, everything downstream runs in float32
+        if self._amp:
+            out = out.to(dtype=torch.float32)
 
         # compute batch loss
-        loss = self.loss(out, targets)
+        loss = self.loss(out, targets, weights)
 
         # run backward pass if in training
         if split == Split.TRAIN:
@@ -169,18 +153,18 @@ class Trainer(Engine[TrainerConfig]):
             self.optimizer.step()
 
         # update metrics
-        self.metrics.update(out.detach(), targets.detach())  # use out and targets which are normalized
+        self.metrics.update(out.detach(), targets.detach(), split)  # use out and targets which are normalized
 
         # denorm out if required by policy
         out = self.normalizer(out, DataRole.TARGETS, inverse=True)
         out = self.transformer(out, DataRole.TARGETS, inverse=True)
 
-        # attach out to the batch, then detach each tensor from autograd
-        processed_batch = ProcessedGraphBatch.from_graph_batch(batch, out=out)
-        processed_batch = processed_batch.detach()
+        # detach each tensor from autograd
+        out = out.detach()
+        batch = batch.detach()
 
         # call on batch end hook
-        ctx = context.BatchEndContext(engine=self, batch=processed_batch, loss=loss.detach())
+        ctx = context.BatchEndContext(engine=self, batch=batch, out=out, loss=loss.detach())
         self.callbacks.fire("on_batch_end", ctx)
 
         return loss.detach()
@@ -197,7 +181,10 @@ class Trainer(Engine[TrainerConfig]):
         dataloader = self.get_dataloader(split)
 
         # reset metrics for new epoch
-        self.metrics.reset()
+        self.metrics.reset(split)
+
+        # measures this splits batch throughput
+        throughput = self.status.throughput(split.value)
 
         # loss accumulator
         loss_accumulator = torch.tensor(0, dtype=torch.float32, device=self.state.device)
@@ -219,33 +206,28 @@ class Trainer(Engine[TrainerConfig]):
 
         with ctx:
             # iterate over each batch
-            for b in dataloader:
-                # move to device
-                raw_batch = b.to_device(self.state.device, non_blocking=True)
-
-                # convert to graph batch
-                graph_batch = GraphBatch.from_raw_batch(raw_batch, self.decode.get_segment_layout)
-
-                # trainer responsible for batch dtype cast
+            for batch in throughput.iterate(dataloader):
+                # engine responsible for batch dtype cast and move
+                batch = batch.to(self.state.device, non_blocking=True)
                 if dtype_map:
-                    graph_batch = graph_batch.to_dtype(dtype_map)
+                    batch = batch.to_dtype(dtype_map)
 
                 # process batch and accumulate loss
-                loss_accumulator += self._process_batch(graph_batch, split)
+                with throughput.step(batch):
+                    loss_accumulator += self._process_batch(batch, split)
 
-            # update metric summaries on eval steps
-            if split in Split.eval():
-                self.metrics.update_summaries()
+            # update metric summaries
+            self.metrics.update_summaries(split)
 
         # accumulated epoch loss
-        # one sync per epoch, not too bad
+        # only one sync per epoch
         epoch_loss = (loss_accumulator / batch_count if batch_count > 0 else torch.tensor(float("nan"))).cpu()
 
         # time the execution
         elapsed = time.perf_counter() - start_time
 
         # log complete split with loss and elapsed time
-        logging.info("completed split: loss=%.5g, elapsed=%.5g", float(epoch_loss.item()), elapsed)
+        logger.info("completed split: loss=%.5g, elapsed=%.5g", float(epoch_loss.item()), elapsed)
 
         return epoch_loss
 
@@ -256,10 +238,50 @@ class Trainer(Engine[TrainerConfig]):
         keys = self.decode.get_keys(split)
         exclude_roles = [DataRole.AUXILIARY] if split not in Split.eval() else None
 
-        return self.data.loader_spec.make(keys, exclude_roles=exclude_roles)
+        # eval splits should score the same complete set every epoch
+        exhaustive = split in Split.eval()
+
+        return self.data.loader_spec.make(keys, exclude_roles=exclude_roles, exhaustive=exhaustive)
 
     def get_dataloader(self, split: Split):  # allow to infer type
         return self.data.dataloader(self._get_loader_spec(split))
+
+    def _splits(self) -> list[Split]:
+        """Splits this rank runs, evaluation only runs on the main rank."""
+        if not self.state.is_main_process():
+            return [Split.TRAIN]
+
+        return [Split.TRAIN, Split.VAL, Split.TEST] if self.config.val_interval > 0 else [Split.TRAIN, Split.TEST]
+
+    @override
+    def _setup(self) -> None:
+        self._setup_services()
+
+        self.state      = self.services.require("state",    required_by=type(self))
+        self.decode     = self.services.require("decode",   required_by=type(self))
+        self.record     = self.services.require("record",   required_by=type(self))
+        self.metrics    = self.services.require("metrics",  required_by=type(self))
+        self.data       = self.services.require("data",     required_by=type(self))
+
+        # seed before any component initializes its weights, the seed comes from the state service
+        self._set_seed(self.state.seed + self.state.rank)
+
+        self._setup_components()
+
+        self.model          = self.components.require(ComponentKind.MODEL,          required_by=type(self))
+        self.optimizer      = self.components.require(ComponentKind.OPTIMIZER,      required_by=type(self))
+        self.loss           = self.components.require(ComponentKind.LOSS,           required_by=type(self))
+        self.normalizer     = self.components.require(ComponentKind.NORMALIZER,     required_by=type(self))
+        self.transformer    = self.components.require(ComponentKind.TRANSFORMER,    required_by=type(self))
+        self.edges          = self.components.require(ComponentKind.EDGES,          required_by=type(self))
+
+        # build each splits loader now, which also sets up the decoders it reads with
+        splits = self._splits()
+        with self.status.task("Building dataloaders", total=len(splits)) as task:
+            for split in splits:
+                task.update(detail=split.value)
+                self.get_dataloader(split)
+                task.advance()
 
     def _run_training_epoch(self) -> None:
         """Run a single training epoch."""
@@ -299,6 +321,8 @@ class Trainer(Engine[TrainerConfig]):
         """
         Method for executing the full pipeline: training, validation at set intervals, final testing, and teardown.
         """
+        self.setup()
+
         logger.info("executing training loop")
 
         # fire on_execute callback hook
@@ -343,5 +367,4 @@ class Trainer(Engine[TrainerConfig]):
             ctx = context.TeardownContext(engine=self)
             self.callbacks.fire("on_teardown", ctx)
         finally:
-            self.services.close()
-            self.components.close()
+            super().close()

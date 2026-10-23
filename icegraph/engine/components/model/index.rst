@@ -37,8 +37,6 @@ Variants
 
 * :doc:`GCN <variants/gcn/index>`: graph convolutional network over the supplied
   edge weights.
-* :doc:`GravNet <variants/gravnet/index>`: learns a latent neighborhood and
-  aggregates over it.
 
 Registering a new model
 -----------------------
@@ -46,7 +44,7 @@ Registering a new model
 A model is a subclass of ``Model`` that declares a ``name`` and ``version``
 and implements the forward computation:
 
-``forward_pass(self, t, /, edge_index, edge_attr, batch) -> Tensor``
+``forward_pass(self, t, /, edge_index, edge_attr, batch, num_graphs) -> Tensor``
    Compute the graph-level output from the node features ``t`` and the graph
    structure, returning a tensor of shape ``[num_graphs, out_channels]``. The base
    exposes ``self.in_channels`` and ``self.out_channels`` for sizing layers and
@@ -74,7 +72,10 @@ and implements the forward computation:
        def on_attach(self) -> None:
            ...  # build layers using self.in_channels and self.out_channels
 
-       def forward_pass(self, t: SegmentedTensor, /, edge_index: Tensor, edge_attr: Tensor, batch: Tensor | None) -> Tensor:
+       def forward_pass(
+           self, t: SegmentedTensor, /, edge_index: Tensor, edge_attr: Tensor,
+           batch: Tensor | None, num_graphs: int | None
+       ) -> Tensor:
            ...  # return shape [num_graphs, out_channels]
 
    ModelFactory.register(MyModel)
@@ -83,4 +84,3 @@ and implements the forward computation:
    :hidden:
 
    variants/gcn/index
-   variants/gravnet/index

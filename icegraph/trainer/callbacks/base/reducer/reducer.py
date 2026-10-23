@@ -3,22 +3,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, final
 from abc import ABC, abstractmethod
-from pathlib import Path
-from functools import cached_property
 from collections.abc import Mapping
 
 import torch
 from torch import Tensor
 
 from icegraph.trainer.callbacks import TrainerCallback
-from icegraph.common.data import Split, DataRole
-
-from ..accumulator import Accumulator
+from icegraph.common.data import Split
 
 if TYPE_CHECKING:
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
     from icegraph.trainer.callbacks import context
 
 __all__ = ["Reducer"]
@@ -27,20 +24,35 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-T = TypeVar("T")
-A = TypeVar("A", bound="Accumulator")
+S = TypeVar("S")  # accumulator state chosen freely by each reducer
+T = TypeVar("T")  # artifact emitted per named series
 
 
-class Reducer(TrainerCallback, ABC, Generic[T, A]):
+class Reducer(TrainerCallback, ABC, Generic[S, T]):
     """
-    Base class for online data reduction during testing/validation splits.
+    Base class for online data reduction during validation/test splits.
 
-    Reducers accumulate batch-level data and emit reduced artifacts
-    (e.g. histograms).
+    A reducer is expressed as a monoid over a reducer-chosen accumulator
+    state ``S``, kept per ``(label, group)``:
+
+        project(batch, out, lbl)    -> rows | (rows, groups)   map one head's batch to rows [B, D] and group keys [B]
+        initial()                   -> S                       identity / empty accumulator
+        update_state(s, rows, lbl)  -> S                       fold one group's rows into the accumulator
+        combine(a, b)               -> S                       merge two accumulators (DDP / parallel)
+        finalize(states, lbl)       -> {name: T}               resolve a label's group accumulators to named artifacts
+        emit(trainer, artifacts, lbl)                          publish the artifacts (plot, export, ...)
+
+    Laws reducers must uphold:
+      * ``combine`` is associative (up to fp tolerance)
+      * ``initial()`` is its identity: ``combine(initial(), x) == x``
+
+    Groups only exist once a row has been routed to them, so ``finalize`` never
+    sees a group that received no data. A reducer whose ``project`` returns bare
+    rows places everything in group ``0``.
     """
 
-    _save_dir:          Path
-    _ctx:               context.InitContext
+    _ctx:       context.InitContext
+    _states:    dict[str, dict[int, S]]
 
     def __init__(self, **kwargs) -> None:
         super().__init__()
@@ -48,164 +60,153 @@ class Reducer(TrainerCallback, ABC, Generic[T, A]):
         # store kwargs
         self._kwargs = kwargs
 
-        # dict of accumulators
-        self._accumulators: dict[str, dict[int, A]] = {}
+        # accumulators, keyed by label then group
+        self._states = {}
 
     def on_init(self, ctx: context.InitContext) -> None:
         # cache ctx
         self._ctx = ctx
 
-        # break out if not rank 0
-        if not ctx.engine.state.is_main_process():
+    @final
+    def update(self, batch: GraphBatch, out: Tensor, label: str) -> None:
+        """Project one head's batch and fold it into the per-group accumulators."""
+        projected = self.project(batch, out, label)
+
+        cls = type(self).__name__
+
+        rows: Tensor
+        groups: Tensor
+        if isinstance(projected, tuple):
+            # groups explicitly provided
+            if any(not torch.is_tensor(t) for t in projected):
+                raise TypeError(
+                    f"{cls}.project must return a Tensor or a tuple of Tensors, "
+                    f"got {tuple(type(t).__qualname__ for t in projected)}."
+                )
+
+            rows, groups = projected
+            groups = groups.long()
+        else:
+            # everything maps to a single group
+            if not torch.is_tensor(projected):
+                raise TypeError(
+                    f"{cls}.project must return a Tensor or a tuple of Tensors, "
+                    f"got {type(projected).__qualname__}."
+                )
+
+            rows = projected
+            groups = torch.zeros(rows.size(0), dtype=torch.long, device=rows.device)
+
+        if rows.ndim != 2:
+            raise ValueError(
+                f"{cls}.project must return rows with shape [B, D] (use [B, 1] for 1D data), "
+                f"got shape {tuple(rows.shape)}."
+            )
+
+        if groups.shape != rows.shape[:1]:
+            raise ValueError(
+                f"{cls}.project must return groups with shape [B] matching rows shape [B, D], "
+                f"got rows.shape={tuple(rows.shape)}, groups.shape={tuple(groups.shape)}."
+            )
+
+        if rows.size(0) == 0:
             return
 
-        # grab trainer output directory and build plot dir
-        self._save_dir = ctx.engine.outdir / "plots"
-        self._save_dir.mkdir(parents=True, exist_ok=True)
+        # partition rows by group in one pass
+        sorted_groups, order = torch.sort(groups, stable=True)
+        keys, counts = torch.unique_consecutive(sorted_groups, return_counts=True)
+        chunks = rows[order].split(counts.tolist())
 
-    @cached_property
-    def _target_labels(self) -> list[str]:
-        return self._ctx.engine.decode.get_columns(DataRole.TARGETS)
+        states = self._states.setdefault(label, {})
 
-    def on_batch_end(self, ctx: context.BatchEndContext) -> None:
-        trainer = ctx.engine
+        for key, chunk in zip(keys.tolist(), chunks, strict=True):
+            states[key] = self.update_state(states.get(key, self.initial()), chunk, label)
 
-        # break out if not rank 0 and in eval
-        if not trainer.state.is_main_process() or trainer.split not in Split.eval():
-            return
+    @final
+    def merge(self, other: Reducer[S, T]) -> None:
+        """Merge another reducer's accumulators into this one in-place."""
+        for label, theirs in other._states.items():
+            ours = self._states.setdefault(label, {})
 
-        for out, target, label in zip(
-            ctx.batch.out,
-            ctx.batch.targets,
-            ctx.batch.out.names,
-            strict=True
-        ):
-            # reduce data using subclass logic
-            reduced = self._reduce(out, target, ctx)
+            for key, state in theirs.items():
+                ours[key] = self.combine(ours.get(key, self.initial()), state)
 
-            if isinstance(reduced, tuple):
-                data, acc_idx = reduced
+    @final
+    def reset(self) -> None:
+        """Drop all accumulators."""
+        self._states.clear()
 
-                # ensure acc_idx is torch.long
-                acc_idx = acc_idx.long()
-            else:
-                # if only one accumulator, set each sample to map to it
-                data = reduced
-                acc_idx = torch.zeros(data.size(0), dtype=torch.long, device=data.device)
+    @final
+    def flush(self, trainer: Trainer) -> None:
+        """Finalize and emit every label, then reset for the next split."""
+        for label, states in self._states.items():
+            artifacts = self.finalize(states, label)
 
-            if data.ndim != 2:
-                raise ValueError(
-                    f"{type(self).__name__}._reduce must return data with shape [B, D]. "
-                    f"For 1D data, use shape [B, 1], not [B]. "
-                    f"Got shape {tuple(data.shape)}."
-                )
-
-            if acc_idx.ndim != 1:
-                raise ValueError(
-                    f"{type(self).__name__}._reduce must return acc_idx with shape [B]. "
-                    f"Got shape {tuple(acc_idx.shape)}."
-                )
-
-            if data.size(0) != acc_idx.size(0):
-                raise ValueError(
-                    f"{type(self).__name__}._reduce returned mismatched batch sizes: "
-                    f"data.shape={tuple(data.shape)}, acc_idx.shape={tuple(acc_idx.shape)}."
-                )
-
-            for i in torch.unique(acc_idx):
-                # encode data to accumulator format
-                encoded = self._encode(data[acc_idx == i], label)
-
-                # update the central accumulators
-                (self._accumulators
-                    .setdefault(label, {})
-                    .setdefault(int(i.item()), self._build_accumulator())
-                    .update(encoded)
-                )
-
-    def finalize(self, trainer: Trainer) -> None:
-        # iterate over artifacts and dispatch
-        for label, acc_bundle in self._accumulators.items():
-            # perform any postprocessing
-            processed_acc_bundle = self._postprocess_accumulator(acc_bundle, label)
-
-            # get any empty accumulators
-            empty = [a.is_empty() for a in processed_acc_bundle.values()]
-
-            # if all are empty, warn and skip
-            if all(empty):
+            # finalize may legitimately resolve to nothing, for example ROC needs both the
+            # positive and negative group of a class before it can draw a curve
+            if not artifacts:
                 logger.warning(
-                    "%s has no data for label %r; all accumulators are empty. Skipping dispatch.",
+                    "%s has nothing to emit for label %r after finalize. Skipping.",
                     type(self).__name__,
                     label
                 )
                 continue
 
-            # if some are empty, warn but dispatch
-            if any(empty):
-                empty_indices = [
-                    idx for idx, acc in processed_acc_bundle.items()
-                    if acc.is_empty()
-                ]
+            self.emit(trainer, artifacts, label)
 
-                logger.warning(
-                    "%s has empty accumulator(s) for label %r: %s. "
-                    "Dispatching remaining non-empty accumulators.",
-                    type(self).__name__,
-                    label,
-                    empty_indices
-                )
-
-            # build all artifacts
-            artifacts = {i: self._build_artifact(a, label) for i, a in processed_acc_bundle.items() if not a.is_empty()}
-
-            self._dispatch(trainer, artifacts, label, self._save_dir)
-
-        # reset for the next split
         self.reset()
 
-    def reset(self) -> None:
-        # reset all accumulators
-        for acc_bundle in self._accumulators.values():
-            for a in acc_bundle.values():
-                a.reset()
+    ### Callback hooks (evaluation splits, main process only) ###
 
-    # link callback hooks to methods (only call on validation and test splits)
-    def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
-        # break out if not rank 0
-        if not ctx.engine.state.is_main_process():
+    def on_batch_end(self, ctx: context.BatchEndContext) -> None:
+        trainer = ctx.engine
+
+        if not trainer.state.is_main_process() or trainer.split not in Split.eval():
             return
 
-        self.finalize(ctx.engine)
+        for out, label in zip(ctx.out, ctx.out.names, strict=True):
+            self.update(ctx.batch, out, label)
+
+    def on_validation_end(self, ctx: context.ValidationEndContext) -> None:
+        if ctx.engine.state.is_main_process():
+            self.flush(ctx.engine)
 
     def on_test_end(self, ctx: context.TestEndContext) -> None:
-        # break out if not rank 0
-        if not ctx.engine.state.is_main_process():
-            return
-        
-        self.finalize(ctx.engine)
+        if ctx.engine.state.is_main_process():
+            self.flush(ctx.engine)
 
     ### Abstract methods for subclassing ###
 
-    def _postprocess_accumulator(self, data: Mapping[int, A], label: str) -> Mapping[int, A] | Mapping[str, A]:
-        return data
-
     @abstractmethod
-    def _build_accumulator(self) -> A:
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> Tensor | tuple[Tensor, Tensor]:
+        """
+        Map one head's batch to rows ``[B, D]``, optionally with group keys ``[B]``.
+
+        ``out`` is the output of head ``label``, its target is ``batch.targets.block([label])``.
+        """
         ...
 
     @abstractmethod
-    def _build_artifact(self, accumulator: A, label: str) -> T:
+    def initial(self) -> S:
+        """Create an empty accumulator."""
         ...
 
     @abstractmethod
-    def _encode(self, data: Tensor, label: str) -> Tensor:
+    def update_state(self, state: S, rows: Tensor, label: str) -> S:
+        """Fold one group's rows into ``state`` and return the updated accumulator."""
         ...
 
     @abstractmethod
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> Tensor | tuple[Tensor, Tensor]:
+    def combine(self, a: S, b: S) -> S:
+        """Merge two accumulators. Associative, with ``initial()`` as identity."""
         ...
 
     @abstractmethod
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, T], label: str, save_dir: Path) -> None:
+    def finalize(self, states: Mapping[int, S], label: str) -> dict[str, T]:
+        """Resolve a label's group accumulators to named artifacts; may be empty."""
+        ...
+
+    @abstractmethod
+    def emit(self, trainer: Trainer, artifacts: dict[str, T], label: str) -> None:
+        """Publish the finalized artifacts for ``label``."""
         ...

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import time
 from abc import abstractmethod, ABC
 from typing import TypeVar, Iterator, Callable, final
 
@@ -15,6 +16,9 @@ from icegraph.common.record import GlobalAttributes, Attributes
 
 from .types import AttributeDecoderContext
 
+import logging
+logger = logging.getLogger(__name__)
+
 __all__ = ["AttributeDecoder"]
 
 
@@ -26,6 +30,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_columns(self, role: str) -> list[str]:
+        start = time.perf_counter()
         columns = self._extract_columns(
             role,
             attrs=self._ctx.attrs,
@@ -49,6 +54,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                     f"element [{i}] is {type(item).__name__}."
                 )
 
+        logger.debug(f"[DecodeService] Extracted column data for role '{role}' in {time.perf_counter() - start} s.")
         return columns
 
     @abstractmethod
@@ -59,7 +65,59 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
         ...
 
     @final
+    def extract_dtypes(self, role: str) -> list[str]:
+        """Dtype each column of a role was written with, empty if unrecorded."""
+        start = time.perf_counter()
+        dtypes = self._extract_dtypes(
+            role,
+            attrs=self._ctx.attrs,
+            global_attrs=self._ctx.global_attrs
+        )
+
+        if dtypes is None:
+            return []
+
+        cls = type(self).__name__
+
+        if not isinstance(dtypes, list):
+            raise TypeError(
+                f"{cls}._extract_dtypes() must return a list[str], "
+                f"got {type(dtypes).__name__}."
+            )
+        for i, item in enumerate(dtypes):
+            if not isinstance(item, str):
+                raise TypeError(
+                    f"{cls}._extract_dtypes() must return a list[str]; "
+                    f"element [{i}] is {type(item).__name__}."
+                )
+            try:
+                np.dtype(item)
+            except TypeError as e:
+                raise ValueError(
+                    f"{cls}._extract_dtypes() element [{i}] is not a dtype: {item!r}."
+                ) from e
+
+        # ensure one dtype per column
+        num_columns = len(self.extract_columns(role))
+        if len(dtypes) != num_columns:
+            raise ValueError(
+                f"{cls}._extract_dtypes() must return one dtype per column; role {role} "
+                f"has {num_columns} column(s), got {len(dtypes)} dtype(s)."
+            )
+
+        logger.debug(f"[DecodeService] Extracted dtypes for role '{role}' in {time.perf_counter() - start} s.")
+        return dtypes
+
+    @abstractmethod
+    def _extract_dtypes(
+            self, role: str, *,
+            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
+    ) -> list[str] | None:
+        ...
+
+    @final
     def extract_offsets(self, role: str) -> ArrayI:
+        start = time.perf_counter()
         offsets = self._extract_offsets(
             role,
             attrs=self._ctx.attrs,
@@ -113,6 +171,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                 f"offsets[{bad}]={offsets[bad]} >= offsets[{bad + 1}]={offsets[bad + 1]}."
             )
 
+        logger.debug(f"[DecodeService] Extracted offset data for role '{role}' in {time.perf_counter() - start} s.")
         return offsets
 
     @abstractmethod
@@ -124,6 +183,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_keys(self, split: int) -> ArrayI:
+        start = time.perf_counter()
         keys = self._extract_keys(
             split,
             attrs=self._ctx.attrs,
@@ -144,6 +204,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                 f"got dtype {keys.dtype.str}."
             )
 
+        logger.debug(f"[DecodeService] Extracted keys for split '{split}' in {time.perf_counter() - start} s.")
         return keys
 
     @abstractmethod
@@ -155,6 +216,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
 
     @final
     def extract_stats(self, key: tuple[int, str]) -> StatisticService:
+        start = time.perf_counter()
         split, role = key
         stats = self._extract_stats(
             split, role,
@@ -169,6 +231,7 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
                 f"{cls}._extract_stats() must return a StatisticService instance, got {type(stats).__name__}"
             )
 
+        logger.debug(f"[DecodeService] Extracted statistics for role '{role}', split '{split}' in {time.perf_counter() - start} s.")
         return stats
 
     @abstractmethod
@@ -176,39 +239,4 @@ class AttributeDecoder(Plugin[C, AttributeDecoderContext], ABC):
             self, split: int, role: str, *,
             attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
     ) -> StatisticService:
-        ...
-
-    def extract_count_by_weight_group(self) -> dict[str, int]:
-        counts = self._extract_count_by_weight_group(
-            attrs=self._ctx.attrs,
-            global_attrs=self._ctx.global_attrs
-        )
-
-        cls = type(self).__name__
-
-        if not isinstance(counts, dict):
-            raise TypeError(
-                f"{cls}._extract_count_by_weight_group() must return a dict, "
-                f"got {type(counts).__name__}."
-            )
-
-        for k, v in counts.items():
-            if not isinstance(k, str):
-                raise TypeError(
-                    f"{cls}._extract_count_by_weight_group() keys must be str, "
-                    f"got {type(k).__name__}: {k!r}."
-                )
-            if not isinstance(v, int):
-                raise TypeError(
-                    f"{cls}._extract_count_by_weight_group() values must be int, "
-                    f"got {type(v).__name__} for key {k!r}: {v!r}."
-                )
-
-        return counts
-
-    @abstractmethod
-    def _extract_count_by_weight_group(
-            self, *,
-            attrs: Callable[[], Iterator[Attributes]], global_attrs: GlobalAttributes
-    ) -> dict[str, int]:
         ...

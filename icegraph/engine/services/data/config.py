@@ -14,19 +14,60 @@ __all__ = ["DataConfig"]
 
 
 class DataConfig(BaseModel):
-    batch_size:         int
-    chunk_size:         int
-    shuffle_chunks:     bool = False
-    buffer_size:        int
-    num_workers:        int
-    prefetch_factor:    int
-    mp_context:         Literal["fork", "spawn", "forkserver"]
-    persistent_workers: int
+    batch_size:                 int
+    chunk_size:                 int
+    shuffle_chunks:             bool = True
+    buffer_size:                int
+    num_workers:                int
+    prefetch_factor:            int
+    mp_context:                 Literal["spawn", "forkserver"]
+    persistent_workers:         bool
+    buffer_refill_threshold:    float   = 0.25
+    max_chunks_per_epoch:       int     = -1
+
+    @model_validator(mode="after")
+    def validate_max_chunks_per_epoch(self) -> Self:
+        if self.max_chunks_per_epoch < 1 and self.max_chunks_per_epoch != -1:
+            raise ValueError(
+                f"Max batches per epoch must be either -1 or an integer "
+                f"greater than 0, got {self.max_chunks_per_epoch}."
+            )
+
+        if self.max_chunks_per_epoch != -1 and not self.shuffle_chunks:
+            raise ValueError(
+                f"max_chunks_per_epoch was set to {self.max_chunks_per_epoch}, "
+                f"but shuffle_chunks is set to False. A significant fraction of data may "
+                f"never be seen during training. To ensure all data is trained on, either "
+                f"set max_chunks_per_epoch to -1 (train on all data each epoch), or set "
+                f"shuffle_chunks to True."
+            )
+
+        return self
 
     @model_validator(mode="after")
     def validate_buffer_size(self) -> Self:
         if self.buffer_size < 1:
             raise ValueError("Buffer size must be equal to or greater than 1.")
+
+        if (self.buffer_size * self.chunk_size) < self.batch_size:
+            logger.warning(
+                f"Buffer size ({self.buffer_size * self.chunk_size} samples) is smaller than batch size ({self.batch_size}), "
+                f"there will be no fine mixing."
+            )
+
+        elif 1 < (self.buffer_size * self.chunk_size) < self.batch_size * 10:
+            logger.warning(
+                f"Buffer size ({self.buffer_size * self.chunk_size} samples) is less than 10x batch size "
+                + f"({self.batch_size} samples); buffer spans only "
+                + f"{(self.buffer_size * self.chunk_size) / self.batch_size:.1f} batches, which may result in poor "
+                + "non-local mixing. Aim for a buffer:batch ratio above 10:1."
+            )
+
+        if 1 < self.buffer_size < 10:
+            logger.warning(
+                f"Buffer size ({self.buffer_size} chunks) is less than 10 which may result in poor "
+                + "non-local mixing. Aim for a buffer size >10 if memory permits."
+            )
 
         return self
 
@@ -38,13 +79,8 @@ class DataConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_chunk_to_buffer_ratio(self) -> Self:
-        if 1 < self.buffer_size < self.chunk_size * 10:
-            logger.warning(
-                f"Buffer size ({self.buffer_size}) is less than 10x chunk size "
-                + f"({self.chunk_size}); buffer spans only "
-                + f"{self.buffer_size / self.chunk_size:.1f} chunks, which may give poor "
-                + "mixing across chunk boundaries. Aim for a buffer:chunk ratio above 10:1."
-            )
+    def validate_buffer_refill_threshold(self) -> Self:
+        if not (0 <= self.buffer_refill_threshold < 1):
+            raise ValueError("Buffer refill threshold must be a float in the range [0, 1).")
 
         return self

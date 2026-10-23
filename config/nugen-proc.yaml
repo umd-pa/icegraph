@@ -3,18 +3,33 @@ extractor:
   kwargs:
     gcd_path: /cvmfs/icecube.opensciencegrid.org/data/GCD/GeoCalibDetectorStatus_IC86.All_Pass2.i3.gz
     skip_missing: true
+    suppress_icetray_output: true
 
-    # mclabeler configurations, see mclabeler docs
-    mclabeler:
-      event_properties_name: ~
-      mctree_name: I3MCTree_preMuonProp
-      bg_mctree_name: I3MCTree_preMuonProp
-      weight_dict_name: I3MCWeightDict
+    # drop simulated events that have no single truth before anything downstream sees them
+    selection:
+      drop_coincident: true  # Q frames holding more than one primary
+      drop_oversplit: true  # Q frames holding one primary split into more than one event
+      mctree: I3MCTree_preMuonProp  # only the tree before muon propagation is stored, primaries are the same
+
+    charge_cut:
+      min_pe: 500
+
+    rebuild_missing_mctree:
+      random_service: GSL
+
+    # labels of the muon bundle entering the detector hull, computed with MuonGun
+    muongun:
+      padding: 0.0
+      multiplicity: bundle_multiplicity  # number of muons entering the hull
+      prominence: prominence  # share of the bundle energy at the hull carried by the leading muon
+
+    # MCLabeler configurations, see mclabeler docs
+    mclabeler: ~
 
     # ml_suite configurations, see ml_suite docs
     ml_suite:
       # Define name of pulse series from which to extract features
-      pulse_key: InIceDSTPulses
+      pulse_key: SplitInIcePulses
 
       # Define DOM and TimeWindow exclusions. Leave empty if no exclusions
       dom_exclusions:
@@ -47,7 +62,11 @@ extractor:
             kwargs:
               percentiles: [ 0.01, 0.03, 0.05, 0.11, 0.15, 0.2, 0.5, 0.71, 0.8 ]
 
-    include: [ features, I3MCWeightDict ]
+    include: [ features, I3MCWeightDict, bundle_multiplicity, prominence ]
+
+collector:  # packs whole input files into shards, see the collector docs
+  min_bytes: 100_000_000  # a shard closes only after its extracted tables reach this size
+  group_by: all
 
 processors:  # ordered list of processors, each can be used any number of times
   - name: select  # select features df as active
@@ -57,7 +76,6 @@ processors:  # ordered list of processors, each can be used any number of times
   - name: alias
     kwargs:
       map:
-        event_ids: [ Run, Event, SubEvent, SubEventStream ]
         dom_pos: [ dom_x, dom_y, dom_z ]
         feature_cols:
           - total_charge
@@ -76,9 +94,13 @@ processors:  # ordered list of processors, each can be used any number of times
           - t_at_charge_percentile_0.71
           - t_at_charge_percentile_0.8
 
+  - name: i3-simulation  # generation data, weights themselves are computed on load
+    kwargs:
+      type: nugen
+
   - name: pivot
     kwargs:
-      index: [ event_ids, string, om, pmt ]
+      index: [ __ids__, string, om, pmt ]  # __ids__ is the event ids the extractor set
       col: vector_index
       values: item
 
@@ -89,27 +111,20 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: domproc
     kwargs:
-      cols: [ string, om, pmt ]
+      string: string
+      om: om
+      pmt: pmt
       out: dom_pos
-
-  - name: compress  # need a copy of only dom positions compressed for edges
-    kwargs:
-      to: compressed
-      by: event_ids
-      cols: dom_pos
-      out: dom_pos_tmp
-
-      # temp, no metadata
-      record_names: false
-      record_offset: false
 
   - name: compress  # compress the main feature table
     kwargs:
       to: compressed
-      by: event_ids
       cols: [ feature_cols, dom_pos ]
       out: features
-      dtype: float64
+      dtype: float32
+
+      # features are consumed as stored, not as they came in
+      override_dtypes: true
 
   - name: select
     kwargs:
@@ -117,53 +132,71 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: copy  # copy id cols to new temp frame to build labels
     kwargs:
-      to: tmp_label_df
-      by: event_ids
-      cols: event_ids
+      to: tmp_label
+      cols: __ids__
+
+  - name: select  # bundle multiplicity counted with MuonGun by the extractor
+    kwargs:
+      key: bundle_multiplicity
+
+  - name: rename
+    kwargs:
+      map:
+        value: bundle_multiplicity
+
+  - name: copy
+    kwargs:
+      to: tmp_label
+      cols: bundle_multiplicity
+
+  - name: select  # leading muon's share of the bundle energy, from the extractor
+    kwargs:
+      key: prominence
+
+  - name: rename
+    kwargs:
+      map:
+        value: prominence
+
+  - name: copy
+    kwargs:
+      to: tmp_label
+      cols: prominence
 
   - name: select
     kwargs:
-      key: tmp_label_df
+      key: tmp_label
 
   - name: fill
     kwargs:
-      col: bundle
+      col: sim  # simulation the event originates from
       value: 0
       dtype: long
 
   - name: unique
     kwargs:
-      cols: bundle
+      cols: sim
 
   - name: compress  # compress labels to compressed frame
     kwargs:
       to: compressed
-      by: event_ids
-      cols: bundle
+      cols: [ sim, bundle_multiplicity, prominence ]
       out: targets
+
+  - name: select
+    kwargs:
+      key: generation
+
+  - name: compress  # compress generation data to compressed frame
+    kwargs:
+      to: compressed
+      cols: __all__
+      out: generation
+      dtype: float64
 
   - name: select  # move to compressed table
     kwargs:
       key: compressed
-
-  - name: simweights
-    kwargs:
-      out: simweights
-      weight_group: nugen_1e8-1e10
-      weighter: NuGenWeighter
-      flux:
-        name: power-law
-        kwargs:
-          g: 2.37
-          phi0: 1.44e-18
-          e0: 1.0e+5
-
-  - name: knn  # output is compressed by default
-    kwargs:
-      by: event_ids
-      col: dom_pos_tmp
-      out: [ edge_index, edge_weight ]
-      k: 10
 
   - name: splitmap
     kwargs:
@@ -187,10 +220,9 @@ processors:  # ordered list of processors, each can be used any number of times
 
   - name: commit
     kwargs:
-      ids: event_ids
-      cols: [ features, edge_index, edge_weight, targets, simweights ]
+      cols: [ features, targets, generation ]
 
 writer:
-  name: lmdb
+  name: zarr
   kwargs:
-    outdir: /data/i3store/users/tstjean/data/23016
+    chunk_size: 8

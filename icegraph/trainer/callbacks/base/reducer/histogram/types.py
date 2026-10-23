@@ -3,20 +3,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import TypeAlias
 
-import torch
 from torch import Tensor
 
-from icegraph.common.tensors import DualResidentTensor
-
-__all__ = ["DualResidentBounds"]
+__all__ = ["HistogramState"]
 
 
-@dataclass(frozen=True)
-class DualResidentBounds:
-    mins: DualResidentTensor
-    maxs: DualResidentTensor
-
-    def on(self, device: torch.device | str) -> tuple[Tensor, Tensor]:
-        return self.mins.on(device), self.maxs.on(device)
+# dense int64 counts of shape [*bins], or None before any rows are seen (the identity)
+HistogramState: TypeAlias = "Tensor | None"

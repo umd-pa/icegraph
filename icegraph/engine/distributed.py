@@ -98,7 +98,7 @@ class _DistributedRun:
             args=(world, self._init_ctx),
             nprocs=world,
             join=False,
-            start_method="spawn",
+            start_method="spawn"
         )
 
         if ctx is not None:
@@ -114,7 +114,7 @@ class _DistributedRun:
 
 
 class Distributed(Generic[E]):
-    """Launch any engine under single-node DDP."""
+    """Launch any engine under DDP."""
 
     def __init__(self, engine_cls: type[E]) -> None:
         self._engine_cls = engine_cls

@@ -3,14 +3,10 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
-
 import torch
 from torch import Tensor
 
-# local package
 from icegraph.common.histogram import Histogram
-from icegraph.trainer.callbacks.base.accumulator import Accumulator
 
 # local subpackage
 from .base import HistogramReducer
@@ -20,40 +16,25 @@ __all__ = ["CHistogramReducer"]
 
 
 class CHistogramReducer(HistogramReducer):
+    """Histogram reducer over rows that are already per-axis class indices."""
 
-    def _encode(self, data: Tensor, label: str) -> Tensor:
-        # ensure correct dim
-        self.ensure_shape(data)
+    def encode(self, rows: Tensor, label: str) -> Tensor:
+        bins = self.bins[label][rows.device]
 
-        # no need to floor here, data is already indices
-        indices = data.to(torch.int64)
+        # no need to floor here, rows are already indices
+        indices = rows.to(torch.int64)
 
-        # build mask
-        mask = ((indices >= 0) & (indices < self.bins.on(data.device))).all(dim=-1)
-
-        # fail fast if any indices are out of bounds
-        # categorical histograms cannot fundamentally have out-of-bound indices;
-        # if they do, that is a major problem
-        if not mask.all().item():
+        # fail fast on out-of-bound indices; categorical data cannot fundamentally
+        # have them, so if it does that is a major problem
+        if not ((indices >= 0) & (indices < bins)).all().item():
             raise ValueError(
                 f"Out-of-bound indices detected in {type(self).__name__}. "
                 f"This likely indicates invalid class predictions from the model "
                 f"or a fault in runtime data processing."
             )
 
-        # flatten indices
-        flat = self._flatten(indices)
+        return self._count(indices, label)
 
-        # return dense histogram
-        return self._to_dense(flat)
+    def histogram(self, t: Tensor, label: str) -> Histogram:
+        return Histogram(histogram=t.cpu().numpy())
 
-    def _build_artifact(self, accumulator: Accumulator, label: str) -> Histogram:
-        # build histogram object
-        return Histogram(
-            space=self.scale,
-            histogram=accumulator.data.cpu().numpy()
-        )
-
-    @abstractmethod
-    def _build_bins(self) -> Tensor:
-        ...

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, field_validator
 
-from icegraph.common.transforms import TransformSpaceType
+from icegraph.common.transforms import SpaceType
 
 __all__ = ["TransformerConfig", "SpaceSelection"]
 
@@ -15,7 +15,7 @@ class TransformerConfig(BaseModel):
 
 
 class SpaceSelection(BaseModel):
-    space:  TransformSpaceType
+    space:  SpaceType
     base:   int = 10
 
     @field_validator("base")

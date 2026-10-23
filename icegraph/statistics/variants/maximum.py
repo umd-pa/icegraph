@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.typing.common import ArrayF
 
 from ..statistic import Statistic
@@ -33,6 +33,6 @@ class Maximum(Statistic):
 
     @classmethod
     @override
-    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: TransformSpace) -> ArrayF:
+    def _merge(cls, a: StatisticBundle, b: StatisticBundle, space: Space) -> ArrayF:
         # take elementwise max, ignore nans
         return np.fmax(a.get(cls.name).value(space), b.get(cls.name).value(space))

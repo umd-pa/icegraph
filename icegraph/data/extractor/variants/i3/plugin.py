@@ -3,22 +3,23 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import ClassVar, Any
 import tempfile
 from pathlib import Path
+from contextlib import nullcontext
 
-import pandas as pd
+import numpy as np
+import polars as pl
 import h5py
 
 from icegraph.utils.stdout import suppress_output
 from icegraph.data.envelope import Envelope
 from icegraph.data.extractor import Extractor
+from icegraph.data.quiver import QuiverIPC
 
 from .config import I3ExtractorConfig
-
-with suppress_output():
-    from icecube.icetray import I3Tray          # pyright: ignore[reportMissingImports]
-    from icecube import hdfwriter, ml_suite     # pyright: ignore[reportMissingImports]
+from .modules import is_sub_event_stream, DropCounter, event_selector, muongun_labels, rebuild_mctree, charge_cut
 
 __all__ = ["I3Extractor"]
 
@@ -40,58 +41,163 @@ class I3Extractor(Extractor[I3ExtractorConfig]):
     def build(self) -> None:
         return
 
-    def _process(self, item: Path) -> Envelope | None:
+    def extract(self, item: Path) -> Envelope | None:
+        with suppress_output():
+            from icecube.icetray import I3Tray  # pyright: ignore[reportMissingImports]
+            from icecube import hdfwriter, ml_suite  # pyright: ignore[reportMissingImports]
+
+            # required for I3CorsikaInfo
+            from icecube import simclasses  # noqa: F401  # pyright: ignore[reportMissingImports]
+
         files = [str(self.config.gcd_path), str(item)]
 
-        with tempfile.NamedTemporaryFile(dir="/dev/shm") as out:
+        # suppress output from icetray if desired
+        ctx = suppress_output if self.config.suppress_icetray_output else nullcontext
+
+        with tempfile.NamedTemporaryFile(dir=self._ctx.scratch) as out:
             tray = I3Tray()
 
             tray.Add("I3Reader", Filenamelist=files)
-            tray.Add(ml_suite.EventFeatureExtractorModule, cfg_file=self.config.ml_suite, output_key="features")
+
+            # cuts and selection, add first so nothing downstream ever processes a dropped event
+            drop_counter = DropCounter()
+            
+            # do charge cut if required
+            if self.config.charge_cut is not None:
+                tray.Add(charge_cut(self.config.charge_cut, drop_counter, self.config.sub_event_stream))
+
+            if self.config.selection is not None:
+                tray.Add(event_selector(self.config.selection, drop_counter, self.config.sub_event_stream))
+
+            # rebuild the propagated tree where it was discarded, after the selection so dropped events are skipped
+            # PROPOSAL prints as its propagators are built, before the tray runs, so need to suppr3ess here too
+            if self.config.rebuild_missing_mctree is not None:
+                with ctx():
+                    rebuild_mctree(tray, self.config.rebuild_missing_mctree)
+
+            # labels computed with MuonGun
+            if self.config.muongun is not None:
+                tray.Add(muongun_labels(self.config.muongun))
+
+            # mc labeler
+            if self.config.mclabeler is not None:
+                with suppress_output():
+                    from icecube.sim_services.label_events import MCLabeler  # pyright: ignore[reportMissingImports]
+
+                tray.Add(MCLabeler, **self.config.mclabeler)
+
+            # ml suite
+            tray.Add(
+                ml_suite.EventFeatureExtractorModule,
+                cfg_file=self.config.ml_suite,
+                output_key="features",
+                # want to only process InIceSplit frames
+                If=partial(is_sub_event_stream, sub_event_stream=self.config.sub_event_stream)
+            )
 
             tray.AddSegment(
                 hdfwriter.I3HDFWriter,
                 Output=out.name,
-                Keys=self.config.include,
-                SubEventStreams=["InIceSplit"],
+                Keys=list(set([*self.config.include, self.config.event_header])),
+                SubEventStreams=[self.config.sub_event_stream],
                 CompressionLevel=0
             )
 
-            # suppress garbage output from icetray
-            with suppress_output():
+            with ctx():
                 tray.Execute()
 
-            # load each into a dict to pass to envelope
-            data: dict[str, pd.DataFrame] = {}
-            with h5py.File(out.name, "r") as f:
+            read = self._read(item, out.name)
+            if read is None:
+                return None
 
-                # ensure key exists in file
-                available = list(f.keys())
-                for key in self.config.include:
-                    if key not in available:
-                        # if skip missing is set to True, just skip the file and continue
-                        if self.config.skip_missing:
-                            logger.warning(f"skipping file {item}, missing key '{key}', available keys: {available}")
-                            return None
+        tables, events = read
 
-                        # if skip missing is set to False, raise and break out
-                        raise KeyError(
-                            f"Missing HDF5 key '{key}' for input file {item}. Available keys: {available}"
-                        )
+        # the file is kept so it still counts toward its set when weighting
+        if events.is_empty():
+            logger.info(f"file {item} holds no events")
 
-                    dset = f[key]
-                    assert isinstance(dset, h5py.Dataset)  # narrow type union at runtime
-                    data[key] = pd.DataFrame(dset[:])
+        # persistent quiver dir inside scratch
+        # cleaned up when the pipeline tears down scratch
+        quiver_dir = Path(tempfile.mkdtemp(dir=self._ctx.scratch, prefix="quiver-"))
 
         # create the envelope
-        env = Envelope(data=data)
+        env = Envelope(quiver=QuiverIPC.from_data(data=tables, root=quiver_dir), events=events)
 
         # register metadata
-        env.set_local_attr("origin", str(item))
         env.set_global_attr("gcd", str(self.config.gcd_path))
+
+        # counts are per file
+        if self.config.selection is not None and drop_counter is not None:
+            env.set_local_attr("dropped", drop_counter.dropped)
+
+        # padding should be the same across all files so the muongun labels are equivalent for each
+        if self.config.muongun is not None:
+            env.set_global_attr("muongun", self.config.muongun.model_dump(include={"padding"}))
+
+        if self.config.charge_cut is not None:
+            env.set_global_attr("charge_cut", self.config.charge_cut.model_dump(include={"max_pe", "min_pe"}))
 
         # register state
         env.state["extractor"]["src_file_ext"] = type(self).file_ext
 
         return env
+
+    def _read(self, item: Path, path: str) -> tuple[dict[str, pl.DataFrame], pl.DataFrame] | None:
+        """The included tables and the ids of every event in the table writer's output, None to skip the file."""
+        tables: dict[str, pl.DataFrame] = {}
+
+        with h5py.File(path, "r") as f:
+            available = list(f.keys())
+
+            # the header is absent only when no event was written
+            events: pl.DataFrame
+            if self.config.event_header in available:
+                events = self._read_table(f, self.config.event_header).select(self.config.ids)
+            else:
+                events = pl.DataFrame(schema=self.config.ids)
+                logger.warning(f"header {self.config.event_header!r} not found in file {item!r}")
+
+            for key in self.config.include:
+                if key in available:
+                    tables[key] = self._read_table(f, key)
+                    continue
+
+                # a file without events keeps whatever it holds
+                if events.is_empty():
+                    continue
+
+                # if skip missing is set to True, just skip the file and continue
+                # this fires for files with events that are missing a key, not for empty files
+                if self.config.skip_missing:
+                    logger.warning(f"skipping file {item}, missing key '{key}', available keys: {available}")
+                    return None
+
+                # if skip missing is set to False, raise and break out
+                raise KeyError(f"Missing key '{key}' for input file {item}. Available keys: {available}")
+
+        return tables, events
+
+    @classmethod
+    def _read_table(cls, f: h5py.File, key: str) -> pl.DataFrame:
+        dset = f[key]
+        assert isinstance(dset, h5py.Dataset)  # narrow type union
+        rec = dset[:]
+        return pl.DataFrame({n: cls._to_native(rec[n]) for n in rec.dtype.names})
+
+    @staticmethod
+    def _to_native(a: np.ndarray) -> np.ndarray:
+        # arrow has some quirks with endianness, so need to manually check and convert if necessary
+        # this will essentially never actually be a problem (most everything writes in little-endian anyway),
+        # but the error is extremely cryptic and hard to diagnose so better safe than sorry
+
+        # for subarray fields the byte order lives on the base dtype
+        base = a.dtype.base
+        if base.names is None and not base.isnative:
+            a = a.astype(a.dtype.newbyteorder("="))
+
+        # also force alignment
+        # packed HDF5 records can leave fields misaligned, and for a
+        # single row NumPy treats the strided view as contiguous, so it would otherwise not be copied
+        # without this, the polars to numpy conversion would raise with an extremely cryptic error on empty files
+        return np.require(a, requirements=["C", "A"])  # C-contiguous + aligned
 

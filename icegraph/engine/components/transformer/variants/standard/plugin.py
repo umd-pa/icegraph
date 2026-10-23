@@ -9,7 +9,7 @@ from functools import lru_cache
 import torch
 from torch import Tensor
 
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.common.data import DataRole, ColumnarRole
 from icegraph.common.tensors import SegmentedTensor
 from icegraph.engine.components.transformer import Transformer
@@ -36,7 +36,7 @@ class StandardTransformer(Transformer[TransformerConfig]):
             self.register_dynamic_buffer(f"_log_base_{role.name}", None)
 
             # each role needs a mapping for each nonlinear space
-            for space in TransformSpace.non_linear():
+            for space in Space.non_linear():
                 self.register_dynamic_buffer(f"_mapping_{role.name}_{space.name}", None)
 
     @classmethod
@@ -58,11 +58,11 @@ class StandardTransformer(Transformer[TransformerConfig]):
         specs: list[TransformerSpec] = []
         for logic_index, name in enumerate(names):
             # default to linear (base 10 here is meaningless for linear, just keeping it as 10 for convention)
-            spec = TransformerSpec(TransformSpace.LINEAR, 10)
+            spec = TransformerSpec(Space.LINEAR, 10)
 
             # load column config if available
             if (config := self.config.transforms.get(name)) is not None:
-                spec = TransformerSpec(TransformSpace(config.space), config.base)
+                spec = TransformerSpec(Space(config.space), config.base)
 
             # append the spec for each sub column
             for _ in range(offsets[logic_index], offsets[logic_index + 1]):
@@ -72,7 +72,7 @@ class StandardTransformer(Transformer[TransformerConfig]):
         return specs
 
     @lru_cache(maxsize=None)
-    def transformer_module(self, space: TransformSpace) -> TransformerModule:
+    def transformer_module(self, space: Space) -> TransformerModule:
         return TransformerModuleFactory.create(space.value)
 
     def log_base(self, role: ColumnarRole) -> Tensor:
@@ -98,7 +98,7 @@ class StandardTransformer(Transformer[TransformerConfig]):
 
         return log_base
 
-    def mapping(self, role: ColumnarRole, space: TransformSpace) -> Tensor:
+    def mapping(self, role: ColumnarRole, space: Space) -> Tensor:
         buffer_name = f"_mapping_{role.name}_{space.name}"
 
         # load buffer
@@ -124,7 +124,7 @@ class StandardTransformer(Transformer[TransformerConfig]):
         # load log_base buffer
         log_base = self.log_base(role)
 
-        for space in TransformSpace.non_linear():
+        for space in Space.non_linear():
             # load buffer
             mapping = self.mapping(role, space)
 

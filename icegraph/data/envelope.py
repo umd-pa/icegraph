@@ -9,11 +9,17 @@ from collections import defaultdict
 from collections.abc import Mapping
 import itertools
 
-import pandas as pd
+import polars as pl
 
 from icegraph.common.data import AttributeDomain
 
-__all__ = ["Envelope"]
+from .quiver import QuiverIPC
+
+__all__ = ["Envelope", "IDS"]
+
+
+# column selection resolving to the event ids the extractor set
+IDS: str = "__ids__"
 
 
 def nested_dict():
@@ -22,42 +28,47 @@ def nested_dict():
 
 @dataclass
 class Envelope:
-    """
-    Data wrapper passed between pipeline stages.
+    """Data wrapper passed between pipeline stages."""
+    # raw data
+    quiver:     QuiverIPC
 
-    Attributes:
-        main: The payload DataFrame.
-        tmp: Temp work space for processors. The selector moves frames to tmp, committer packs to main.
-        data: Raw data from the extractor.
-        attrs: Data attributes (auto-nesting until de-vivification). Must include 'GLOBAL' and 'LOCAL' domain.
-        state: Internal dict for inter-stage communication.
-    """
-    data:       dict[str, pd.DataFrame]
-    tmp:        dict[str, pd.DataFrame]     = field(default_factory=dict)
-    main:       pd.DataFrame                = field(default_factory=pd.DataFrame)
+    # ids of every event the envelope holds, one row each, set by the extractor
+    # its columns are the event ids processors key on, see IDS
+    events:     pl.DataFrame                = field(default_factory=pl.DataFrame)
+
+    # tables and attrs
+    tmp:        dict[str, pl.DataFrame]     = field(default_factory=dict)
+    main:       pl.DataFrame                = field(default_factory=pl.DataFrame)
     attrs:      dict[str, dict[str, Any]]   = field(default_factory=nested_dict)
 
     # not persisted
     state:      dict[str, Any]              = field(default_factory=nested_dict)
     metrics:    dict[str, float]            = field(default_factory=dict)
+    active:     str | None                  = None
+
+    # number of the shard the envelope is written as, set by the collector
+    shard:      int | None                  = None
 
     @property
-    def active(self) -> str | None:
-        return self.state.get("active")
+    def ids(self) -> list[str]:
+        """The columns identifying an event."""
+        if not self.events.columns:
+            raise RuntimeError("The envelope has no event ids, the extractor sets them.")
 
-    @active.setter
-    def active(self, key: str | None) -> None:
-        if key is None:
-            self.state.pop("active", None)
-            return
-        self.state["active"] = key
+        return self.events.columns
 
-    def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str | int] | None = None) -> list[str | int]:
+    def resolve_cols(self, value: str | int | list[int] | list[str], *, _seen: set[str] | None = None) -> list[str]:
         _seen = set() if _seen is None else _seen
 
         if isinstance(value, list):
             # use recursion for list inputs
             return list(itertools.chain.from_iterable(self.resolve_cols(v, _seen=_seen) for v in value))
+
+        # polars column names are always strings, normalize numeric refs
+        value = str(value)
+
+        if value == IDS:
+            return self.ids
 
         # check for cyclic refs
         if value in _seen:
@@ -91,7 +102,7 @@ class Envelope:
     def set_column_attr(self, column: str | int, key: str, data: Any, *, domain: AttributeDomain) -> None:
         self.attrs[domain.name]["columns"][column][key] = data
 
-    def sync_column_names(self, mapping: dict[str | int, str | int]) -> None:
+    def sync_column_names(self, mapping: dict[str, str]) -> None:
         for domain in AttributeDomain.all():
             cols = self.attrs[domain.name]["columns"]
             renamed = {mapping.get(k, k): v for k, v in cols.items()}
@@ -100,25 +111,25 @@ class Envelope:
 
     def merge(
         self,
-        df: pd.DataFrame, /, *,
+        df: pl.DataFrame, /, *,
         to: str,
-        on: str | int | list[str | int],
-        how: Literal['left', 'right', 'inner', 'outer', 'cross'] = "left",
+        on: str | list[str],
+        how: Literal['left', 'right', 'inner', 'full', 'cross', 'semi', 'anti'] = "left",
         **kwargs
     ) -> Self:
         if to not in self.tmp:
-            self.tmp[to] = df.copy()
+            self.tmp[to] = df
             return self
 
-        self.tmp[to] = self.tmp[to].merge(df, on=on, how=how, **kwargs)
+        self.tmp[to] = self.tmp[to].join(df, on=on, how=how, maintain_order="left", **kwargs)
         return self
 
-    def commit(self, df: pd.DataFrame, /, on: str | int | list[str | int], **kwargs) -> Self:
-        if self.main.empty:
-            self.main = df.copy()
+    def commit(self, df: pl.DataFrame, /, on: str | list[str], **kwargs) -> Self:
+        if self.main.is_empty():
+            self.main = df
             return self
 
-        self.main = self.main.merge(df, on=on, how="left", **kwargs)
+        self.main = self.main.join(df, on=on, how="left", maintain_order="left", **kwargs)
         return self
 
     def devivify(self) -> Self:
@@ -138,4 +149,3 @@ class Envelope:
         self.attrs = _devivify(self.attrs)
         self.state = _devivify(self.state)
         return self
-

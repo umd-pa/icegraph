@@ -19,14 +19,20 @@ compute, each a selectable plugin.
        select:
          - name: top-k-acc
            kwargs: { k: 1 }
+         - name: macro-f1
+           kwargs: {}
+         - name: ece
+           kwargs: { bins: 15 }
 
 How it works
 ------------
 
 Each selected metric accumulates state incrementally as batches arrive and resolves
 to a per-head value when computed, so metrics are exact over the whole evaluation
-set and combine correctly across processes under distributed execution. The
-individual metrics are documented under the :doc:`metric <metric/index>` slot.
+set and combine correctly across processes under distributed execution. A metric
+may resolve to more than one number per head and the reporting callbacks fan those out.
+The individual metrics, regression and classification alike, are documented under the
+:doc:`metric <metric/index>` slot.
 
 Configuration
 -------------

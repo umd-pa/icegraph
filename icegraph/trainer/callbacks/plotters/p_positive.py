@@ -5,24 +5,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing_extensions import override
-from pathlib import Path
 from collections.abc import Mapping
 
 import torch
 from torch import Tensor
 
 # local package
-from icegraph.statistics import StatisticService
-from icegraph.common.transforms import TransformSpace
+from icegraph.common.transforms import Space
 from icegraph.renderer import Histogram1D
 from icegraph.common.histogram import Histogram
 
 # local subpackage
-from ..base import BHistogramReducer, HistogramAccumulator
+from ..base import BHistogramReducer, BoundsConstructorContext, AxisLayout
 
 if TYPE_CHECKING:
-    from .. import context
     from icegraph.trainer import Trainer
+    from icegraph.common.data import GraphBatch
 
 __all__ = ["BinaryPPositivePlotter"]
 
@@ -34,7 +32,11 @@ logger = logging.getLogger(__name__)
 class BinaryPPositivePlotter(BHistogramReducer):
 
     @override
-    def _build_bounds(self, stats: StatisticService, label: str) -> tuple[Tensor, Tensor]:
+    def default_axis_layout(self) -> AxisLayout:
+        return AxisLayout(margins=(0.,), bins=(100,))
+
+    @override
+    def build_bounds(self, ctx: BoundsConstructorContext, label: str) -> tuple[Tensor, Tensor]:
         # mins/maxs
         mins = torch.as_tensor([0], dtype=torch.float32)
         maxs = torch.as_tensor([1], dtype=torch.float32)
@@ -42,11 +44,9 @@ class BinaryPPositivePlotter(BHistogramReducer):
         return mins, maxs
 
     @override
-    def _build_bins(self) -> Tensor:
-        return torch.tensor([100])
+    def project(self, batch: GraphBatch, out: Tensor, label: str) -> tuple[Tensor, Tensor]:
+        target = batch.targets.block([label])  # this head's target
 
-    @override
-    def _reduce(self, out: Tensor, target: Tensor, ctx: context.BatchEndContext) -> tuple[Tensor, Tensor]:
         if out.ndim != 2 or out.size(-1) != 2:
             raise ValueError(
                 f"{type(self).__name__} expects out with shape [N, 2], "
@@ -54,36 +54,22 @@ class BinaryPPositivePlotter(BHistogramReducer):
             )
 
         # get probability assigned to the positive class
-        index = torch.ones_like(target)
-        probs = out.softmax(dim=-1).gather(dim=1, index=index)
+        probs = out.softmax(dim=-1)[:, 1:]
 
-        # return with mapping defined by target
+        # group by target class
         return probs, target.squeeze(1)
 
     @override
-    def _postprocess_accumulator(self, data: Mapping[int, HistogramAccumulator], label: str) -> dict[str, HistogramAccumulator]:
-        processed: dict[str, HistogramAccumulator] = {}
-
-        # load class name map
-        class_name_map: dict[int, str] = self._kwargs.get("class_name_map", {}).get(label, {})
-
-        # process each accumulator
-        for c, acc in data.items():
-            # log counts if required
-            if self._kwargs.get("log_count", False):
-                acc.data = torch.log10(acc.data)
-
-            # rename
-            name = class_name_map.get(c, f"Class {c}")
-            processed[name] = acc
-
-        return processed
+    def reduce(self, counts: Mapping[int, Tensor], label: str) -> dict[str, Tensor]:
+        # one series per class, log counts if required
+        log = self._kwargs.get("log_count", False)
+        return {name: t.log10() if log else t for name, t in super().reduce(counts, label).items()}
 
     @override
-    def _dispatch(self, trainer: Trainer, data: dict[int | str, Histogram], label: str, save_dir: Path) -> None:
+    def emit(self, trainer: Trainer, artifacts: dict[str, Histogram], label: str) -> None:
         epoch = trainer.current_epoch
 
-        # building a 2d histogram
+        # building a 1d histogram
         plot = Histogram1D()
 
         # update title
@@ -95,12 +81,11 @@ class BinaryPPositivePlotter(BHistogramReducer):
 
         # update axis labels
         plot.set_xlabel(r"$p_\theta(y = 1 \mid x)$")
-        if self._kwargs.get("log_count", False):
-            plot.set_ylabel("$%s$" % TransformSpace.LOG.format_repr(r'\mathrm{Count}'))
-        else:
-            plot.set_ylabel("Count")
+
+        # set count label
+        plot.set_ylabel(self.get_count_label(label))
 
         # plot
-        path = save_dir / "p_positive" / f"{label}.p_positive.{epoch + 1}.html"
-        plot.plot(data, path)
+        path = trainer.plotdir / "p_positive" / f"{label}.p_positive.{epoch + 1}.html"
+        plot.plot(artifacts, path, log_count=self.axis_layout[label].log_count)
         logger.info(f"new positive-class probability plot saved: %s", str(path))

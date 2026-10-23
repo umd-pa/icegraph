@@ -12,7 +12,9 @@ from .histogram import (
     MedianQuantileBand,
     Labels,
     OneToOne,
-    Scatter
+    Scatter,
+    HLine,
+    VLine
 )
 
 __all__ = [
@@ -24,5 +26,7 @@ __all__ = [
     "MedianQuantileBand",
     "Labels",
     "OneToOne",
-    "Scatter"
+    "Scatter",
+    "HLine",
+    "VLine"
 ]

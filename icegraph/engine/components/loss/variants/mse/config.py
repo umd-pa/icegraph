@@ -12,3 +12,4 @@ __all__ = ["MSEConfig"]
 
 class MSEConfig(BaseModel):
     reduction: ReductionType = "mean"
+    ignore_nan: bool = False  # leave out NaN targets, the events a label has no value for

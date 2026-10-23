@@ -10,11 +10,13 @@ from icegraph.common.plugins import PluginContext
 
 if TYPE_CHECKING:
     from .manager import ServiceManager
+    from ..status import Status
 
 __all__ = ["ServiceContext"]
 
 
 @dataclass(frozen=True)
 class ServiceContext(PluginContext):
-    services: "ServiceManager"
+    services: ServiceManager
+    status: Status
     debug: bool

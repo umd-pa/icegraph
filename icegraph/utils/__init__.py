@@ -2,7 +2,8 @@
 # Developed by Taylor St Jean
 
 from .network import is_port_available
-from .hashutils import stable_hash_blake2b
+from .hashutils import CBORBlake2B
 from .stdout import suppress_output
+from .proctitle import set_proctitle
 
-__all__ = ["is_port_available", "suppress_output", "stable_hash_blake2b"]
+__all__ = ["is_port_available", "suppress_output", "CBORBlake2B", "set_proctitle"]

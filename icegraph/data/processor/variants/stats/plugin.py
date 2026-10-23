@@ -36,7 +36,7 @@ class Stats(Processor[StatsConfig]):
         # grab splitmap from envelope
         splitmap = item.get_local_attr("splitmap", None)
         if splitmap is None:
-            raise RuntimeError("No splitmap found. Must assign splits before computing statistics.")
+            raise RuntimeError("No splitmap found. Must assign attrs.LOCAL.splitmap before computing statistics.")
 
         # double check splitmap is correct shape for current table
         if len(splitmap) != len(main):
@@ -47,18 +47,18 @@ class Stats(Processor[StatsConfig]):
         stats = self.config.stats
 
         # build stats
-        payload: dict[str | int, dict[str, StatisticBundleStruct]] = {}
+        payload: dict[str, dict[str, StatisticBundleStruct]] = {}
         for col in cols:
             payload[col] = {}
-            lut = main[col]
+            lut = main.get_column(col)
 
             unique_splits = np.unique(splitmap)
 
             for split in unique_splits:
                 mask = (splitmap == split)
-                split_lut_numpy = lut[mask].to_numpy()
+                split_cells = lut.filter(mask).to_list()
 
-                array = np.vstack(split_lut_numpy).astype(np.float64, copy=False)
+                array = np.vstack(split_cells).astype(np.float64, copy=False)
 
                 service = StatisticService(stats)
                 service.compute_from_array(array)

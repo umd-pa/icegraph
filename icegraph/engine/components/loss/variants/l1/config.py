@@ -12,3 +12,4 @@ __all__ = ["L1Config"]
 
 class L1Config(BaseModel):
     reduction: ReductionType = "mean"
+    ignore_nan: bool = False  # leave out NaN targets, the events a label has no value for

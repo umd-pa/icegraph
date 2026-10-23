@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import ClassVar, Any
 
-import pandas as pd
-
 from icegraph.data.processor import Processor
 from icegraph.data.envelope import Envelope
 
@@ -32,8 +30,8 @@ class Mapper(Processor[MapConfig]):
         main = item.tmp[active]
 
         # load config values
-        col = self.config.col
-        out = self.config.out or col
+        col = str(self.config.col)
+        out = str(self.config.out) if self.config.out is not None else col
         map_ = self.config.map_
 
         # ensure col is valid
@@ -44,20 +42,26 @@ class Mapper(Processor[MapConfig]):
         if out in main.columns and out != col:
             raise RuntimeError(f"Output column '{out}' already exists in active table '{item.active}'")
 
-        # get unique set of values in col
-        values = pd.unique(main[col])
+        series = main.get_column(col)
 
         if self.config.strict:
-            # forbid strict mode if nans exist
-            if pd.isna(values).any():
+            # get unique set of values in col
+            unique = series.unique()
+
+            # forbid strict mode if nulls/nans exist
+            if unique.null_count() > 0 or (unique.dtype.is_float() and unique.is_nan().any()):
                 raise RuntimeError(f"Column '{col}' contains NaN; cannot map in strict mode.")
 
             # check for unmapped values
-            missing = [v for v in values if v not in map_]
+            missing = [v for v in unique.to_list() if v not in map_]
             if missing:
                 raise RuntimeError(f"All values must be mapped if strict is True. Unmapped values: {missing}")
 
-        mapped = main[col].map(map_)
-        main[out] = mapped if self.config.strict else mapped.fillna(main[col])
+            mapped = series.replace_strict(map_)
+        else:
+            # unmapped values keep their original value
+            mapped = series.replace(map_)
+
+        item.tmp[active] = main.with_columns(mapped.alias(out))
 
         return item

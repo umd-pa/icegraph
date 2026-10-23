@@ -11,5 +11,7 @@ __all__ = ["DOMConfig"]
 
 
 class DOMConfig(BaseModel):
-    cols:   Columns
-    out:    Columns
+    string: str
+    om:     str
+    pmt:    str
+    out:    str | list[str] = ["x", "y", "z"]

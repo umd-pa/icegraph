@@ -14,7 +14,7 @@ __all__ = ["RecordConfig"]
 class RecordConfig(BaseModel):
     source:             Path | list[Path]
     reader:             PluginConfig
-    store:              PluginConfig
+    cache_size:         int
     ignore_checksum:    bool = False
 
 

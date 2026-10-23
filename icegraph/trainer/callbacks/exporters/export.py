@@ -11,6 +11,7 @@ import torch
 
 # local package
 from icegraph._version import __version__
+from icegraph.common.engine import ComponentKind
 from icegraph.engine.components import Component
 
 # local subpackage
@@ -38,31 +39,27 @@ class ExportCallback(TrainerCallback):
         self.outdir = ctx.engine.outdir / "models"
         self.outdir.mkdir(parents=True, exist_ok=True)
 
-    @staticmethod
-    def _component_state(component: Component[Any]) -> tuple[str, dict[str, Any]]:
-        return (
-            component.__class__.__name__,
-            component.state_dict()
-        )
-
     def _gather_state(self, trainer: Trainer) -> dict[str, Any]:
-        transformer = trainer.transformer
-        normalizer  = trainer.normalizer
-        model       = trainer.model.module  # model is wrapped
+        kinds = ComponentKind.inference()
 
-        # only need toe model, normalizer, and transformer for model export
+        states: dict[str, Any] = {}
+        for kind in kinds:
+            component: Component[Any] = trainer.components.require(kind, required_by=type(self))
+
+            if kind is ComponentKind.MODEL:
+                # @TODO: model is not a Component[Any] (actually BoundModel or DistributedDataParallel), this works at runtime but needs to be fixed
+                component = component.module  # pyright: ignore[reportAttributeAccessIssue, reportAssignmentType]
+
+            states[kind.value] = component.state_dict()
+
+        # carry the config of the same components, so inference can rebuild them
         config = trainer.config.model_dump(
             mode="json",
-            include={"components": {"model", "normalizer", "transformer"}},
+            include={"components": {kind.value for kind in kinds}},
         )
 
         return {
-            "states": {
-                "transformer": transformer.state_dict(),
-                "normalizer": normalizer.state_dict(),
-                # @TODO: model is not a Component[Any] (actually BoundModel or DistributedDataParallel), this works at runtime but needs to be fixed
-                "model": model.state_dict(),  # pyright: ignore[reportAttributeAccessIssue]
-            },
+            "states": states,
             "config": config,
             "metadata": {
                 "version": __version__,
@@ -78,13 +75,14 @@ class ExportCallback(TrainerCallback):
         if (epoch + 1) % self._save_interval != 0:
             return
 
-        # build model for export
-        export_model = self._gather_state(ctx.engine)
+        with ctx.engine.status.task(f"Exporting model (epoch {epoch + 1})", level=logging.DEBUG):
+            # build model for export
+            export_model = self._gather_state(ctx.engine)
 
-        persistent_path = self.outdir / f"model.epoch_{epoch + 1}.pt"
+            persistent_path = self.outdir / f"model.epoch_{epoch + 1}.pt"
 
-        try:
-            torch.save(export_model, persistent_path)
-            logger.info("exported model saved: %s", str(persistent_path))
-        except Exception:
-            logger.exception("failed to save persistent model", exc_info=True)
+            try:
+                torch.save(export_model, persistent_path)
+                logger.info("exported model saved: %s", str(persistent_path))
+            except Exception:
+                logger.exception("failed to save persistent model", exc_info=True)

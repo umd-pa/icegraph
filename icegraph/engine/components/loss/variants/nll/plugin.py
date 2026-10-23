@@ -30,7 +30,7 @@ class NLLLoss(LossFunction[NLLConfig]):
     def validate_config(cls, config: dict[str, Any]) -> NLLConfig:
         return NLLConfig(**config)
 
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         # load weights from config
         weight = torch.tensor(
             self.config.weight, device=self.device, dtype=torch.float32

@@ -11,16 +11,38 @@ Configuration
 
 Selected as ``name: sgd``.
 
-================  ====================================================  ======  =========
-Option            Description                                           Type    Default
-================  ====================================================  ======  =========
-``lr``            Learning rate.                                        float   required
-``momentum``      Momentum factor.                                      float   ``0.0``
-``dampening``     Dampening for momentum.                               float   ``0.0``
-``weight_decay``  Weight-decay (L2 penalty) coefficient.                float   ``0.0``
-``nesterov``      Enable Nesterov momentum. Requires ``momentum > 0``.  bool    ``False``
-``maximize``      Whether to maximize rather than minimize.             bool    ``False``
-================  ====================================================  ======  =========
+.. list-table::
+   :header-rows: 1
+   :widths: 19 63 7 11
+
+   * - Option
+     - Description
+     - Type
+     - Default
+   * - ``lr``
+     - Learning rate.
+     - float
+     - required
+   * - ``momentum``
+     - Momentum factor.
+     - float
+     - ``0.0``
+   * - ``dampening``
+     - Dampening for momentum.
+     - float
+     - ``0.0``
+   * - ``weight_decay``
+     - Weight-decay (L2 penalty) coefficient.
+     - float
+     - ``0.0``
+   * - ``nesterov``
+     - Enable Nesterov momentum. Requires ``momentum > 0``.
+     - bool
+     - ``False``
+   * - ``maximize``
+     - Whether to maximize rather than minimize.
+     - bool
+     - ``False``
 
 .. code-block:: yaml
 

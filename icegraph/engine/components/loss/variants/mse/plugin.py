@@ -30,12 +30,19 @@ class MSELoss(LossFunction[MSEConfig]):
     def validate_config(cls, config: dict[str, Any]) -> MSEConfig:
         return MSEConfig(**config)
 
-    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+    def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
         # compute loss for each head and reduce
-        losses = [
-            F.mse_loss(o, t, reduction=self.config.reduction)
-            for o, t in zip(out, target, strict=True)
-        ]
+        losses = []
+        for o, t in zip(out, target, strict=True):
+            if not self.config.ignore_nan:
+                losses.append(F.mse_loss(o, t, reduction=self.config.reduction))
+                continue
+
+            keep = ~t.isnan()
+            loss = F.mse_loss(o[keep], t[keep], reduction="sum")
+
+            # a head with no target in the batch adds nothing, rather than NaN
+            losses.append(loss / keep.sum().clamp(min=1) if self.config.reduction == "mean" else loss)
 
         # stack and return sum
         return torch.stack(losses).sum()

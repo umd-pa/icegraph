@@ -20,8 +20,17 @@ class LoaderSpec:
     _buffer_keys:   tuple[str, bytes]
     _exclude_roles: frozenset[DataRole]
 
+    # read every key exactly once, in key order, on this process alone
+    # for evaluation where the same complete set has to be scored each epoch and only one rank runs it
+    _exhaustive: bool = False
+
     @classmethod
-    def make(cls, keys: ArrayI, *, exclude_roles: Sequence[DataRole] | None = None) -> LoaderSpec:
+    def make(
+            cls,
+            keys: ArrayI, *,
+            exclude_roles: Sequence[DataRole] | None = None,
+            exhaustive: bool = False
+    ) -> LoaderSpec:
         if keys.ndim != 1:
             raise ValueError(f"{cls.__name__}.make, 'keys' must have ndim 1, got ndim {keys.ndim}.")
 
@@ -33,11 +42,15 @@ class LoaderSpec:
 
         # convert to contiguous array for consistency
         keys = np.ascontiguousarray(keys)
-        return cls((keys.dtype.str, keys.tobytes()), frozenset(exclude_roles))
+        return cls((keys.dtype.str, keys.tobytes()), frozenset(exclude_roles), exhaustive)
 
     @cached_property
     def exclude_roles(self) -> frozenset[DataRole]:
         return self._exclude_roles
+
+    @property
+    def exhaustive(self) -> bool:
+        return self._exhaustive
 
     @cached_property
     def keys(self) -> ArrayI:

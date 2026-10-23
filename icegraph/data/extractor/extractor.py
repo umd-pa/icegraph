@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import ClassVar, TypeVar
+from typing import ClassVar, TypeVar, final
 from pathlib import Path
 
 from ..stage import Stage
@@ -26,6 +26,18 @@ class Extractor(Stage[C, Path]):
         if getattr(cls, "file_ext", None) is None:
             raise RuntimeError(f"Extractor '{cls.__name__}' must implement the class variable 'file_ext'.")
 
-    @abstractmethod
+    @final
     def _process(self, item: Path) -> Envelope | None:
+        try:
+            env = self.extract(item)
+        except Exception as e:
+            raise RuntimeError(f"{type(self).__name__} failed on item {item!r}: {e}") from e
+
+        if env is not None:
+            env.set_local_attr("origin", str(item))
+
+        return env
+
+    @abstractmethod
+    def extract(self, item: Path) -> Envelope | None:
         ...

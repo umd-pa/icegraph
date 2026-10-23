@@ -3,19 +3,18 @@
 
 from __future__ import annotations
 
-from functools import cached_property, lru_cache
+from functools import lru_cache
 from typing import Any, ClassVar
 
 import torch
 from torch import Tensor
 import numpy as np
-from jaxtyping import Int, Float
 
 from icegraph.statistics import StatisticService
 from icegraph.common.data import DataRole, Split, ColumnarRole
-from icegraph.common.record import Record
+from icegraph.common.record import RecordBlock
 from icegraph.typing.common import ArrayI
-from icegraph.common.tensors import SegmentLayout
+from icegraph.common.tensors import SegmentLayout, SegmentedTensor
 
 from ..service import Service
 
@@ -32,9 +31,41 @@ __all__ = ["DecodeService"]
 class DecodeService(Service[DecodeConfig]):
     name: ClassVar[str] = "decode"
     version: ClassVar[int] = 1
+    deps: ClassVar[tuple[str, ...]] = ("record",)
+
+    # built by setup()
+    _attr_decoder:      AttributeDecoder[Any]
+    _record_decoder:    RecordDecoder[Any]
 
     def build(self) -> None:
         return
+
+    def setup(self) -> None:
+        record = self._ctx.services.require("record", required_by=type(self))
+
+        # build and attach each decoder subsystem
+        self._attr_decoder = AttributeDecoderFactory.create(self.config.attrs.name, **self.config.attrs.kwargs)
+        self._attr_decoder.attach(
+            AttributeDecoderContext(
+                attrs=record.attrs,
+                global_attrs=record.global_attrs
+            )
+        )
+
+        self._record_decoder = RecordDecoderFactory.create(self.config.records.name, **self.config.records.kwargs)
+        self._record_decoder.attach(
+            RecordDecoderContext(
+                attrs=record.attrs,
+                global_attrs=record.global_attrs,
+                columns=self._attr_decoder.extract_columns,
+                dtypes=self._attr_decoder.extract_dtypes,
+                status=self._ctx.status
+            )
+        )
+
+    def setup_decoders(self, excluded: frozenset[DataRole] = frozenset()) -> None:
+        """Setup the decoder subsystems."""
+        self._record_decoder.setup(excluded)
 
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> DecodeConfig:
@@ -104,32 +135,6 @@ class DecodeService(Service[DecodeConfig]):
 
         return torch.tensor(physical)
 
-    ### DECODERS
-
-    @cached_property
-    def _attr_decoder(self) -> AttributeDecoder[Any]:
-        record = self._ctx.services.require("record", required_by=type(self))
-
-        # build the decoder
-        decoder = AttributeDecoderFactory.create(self.config.attrs.name, **self.config.attrs.kwargs)
-
-        # attach the decoder
-        ctx = AttributeDecoderContext(attrs=record.attrs, global_attrs=record.global_attrs)
-        decoder.attach(ctx)
-
-        return decoder
-
-    @cached_property
-    def _record_decoder(self) -> RecordDecoder[Any]:
-        # build the decoder
-        decoder = RecordDecoderFactory.create(self.config.records.name, **self.config.records.kwargs)
-
-        # attach the decoder
-        ctx = RecordDecoderContext()
-        decoder.attach(ctx)
-
-        return decoder
-
     ### ATTRIBUTE DECODER HOOKS
 
     @lru_cache(maxsize=None)
@@ -186,9 +191,27 @@ class DecodeService(Service[DecodeConfig]):
             names=self.get_columns(role)
         ).to(device)
 
-    @cached_property
-    def count_by_weight_group(self) -> dict[str, int]:
-        return self._attr_decoder.extract_count_by_weight_group()
+    ### READ PLANNING
+
+    @lru_cache(maxsize=None)
+    def required_keys(self, excluded: frozenset[DataRole] = frozenset()) -> frozenset[str]:
+        """Record columns the non-excluded roles decode from.
+
+        Lets the reader skip columns nothing will look at. Targets and auxiliary
+        share the truth column, so it is needed unless both are excluded.
+        """
+        keys: set[str] = set()
+
+        if DataRole.FEATURES not in excluded:
+            keys.add(self.config.keymap.features)
+
+        if not {DataRole.TARGETS, DataRole.AUXILIARY} <= excluded:
+            keys.add(self.config.keymap.truth)
+
+        if DataRole.WEIGHTS not in excluded:
+            keys.add(self.config.keymap.weights)
+
+        return frozenset(keys)
 
     ### RECORD DECODER HOOKS
     # the excluded parameter, despite seemingly redundant, allows this service to fully control
@@ -197,72 +220,71 @@ class DecodeService(Service[DecodeConfig]):
     def _empty_tensor(self, shape: tuple[int, ...], dtype: torch.dtype) -> Tensor:
         return torch.empty(shape, dtype=dtype)
 
-    def load_features(self, record: Record, excluded: bool = False) -> Float[Tensor, "N F"]:
+    @lru_cache(maxsize=None)
+    def _is_full_selection(self, role: ColumnarRole, width: int) -> bool:
+        indices = self._indices(role)
+        return indices.numel() == width and bool(torch.equal(indices, torch.arange(width)))
+
+    def _select(self, tensor: Tensor, role: ColumnarRole) -> Tensor:
+        """Select the configured physical columns along the last dim."""
+        if self._is_full_selection(role, int(tensor.shape[-1])):
+            return tensor
+
+        return tensor.index_select(-1, self._indices(role))
+
+    def _segmented(self, data: Tensor, role: ColumnarRole) -> SegmentedTensor:
+        return SegmentedTensor(data, self.get_segment_layout(role, torch.device("cpu")))
+
+    def _empty_segmented(self, rows: int) -> SegmentedTensor:
+        return SegmentedTensor(self._empty_tensor((rows, 0), dtype=torch.float32), SegmentLayout.empty())
+
+    def load_features(self, block: RecordBlock, excluded: bool = False) -> tuple[SegmentedTensor, ArrayI]:
+        """Node feature rows [M, F] plus per-record node counts."""
         if excluded:
-            return self._empty_tensor((0,), dtype=torch.float32)
+            return self._empty_segmented(block.height), np.zeros(block.height, dtype=np.int64)
 
         key = self.config.keymap.features
-        raw = self._record_decoder.extract_features(record, key)      # [N, F_pre]
+        out = self._record_decoder.extract_features(block, key)  # [M, F_pre], counts
 
-        if raw is None:
-            return self._empty_tensor((0,), dtype=torch.float32)
+        if out is None:
+            return self._empty_segmented(block.height), np.zeros(block.height, dtype=np.int64)
 
-        return raw[..., self._indices(DataRole.FEATURES)]          # [N, F]
+        features, counts = out
+        return self._segmented(
+            self._select(features, DataRole.FEATURES),
+            DataRole.FEATURES
+        ), counts  # [M, F]
 
-    def load_targets(self, record: Record, excluded: bool = False) -> Float[Tensor, "1 T"] | Int[Tensor, "1 T"]:
+    def load_targets(self, block: RecordBlock, excluded: bool = False) -> SegmentedTensor:
         if excluded:
-            return self._empty_tensor((1, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
         key = self.config.keymap.truth
-        raw = self._record_decoder.extract_targets(record, key)         # [1, T_pre]
+        raw = self._record_decoder.extract_targets(block, key)  # [B, T_pre]
 
         if raw is None:
-            return self._empty_tensor((1, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
-        return raw[..., self._indices(DataRole.TARGETS)]           # [1, T]
+        return self._segmented(self._select(raw, DataRole.TARGETS), DataRole.TARGETS)  # [B, T]
 
-    def load_auxiliary(self, record: Record, excluded: bool = False) -> Float[Tensor, "1 A"] | Int[Tensor, "1 A"]:
+    def load_auxiliary(self, block: RecordBlock, excluded: bool = False) -> SegmentedTensor:
         if excluded:
-            return torch.empty((1, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
         key = self.config.keymap.truth
-        raw = self._record_decoder.extract_auxiliary(record, key)       # [1, A_pre]
+        raw = self._record_decoder.extract_auxiliary(block, key)  # [B, A_pre]
 
         if raw is None:
-            return self._empty_tensor((1, 0), dtype=torch.float32)
+            return self._empty_segmented(block.height)
 
-        return raw[..., self._indices(DataRole.AUXILIARY)]         # [1, A]
+        return self._segmented(self._select(raw, DataRole.AUXILIARY), DataRole.AUXILIARY)  # [B, A]
 
-    def load_edge_index(self, record: Record, excluded: bool = False) -> Int[Tensor, "2 E"]:
-        if excluded:
-            return self._empty_tensor((2, 0), dtype=torch.long)
-
-        key = self.config.keymap.edge_index
-        raw = self._record_decoder.extract_edge_index(record, key)
-
-        if raw is None:
-            return self._empty_tensor((2, 0), dtype=torch.long)
-
-        return raw
-
-    def load_edge_attr(self, record: Record, excluded: bool = False) -> Float[Tensor, "E ATTR"]:
+    def load_weights(self, block: RecordBlock, excluded: bool = False) -> Tensor:
         if excluded:
             return self._empty_tensor((0,), dtype=torch.float32)
 
-        key = self.config.keymap.edge_attr
-        raw = self._record_decoder.extract_edge_attr(record, key)
-
-        if raw is None:
-            return self._empty_tensor((0,), dtype=torch.float32)
-
-        return raw
-
-    def load_simweights(self, record: Record, excluded: bool = False) -> Float[Tensor, "1"] | Float[Tensor, "0"]:
-        if excluded:
-            return self._empty_tensor((0,), dtype=torch.float32)
-
-        key = self.config.keymap.simweights
-        raw = self._record_decoder.extract_simweights(record, key)
+        key = self.config.keymap.weights
+        raw = self._record_decoder.extract_weights(block, key)
 
         if raw is None:
             return self._empty_tensor((0,), dtype=torch.float32)

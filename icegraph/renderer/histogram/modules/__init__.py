@@ -5,5 +5,7 @@ from .one_to_one import OneToOne
 from .labels import Labels
 from .mqb import MedianQuantileBand
 from .scatter import Scatter
+from .hline import HLine
+from .vline import VLine
 
-__all__ = ["OneToOne", "Labels", "MedianQuantileBand", "Scatter"]
+__all__ = ["OneToOne", "Labels", "MedianQuantileBand", "Scatter", "HLine", "VLine"]

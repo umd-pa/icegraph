@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .lmdb import LMDBInspector
+from .zarr import ZarrInspector
 
-__all__ = ["LMDBInspector"]
+__all__ = ["LMDBInspector", "ZarrInspector"]

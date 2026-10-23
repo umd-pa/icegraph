@@ -43,7 +43,7 @@ class CallbackManager(Generic[E]):
 
         logger.debug("registered callback %s", type(callback).__name__)
 
-    def fire(self, hook_name: str, ctx: context.Context[E]) -> None:
+    def fire(self, hook_name: str, ctx: context.Context[Any]) -> None:
         """
         Invoke a hook on every registered callback.
 

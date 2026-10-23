@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Iterator, Self, overload
 from collections.abc import Sequence
 
@@ -15,29 +16,13 @@ __all__ = ["SegmentedTensor", "SegmentLayout"]
 
 
 @dataclass(frozen=True, eq=False)
-class _DeviceTensors:
-    """Device-resident tensors that move with data."""
-    ids:    Tensor
-    widths: Tensor
-
-    @property
-    def device(self) -> torch.device:
-        return self.ids.device  # all tenors on same device, just get one of them
-
-    def to(self, device: torch.device | str | int, *, non_blocking: bool = False) -> Self:
-        # ids/widths are index tensors, never dtype-cast
-        return dataclasses.replace(
-            self,
-            ids=self.ids.to(device, non_blocking=non_blocking),
-            widths=self.widths.to(device, non_blocking=non_blocking),
-        )
-
-
-@dataclass(frozen=True, eq=False)
 class SegmentLayout:
     offsets:            Tensor  # [L + 1], CPU tensor
     names:              list[str]  # [L]
-    _device_tensors:    _DeviceTensors
+
+    # tensors that move with device
+    ids:                Tensor
+    widths:             Tensor
 
     def __post_init__(self) -> None:
         # offsets must be CPU
@@ -51,19 +36,24 @@ class SegmentLayout:
                 f"len(names) ({len(self.names)}) must equal len(offsets) - 1 ({len(self.offsets) - 1})"
             )
 
+    def __reduce__(self):
+        return _intern_layout, (tuple(self.names), tuple(self.offsets.tolist()))
+
+    def pin_memory(self) -> Self:
+        # offsets is a cpu tensor, no need to pin
+        return dataclasses.replace(
+            self,
+            ids=self.ids.pin_memory(),
+            widths=self.widths.pin_memory(),
+        )
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls.build(names=[], offsets=torch.zeros(1, dtype=torch.long))
+
     @property
     def device(self) -> torch.device:
-        return self._device_tensors.device
-
-    @property
-    def ids(self) -> Tensor:
-        """Returns a logical index for each physical index as a Tensor on device."""
-        return self._device_tensors.ids
-
-    @property
-    def widths(self) -> Tensor:
-        """Returns the width of each segment as a Tensor on device."""
-        return self._device_tensors.widths
+        return self.ids.device
 
     @property
     def full_width(self) -> Tensor:
@@ -81,14 +71,21 @@ class SegmentLayout:
             torch.arange(widths.numel()), widths,
         )
 
-        # package and build
-        _device_tensors = _DeviceTensors(widths=widths, ids=ids)
-        return cls(offsets=offsets, names=names, _device_tensors=_device_tensors)
+        # package and return
+        return cls(offsets=offsets, names=names, widths=widths, ids=ids)
 
     def to(self, device: torch.device | str | int, *, non_blocking: bool = False) -> Self:
+        # ids/widths are index tensors, never dtype-cast
         return dataclasses.replace(
-            self, _device_tensors=self._device_tensors.to(device, non_blocking=non_blocking)
+            self,
+            ids=self.ids.to(device, non_blocking=non_blocking),
+            widths=self.widths.to(device, non_blocking=non_blocking),
         )
+
+
+@lru_cache(maxsize=None)
+def _intern_layout(names: tuple[str, ...], offsets: tuple[int, ...]) -> SegmentLayout:
+    return SegmentLayout.build(list(names), torch.tensor(offsets, dtype=torch.long))
 
 
 @dataclass(frozen=True, eq=False)
@@ -130,6 +127,29 @@ class SegmentedTensor(Sequence[Tensor]):
         for i in range(len(self)):
             yield self[i]
 
+    def block(self, names: Sequence[str], *, contiguous: bool = False) -> Tensor:
+        """Return the columns of the named logical segments, concatenated along dim 1.
+
+        A single segment is one span of ``data``, so it comes back as a view; pass
+        ``contiguous`` when the consumer rejects a strided tensor. Concatenating
+        several segments always materializes, and the flag is redundant there.
+        """
+        if not names:
+            raise ValueError(f"{type(self).__name__} requires at least one segment name.")
+
+        missing = [name for name in names if name not in self.names]
+        if missing:
+            raise KeyError(
+                f"{type(self).__name__}: unknown segment(s) {missing}; "
+                f"available: {self.names}."
+            )
+
+        if len(names) == 1:
+            block = self[self.names.index(names[0])]
+            return block.contiguous() if contiguous else block
+
+        return torch.cat([self[self.names.index(name)] for name in names], dim=1)
+
     @property
     def device(self) -> torch.device:
         return self.data.device
@@ -152,6 +172,13 @@ class SegmentedTensor(Sequence[Tensor]):
 
     def detach(self) -> Self:
         return dataclasses.replace(self, data=self.data.detach())
+
+    def pin_memory(self) -> Self:
+        return dataclasses.replace(
+            self,
+            data=self.data.pin_memory(),
+            layout=self.layout.pin_memory(),
+        )
 
     def to(
         self,

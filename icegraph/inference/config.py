@@ -22,7 +22,7 @@ InferenceServiceConfig = service_group(
 
 
 InferenceComponentConfig = component_group(
-    ComponentKind.MODEL, ComponentKind.NORMALIZER, ComponentKind.TRANSFORMER,
+    *ComponentKind.inference(),
     name="InferenceComponentConfig"
 )
 

@@ -39,7 +39,7 @@ Registering a new loss
 A loss is a subclass of ``LossFunction`` that declares a ``name`` and ``version``
 and implements the objective:
 
-``loss(self, out, target) -> Tensor``
+``loss(self, out, target, weights) -> Tensor``
    Compare the model output to the targets and return a scalar tensor.
 
 .. code-block:: python
@@ -64,7 +64,7 @@ and implements the objective:
        def build(self) -> None:
            return
 
-       def loss(self, out: SegmentedTensor, target: SegmentedTensor, /) -> Tensor:
+       def loss(self, out: SegmentedTensor, target: SegmentedTensor, /, weights: Tensor) -> Tensor:
            ...  # return a scalar tensor
 
    LossFactory.register(MyLoss)

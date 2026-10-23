@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import random
+import math
 from functools import cached_property
 from typing import TYPE_CHECKING
 from collections.abc import Iterator
-import math
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from torch.utils.data import IterableDataset, get_worker_info
 import torch
+import numpy as np
 
-from icegraph.common.data import GraphData, DataRole
+from icegraph.common.data import DataRole, GraphBatch
+from icegraph.common.record import RecordBlock, PoolBuffer
 from icegraph.typing.common import ArrayI
 
 if TYPE_CHECKING:
@@ -21,30 +25,39 @@ if TYPE_CHECKING:
 __all__ = ["GraphDataset"]
 
 
-class GraphDataset(IterableDataset[GraphData]):
+class GraphDataset(IterableDataset[GraphBatch]):
     """Iterable, DDP-safe dataset with two-level shuffling.
 
     Reads are kept chunk-granular for large files: the order of contiguous
-    key-chunks is shuffled, reads within a chunk stay sequential.
+    key-chunks is shuffled, reads within a chunk stay sequential. Chunks are
+    then gathered into groups of ~``buffer_size`` samples, permuted per record,
+    and sliced into batches.
     """
 
     def __init__(
         self,
-        keys: ArrayI,
-        *,
+        keys: ArrayI, *,
         services: ServiceManager,
         chunk_size: int,
         buffer_size: int,
+        batch_size: int,
         shuffle_chunks: bool,
+        buffer_refill_threshold: float,
+        max_chunks_per_epoch: int,
         exclude_roles: list[DataRole] | None = None,
+        exhaustive: bool = False
     ) -> None:
         # keys stay in ascending order
         self.keys = keys
         self._services = services
         self._chunk_size = chunk_size
         self._buffer_size = buffer_size
+        self._batch_size = batch_size
         self._shuffle_chunks = shuffle_chunks
-        self._exclude_roles = exclude_roles if exclude_roles is not None else []
+        self._buffer_refill_threshold = buffer_refill_threshold
+        self._max_chunks_per_epoch = max_chunks_per_epoch
+        self._exclude_roles = frozenset(exclude_roles) if exclude_roles is not None else frozenset()
+        self._exhaustive = exhaustive
 
         # epoch needs to be updated for each worker
         # so epoch has to be a scalar tensor with shared memory
@@ -58,10 +71,8 @@ class GraphDataset(IterableDataset[GraphData]):
 
     @staticmethod
     def _seed(*parts: int) -> int:
-        # merge parts into a single int. stdlib random rejects tuple seeds,
-        # and str/bytes seeds go through PYTHONHASHSEED-randomized hashing -> a
-        # shared seed would differ across ranks and break the
-        # disjoint chunk partition. FNV-1a is deterministic across processes.
+        # merge parts into a single int. FNV-1a is deterministic across processes.
+        # see https://en.wikipedia.org/wiki/Fowler-Noll-Vo_hash_function
         h = 0xCBF29CE484222325
         for p in parts:
             h = ((h ^ (int(p) & 0xFFFFFFFFFFFFFFFF)) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
@@ -70,6 +81,13 @@ class GraphDataset(IterableDataset[GraphData]):
     ### SHARDING
 
     def _chunks(self) -> list[tuple[int, int]]:
+        if self._exhaustive:
+            # every key is read, so the final chunk may be short
+            return [
+                (start, min(start + self._chunk_size, len(self.keys)))
+                for start in range(0, len(self.keys), self._chunk_size)
+            ]
+
         count = len(self.keys) // self._chunk_size  # number of whole chunks
 
         # quick check, rare but very shitty to debug if not caught
@@ -95,15 +113,25 @@ class GraphDataset(IterableDataset[GraphData]):
 
         chunks = self._chunks()
 
-        # disjoint chunk partitions
-        if self._shuffle_chunks:
-            random.Random(self._seed(state.seed, int(self._epoch[0]))).shuffle(chunks)
+        rank_chunks: list[tuple[int, int]]
+        if self._exhaustive:
+            # one process reads every chunk in key order
+            rank_chunks = chunks
 
-        # equal chunks per rank for DDP
-        # Drop the remainder so counts match across ranks
-        # unequal per-rank counts cause deadlocks
-        usable      = (len(chunks) // world) * world
-        rank_chunks = chunks[:usable][rank::world]
+        else:
+            # disjoint chunk partitions
+            if self._shuffle_chunks:
+                random.Random(self._seed(state.seed, int(self._epoch[0]))).shuffle(chunks)
+
+            # apply max chunks if set
+            if self._max_chunks_per_epoch != -1:
+                chunks = chunks[:self._max_chunks_per_epoch]
+
+            # equal chunks per rank for DDP
+            # Drop the remainder so counts match across ranks
+            # unequal per-rank counts cause deadlocks
+            usable      = (len(chunks) // world) * world
+            rank_chunks = chunks[:usable][rank::world]
 
         # whole chunks per worker
         # within-rank unevenness is fine, only per rank totals must match
@@ -113,77 +141,141 @@ class GraphDataset(IterableDataset[GraphData]):
 
         return rank_chunks
 
-    def _iter_keys(self) -> Iterator[int]:
-        for lo, hi in self._assign_chunks():
-            for pos in range(lo, hi):
-                yield int(self.keys[pos])
-
     ### SAMPLE BUILDING
 
-    def _load(self, key: int) -> GraphData:
-        decoder = self._services.require("decode", required_by=type(self))
+    def assemble_batch(
+            self,
+            block: RecordBlock,
+            exclude_roles: frozenset[DataRole] = frozenset(),
+    ) -> GraphBatch:
+        """Assemble one batch from a columnar block of records."""
+        decode = self._services.require("decode", required_by=type(self))
+
+        height = block.height
+
+        features, node_counts = decode.load_features(block, excluded=DataRole.FEATURES in exclude_roles)
+
+        # per graph node offsets drive the batch vector
+        ptr = np.zeros(height + 1, dtype=np.int64)
+        np.cumsum(node_counts, out=ptr[1:])
+
+        batch = np.repeat(np.arange(height, dtype=np.int64), node_counts)
+
+        return GraphBatch(
+            features=features,
+            targets=decode.load_targets(block, excluded=DataRole.TARGETS in exclude_roles),
+            auxiliary=decode.load_auxiliary(block, excluded=DataRole.AUXILIARY in exclude_roles),
+            weights=decode.load_weights(block, excluded=DataRole.WEIGHTS in exclude_roles),
+            batch=torch.from_numpy(batch),
+            ptr=torch.from_numpy(ptr)
+        )
+
+    def __iter__(self) -> Iterator[GraphBatch]:
         records = self._services.require("record", required_by=type(self))
+        decode = self._services.require("decode", required_by=type(self))
+        state = self._services.require("state", required_by=type(self))
 
-        sample = records[key]
+        # only read what the non-excluded roles will actually decode
+        columns = decode.required_keys(self._exclude_roles)
 
-        data = GraphData()
-        for role in DataRole.all():
-            if role == DataRole.BATCH:
-                continue
-            loader = getattr(decoder, f"load_{role.value}")
-            setattr(
-                data, role.value, loader(
-                    sample, excluded=role in self._exclude_roles
-                )
-            )
-
-        # excluded features carries shape [N=1, F=0] so this is fine either way
-        data.num_nodes = data.features.shape[0]
-        return data
-
-    def __iter__(self) -> Iterator[GraphData]:
-        raw = (self._load(k) for k in self._iter_keys())
-
-        if self._buffer_size > 1:
-            yield from self._buffer_shuffle(raw,  self._buffer_size)
-        else:
-            #  self._buffer_size == 1 -> no fine shuffle
-            yield from raw
-
-    def _buffer_shuffle(
-        self, source: Iterator[GraphData], buffer_size: int
-    ) -> Iterator[GraphData]:
-        state  = self._services.require("state", required_by=type(self))
         worker = get_worker_info()
-        wid    = worker.id if worker is not None else 0
+        wid = worker.id if worker is not None else 0
+        worker_count = worker.num_workers if worker is not None else 1
 
         # include rank and worker so disjoint shards decorrelate
         # include epoch so mixing changes each epoch
-        rng = random.Random(self._seed(state.seed, int(self._epoch[0]), state.rank, wid))
+        rng = np.random.default_rng(self._seed(state.seed, int(self._epoch[0]), state.rank, wid))
 
-        # this is a good candidate for async loading, maybe consider in the future
-        buffer: list[GraphData] = []
-        for item in source:
-            # if the buffer isnt full, fill it
-            if len(buffer) < buffer_size:
-                buffer.append(item)
-                continue
+        shuffle = self._buffer_size > 1
+        pending = deque(self._assign_chunks())
 
-            # otherwise, yield a random one and refill that slot
-            i = rng.randrange(buffer_size)
-            yield buffer[i]
-            buffer[i] = item
+        refill = max(1, round(self._buffer_size * (1 - self._buffer_refill_threshold)))
+        refill_threshold = max(self._batch_size, (self._buffer_size - refill) * self._chunk_size)
 
-        rng.shuffle(buffer)
-        yield from buffer
+        def claim(count: int) -> list[tuple[int, int]]:
+            """Remove up to ``count`` chunk ranges from the front of the queue."""
+            return [pending.popleft() for _ in range(min(count, len(pending)))]
+
+        def read(group: list[tuple[int, int]]) -> list[RecordBlock]:
+            """One sequential read per chunk, dropping empties.
+
+            Runs on the prefetch thread: zarr and blosc release the GIL for both
+            the store read and the decode, so this overlaps with shuffle/collate.
+            """
+            blocks: list[RecordBlock] = []
+            for lo, hi in group:
+                block = records.read(self.keys[lo:hi], columns)
+                if block.height:
+                    blocks.append(block)
+            return blocks
+
+        # two buffers per worker per epoch
+        # survivors are gathered into one while the pool is read from the other,
+        # so neither the pool nor the carry allocates after the first refill
+        pool_buffer = PoolBuffer()
+        carry_buffer = PoolBuffer()
+
+        io = ThreadPoolExecutor(max_workers=1, thread_name_prefix="loader-prefetch")
+        try:
+            inflight: Future[list[RecordBlock]] | None = (
+                io.submit(read, claim(self._buffer_size - (state.rank * worker_count + wid) % refill)) if pending else None
+            )
+            carry: list[RecordBlock] = []  # survivors of the previous pool (zero or one block)
+
+            while inflight is not None or carry:
+                # --- refill
+                fresh = inflight.result() if inflight is not None else []
+                # hand the thread its next group before doing any work ourselves
+                inflight = io.submit(read, claim(refill)) if pending else None
+
+                parts, carry = [*carry, *fresh], []
+                if not parts:
+                    continue
+
+                # the pool is concatenated into a buffer this worker keeps for the
+                # whole epoch, allocating a fresh pool each refill is costly to the kernel
+                pool = pool_buffer.concat(parts)
+                order = rng.permutation(pool.height) if shuffle else np.arange(pool.height)
+
+                # --- drain
+                cursor = 0
+                while cursor < pool.height:
+                    remaining = pool.height - cursor
+
+                    # stop short so survivors carry into the next pool
+                    if inflight is not None and remaining < refill_threshold:
+                        carry = [carry_buffer.take(pool, order[cursor:])]
+                        break
+
+                    size = min(self._batch_size, remaining)
+                    block = pool.take(order[cursor:cursor + size])
+                    cursor += size
+
+                    yield self.assemble_batch(block, self._exclude_roles)
+
+        finally:
+            io.shutdown(wait=False, cancel_futures=True)
 
     @cached_property
-    def _sample_count(self) -> int:
+    def _batch_count(self) -> int:
+        if self._exhaustive:
+            # every key on this process, the last batch may be short
+            return math.ceil(len(self.keys) / self._batch_size)
+
         state = self._services.require("state", required_by=type(self))
-        num_chunks = len(self.keys) // self._chunk_size
+
+        # chunks available
+        available_chunks = len(self.keys) // self._chunk_size
+        num_chunks = (
+            available_chunks
+            if self._max_chunks_per_epoch == -1
+            else min(available_chunks, self._max_chunks_per_epoch)
+        )
 
         # for inference state.world must be 1 or some items might not be processed
-        return (num_chunks // state.world) * self._chunk_size
+        samples = (num_chunks // state.world) * self._chunk_size
+
+        return math.ceil(samples / self._batch_size)
 
     def __len__(self) -> int:
-        return self._sample_count
+        return self._batch_count

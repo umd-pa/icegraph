@@ -5,6 +5,6 @@
 from .reducer import Reducer
 
 # implementations
-from .histogram import BHistogramReducer, CHistogramReducer
+from .histogram import HistogramReducer, BHistogramReducer, CHistogramReducer, BoundsConstructorContext, AxisLayout
 
-__all__ = ["Reducer", "BHistogramReducer", "CHistogramReducer"]
+__all__ = ["Reducer", "HistogramReducer", "BHistogramReducer", "CHistogramReducer", "BoundsConstructorContext", "AxisLayout"]

@@ -20,7 +20,7 @@ Configured under ``services.data``.
        chunk_size: 4096
        num_workers: 8
        prefetch_factor: 8
-       mp_context: fork
+       mp_context: spawn
        persistent_workers: true
 
 How it works
@@ -51,14 +51,29 @@ Configuration
      - int
      - required
    * - ``buffer_size``
-     - Size of the shuffle buffer, in samples. Chunks are mixed within it; aim for
-       a buffer-to-chunk ratio above 10:1.
+     - Size of the shuffle buffer, in chunks. Chunks are mixed within it; aim for >10 if memory allows.
      - int
      - required
    * - ``shuffle_chunks``
      - Whether to shuffle whole chunks as blocks.
      - bool
      - ``false``
+   * - ``buffer_refill_threshold``
+     - Fraction of the buffer size at which a refill is triggered.
+     - float
+     - 0.25
+   * - ``max_chunks_per_epoch``
+     - Maximum number of chunks drawn per epoch. Chunk order is reshuffled each
+       epoch, so the full dataset is still covered after roughly
+       :math:`E \approx \frac{C}{K}\left(\ln C + \gamma\right)` epochs, where
+       :math:`C = \lfloor N / S \rfloor` is the total chunk count for :math:`N`
+       samples of ``chunk_size`` :math:`S`, :math:`K = \lfloor C_{\max} / W
+       \rfloor \cdot W` is the per-epoch budget rounded down to a multiple of
+       the world size :math:`W`, and :math:`\gamma \approx 0.577`. Requires
+       ``shuffle_chunks``, without it the same subset is selected every epoch.
+       Pass ``-1`` to use every chunk each epoch.
+     - int
+     - ``-1``
    * - ``num_workers``
      - Number of worker processes loading data.
      - int
@@ -68,10 +83,10 @@ Configuration
      - int
      - required
    * - ``mp_context``
-     - Multiprocessing start method.
-     - ``fork`` | ``spawn`` | ``forkserver``
+     - Multiprocessing start method, 'fork' is not supported.
+     - ``spawn`` | ``forkserver``
      - required
    * - ``persistent_workers``
-     - Keep worker processes alive between epochs.
+     - Keep worker processes alive between epochs. Highly recommended for performance.
      - bool
      - required

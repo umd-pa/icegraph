@@ -2,5 +2,6 @@
 # Developed by Taylor St Jean
 
 from .lmdb import LMDB
+from .zarr import Zarr
 
-__all__ = ["LMDB"]
+__all__ = ["LMDB", "Zarr"]

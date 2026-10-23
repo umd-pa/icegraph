@@ -14,6 +14,7 @@ from .envelope import Envelope
 
 if TYPE_CHECKING:
     from .envelope import Envelope
+    from .console import Tally
 
 __all__ = ["StageContext"]
 
@@ -30,3 +31,9 @@ class StageContext(PluginContext, Generic[I]):
     # ordering and index
     index: int
     total: int
+
+    # if an outdir for persistent storage is required, specify here
+    outdir: Path | None = None
+
+    # counts the items the stage drops, for the console
+    tally: Tally | None = None

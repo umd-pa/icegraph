@@ -23,9 +23,19 @@ Configured under the top-level ``extractor`` key.
 How it Works
 ------------
 
-The extractor declares the file extension it handles; the pipeline resolves the
-source paths to matching files and streams them through. For each file the
-extractor reads the relevant frames and emits an envelope of raw data downstream.
+The extractor handles data extraction from disk to memory. For each file the
+extractor reads the relevant frames and emits an envelope of raw data downstream,
+where the :doc:`collector <../collector/index>` then packs files into shards.
+
+Each envelope must carry:
+
+* the file it was read from, under ``attrs.LOCAL.origin``. This is handled by default.
+* the ids of every event it holds, as ``Envelope.events``: one row per event, its columns
+  being the ones that identify an event. Processors key on these columns by default.
+
+A file without events should still be emitted, with an empty ``events`` frame, so it is
+counted in a shard. Return ``None`` only for a file that must not count, which is then
+left out as if it were never given.
 
 Variants
 --------

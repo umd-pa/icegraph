@@ -1,8 +1,11 @@
 outdir: /data/i3store/users/tstjean/BSN
+run: '6'
+
+amp: false
 
 # epochs and val interval
 max_epochs: 10000
-val_interval: 5
+val_interval: 10
 
 services:
   state:
@@ -11,30 +14,32 @@ services:
   data:
     # batch size controls how many samples are passed at a time in each
     # training batch (see torch DataLoader batch_size argument)
-    batch_size: 2048
+    batch_size: 256
 
-    # buffer and chunk size configure the buffer sample count and the chunk size
+    # buffer and chunk size configure the buffer chunk count and the chunk size
     # chunks are shuffled as blocks
-    buffer_size: 16384
-    chunk_size: 4096
+    buffer_size: 8
+    chunk_size: 16384
+    max_chunks_per_epoch: 500
+    shuffle_chunks: true
 
-    num_workers: 8
+    # standard pytorch dataloader configuration
+    num_workers: 6
     prefetch_factor: 8
-    mp_context: fork
+    mp_context: spawn
     persistent_workers: true
 
   decode:
     features:   [ ]
-    targets:    [ bundle ]
+    targets:    [ prominence, bundle_multiplicity ]
 
     # auxiliary is for any non-target labels to include (not used in training), useful for plotting,
     # these labels are served to callbacks by the trainer during validation and test steps,
     # but are NOT used for loss computation
-    auxiliary:  [ ]
+    auxiliary:  [ sim ]
 
     keymap:
       truth: targets
-      edge_attr: edge_weight
 
     attrs:
       name: standard
@@ -42,46 +47,77 @@ services:
 
     records:
       name: standard
-      kwargs: { }
+      kwargs:
+        # weights are computed on load from the generation data, one flux per
+        # simulation type present in the source
+        flux:
+          corsika:
+            source: simweights
+            name: GaisserH4a
+            kwargs: { }
+
+          nugen:
+            source: nuflux
+            name: honda2006
+            kwargs: { }
 
   record:
     source:
-      - /scratch/users/tstjean/23122
-      - /scratch/users/tstjean/23016
+      - /scratch/users/tstjean/processed-sim/sim/23016
+      - /scratch/users/tstjean/processed-sim/sim/22803
+      - /scratch/users/tstjean/processed-sim/sim/23123
+      - /scratch/users/tstjean/processed-sim/sim/22686
 
     reader:
-      name: lmdb
+      name: zarr
       kwargs: { }
 
-    store:
-      name: lru-shard
-      kwargs:
-        cache_size: 32
+    cache_size: 32
 
   metrics:
     select:
-      - name: top-k-acc
+      - name: rmse
+        kwargs: { }
+      - name: mae
         kwargs: { }
 
 policy:
-  name: multiclass
+  name: regression
   kwargs: { }
 
 components:
   transformer:
     name: standard
     kwargs:
-      transforms: { }
+      transforms:
+        bundle_multiplicity: { space: asinh, base: 10 }
 
   model:
-    name: gcn
+    name: gine
     kwargs:
       hidden_layers: 4
-      hidden_channels: 256
+      hidden_channels: 768
+      checkpoint: true
 
   normalizer:
     name: zscore
     kwargs: { }
+
+  edges:
+    name: knn
+    kwargs:
+      k: 8
+
+      # logical feature column groups
+      neighbor_cols: [ dom_x, dom_y, dom_z ]
+
+      weights:
+        - name: gaussian
+          kwargs:
+            cols: [ dom_x, dom_y, dom_z ]
+
+            # approx dist between strings in m
+            sigma: 125
 
   optimizer:
     name: adam
@@ -90,5 +126,6 @@ components:
       weight_decay: 0.00005
 
   loss:
-    name: cross-entropy
-    kwargs: { }
+    name: mse
+    kwargs:
+      ignore_nan: true

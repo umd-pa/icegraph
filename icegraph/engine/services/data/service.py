@@ -18,6 +18,9 @@ from .loader import GraphDataLoader
 from .dataset import GraphDataset
 from .spec import LoaderSpec
 
+import logging
+logger = logging.getLogger(__name__)
+
 __all__ = ["DataService"]
 
 
@@ -27,6 +30,7 @@ class DataService(Service[DataConfig]):
     """
     name: ClassVar[str] = "data"
     version: ClassVar[int] = 1
+    deps: ClassVar[tuple[str, ...]] = ("state", "record", "decode")
 
     def build(self) -> None:
         return
@@ -34,6 +38,14 @@ class DataService(Service[DataConfig]):
     @classmethod
     def validate_config(cls, config: dict[str, Any]) -> DataConfig:
         return DataConfig(**config)
+
+    def __getstate__(self) -> dict[str, Any]:
+        # spawn workers pickle the whole service manager, built loaders hold
+        # live iterators under persistent_workers
+        # and must never ride along
+        state = self.__dict__.copy()
+        state.pop("_dls", None)
+        return state
 
     @property
     def loader_spec(self) -> type[LoaderSpec]:
@@ -47,12 +59,16 @@ class DataService(Service[DataConfig]):
         return self._dls[spec]
 
     def _build_dataloader(self, spec: LoaderSpec) -> GraphDataLoader:
+        # build what decoding needs before the dataset is pickled into the workers
+        decode = self._ctx.services.require("decode", required_by=type(self))
+        decode.setup_decoders(spec.exclude_roles)
+
         # get new specs for each
         ds_spec = self._new_dataset()
         dl_spec = self._new_dataloader()
 
         # construct dataset from assembly spec
-        dataset = ds_spec(keys=spec.keys, exclude_roles=spec.exclude_roles)
+        dataset = ds_spec(keys=spec.keys, exclude_roles=spec.exclude_roles, exhaustive=spec.exhaustive)
 
         # build dataloader from dataset
         dataloader = dl_spec(dataset=dataset)
@@ -67,8 +83,7 @@ class DataService(Service[DataConfig]):
     def _new_dataloader(self) -> partial[GraphDataLoader]:
         """Build a new dataloader spec."""
         kwargs: dict[str, Any] = {
-            "num_workers":  self.config.num_workers,
-            "batch_size":   self.config.batch_size
+            "num_workers":  self.config.num_workers
         }
 
         # if num workers is greater than 0 (multiprocessing)
@@ -87,6 +102,10 @@ class DataService(Service[DataConfig]):
             GraphDataset,
             chunk_size=self.config.chunk_size,
             buffer_size=self.config.buffer_size,
+            batch_size=self.config.batch_size,
             shuffle_chunks=self.config.shuffle_chunks,
+            buffer_refill_threshold=self.config.buffer_refill_threshold,
+            max_chunks_per_epoch=self.config.max_chunks_per_epoch,
             services=self._ctx.services
         )
+

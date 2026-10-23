@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from pydantic import DirectoryPath
+from pydantic import DirectoryPath, model_validator
+from typing import Self
+import re
 
 from icegraph.common.engine import ComponentKind
 
@@ -30,6 +32,17 @@ class TrainerConfig(EngineConfig[TrainerServiceConfig, TrainerComponentConfig]):
     # trainer config
     max_epochs:     int
     val_interval:   int
+    run:            str = ''
+
+    # auto mixed precision
+    amp:            bool = False
 
     # paths
     outdir:     DirectoryPath
+
+    @model_validator(mode="after")
+    def validate_run(self) -> Self:
+        if self.run != '' and not re.fullmatch(r"[A-Za-z0-9_-]+", self.run):
+            raise ValueError("Run name may only contain letters, digits, '-' and '_'.")
+
+        return self
